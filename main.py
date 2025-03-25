@@ -69,6 +69,7 @@ def parse_args():
 
 def preprocess_data(dataset_name, force_reprocess=False):
     """Preprocess data for a dataset."""
+    print("Enter the preprocess data section")
     logger.info(f"Preprocessing {dataset_name} dataset")
 
     # Initialize database handler

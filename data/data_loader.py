@@ -70,15 +70,20 @@ class DatasetLoader:
         """
 
         # Convert to pandas DataFrame - handle HuggingFace dataset structure
-        if hasattr(hf_dataset, 'to_pandas'):
-            # Use the built-in conversion if available
-            df = hf_dataset.to_pandas()
+        if hasattr(hf_dataset, 'features'):
+            # It's a Dataset object
+            df = pd.DataFrame(hf_dataset)
         else:
-            # Manual conversion for older versions
-            data = {}
-            for key in hf_dataset.features.keys():
-                data[key] = hf_dataset[key]
-            df = pd.DataFrame(data)
+            # It's a DatasetDict object, we need to merge all splits
+            dfs = []
+            for split_name, split_dataset in hf_dataset.items():
+                split_df = pd.DataFrame(split_dataset)
+                split_df['split'] = split_name
+                dfs.append(split_df)
+            df = pd.concat(dfs, ignore_index=True)
+
+        print("Printing out the df head")
+        print(df.head())
 
         # Standardize column names based on dataset
         if "premise" in df.columns and "hypothesis" in df.columns:

@@ -43,10 +43,11 @@ class DatasetLoader:
 
         try:
             # Map dataset names to HuggingFace dataset IDs
+            print("Into the dataset mapping")
             dataset_mapping = {
-                "SNLI": "cornell-movie-review-data/rotten_tomatoes",  # This should be "snli" in practice
-                "MNLI": "multi_nli",
-                "SICK": "sick"
+                "SNLI": "stanfordnlp/snli",  # This should be "snli" in practice
+                "MNLI": "nyu-mll/multi_nli",
+                "ANLI": "facebook/anli"
             }
 
             if dataset_name in dataset_mapping:
@@ -82,45 +83,16 @@ class DatasetLoader:
         df = pd.DataFrame(hf_dataset)
 
         # Standardize column names based on dataset
-        if dataset_name == "SNLI":
-            # SNLI typically has premise, hypothesis, label columns
-            if "premise" in df.columns and "hypothesis" in df.columns:
-                df = df.rename(columns={
-                    "premise": "premise_text",
-                    "hypothesis": "hypothesis_text"
-                })
-            elif "sentence1" in df.columns and "sentence2" in df.columns:
-                df = df.rename(columns={
-                    "sentence1": "premise_text",
-                    "sentence2": "hypothesis_text"
-                })
-
-        elif dataset_name == "MNLI":
-            # MNLI typically has premise, hypothesis, label columns
-            if "premise" in df.columns and "hypothesis" in df.columns:
-                df = df.rename(columns={
-                    "premise": "premise_text",
-                    "hypothesis": "hypothesis_text"
-                })
-            elif "sentence1" in df.columns and "sentence2" in df.columns:
-                df = df.rename(columns={
-                    "sentence1": "premise_text",
-                    "sentence2": "hypothesis_text"
-                })
-
-        elif dataset_name == "SICK":
-            # SICK typically has sentence_A, sentence_B, relatedness_score, entailment_label
-            if "sentence_A" in df.columns and "sentence_B" in df.columns:
-                df = df.rename(columns={
-                    "sentence_A": "premise_text",
-                    "sentence_B": "hypothesis_text",
-                    "entailment_label": "label"
-                })
-            elif "sentence1" in df.columns and "sentence2" in df.columns:
-                df = df.rename(columns={
-                    "sentence1": "premise_text",
-                    "sentence2": "hypothesis_text"
-                })
+        if "premise" in df.columns and "hypothesis" in df.columns:
+            df = df.rename(columns={
+                "premise": "premise_text",
+                "hypothesis": "hypothesis_text"
+            })
+        elif "sentence1" in df.columns and "sentence2" in df.columns:
+            df = df.rename(columns={
+                "sentence1": "premise_text",
+                "sentence2": "hypothesis_text"
+            })
 
         # Ensure we have the required columns
         required_columns = ["premise_text", "hypothesis_text"]

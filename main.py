@@ -37,7 +37,8 @@ def parse_args():
         "--mode",
         type=str,
         default="train",
-        choices=["preprocess", "train", "evaluate", "predict"],
+        # choices=["preprocess", "train", "evaluate", "predict"],
+        choices=["preprocess"],
         help="Mode to run"
     )
     parser.add_argument(
@@ -81,7 +82,7 @@ def preprocess_data(dataset_name, force_reprocess=False):
     # Prepare sentence pairs
     logger.info("Preparing sentence pairs")
     pairs_df, sentences_df, _ = data_loader.prepare_sentence_pairs(
-        dataset_name, force_reprocess=force_reprocess
+        dataset_name
     )
 
     # Initialize text preprocessor
@@ -163,19 +164,23 @@ def main():
     """Main entry point."""
     args = parse_args()
 
+    print("args: ")
+    print(args)
+
     logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
 
     if args.mode == "preprocess":
         preprocess_data(args.dataset, args.force_reprocess)
-    elif args.mode == "train":
-        print("Unimplemented")
-        # train_model(args.dataset, args.batch_size, args.epochs, args.learning_rate)
-    elif args.mode == "evaluate":
-        print("Unimplemented")
-        # evaluate_model(args.dataset)
-    elif args.mode == "predict":
-        print("Unimplemented")
-        # predict(args.dataset)
+        # assert False
+    # elif args.mode == "train":
+    #     # print("Unimplemented")
+    #     train_model(args.dataset, args.batch_size, args.epochs, args.learning_rate)
+    # elif args.mode == "evaluate":
+    #     # print("Unimplemented")
+    #     evaluate_model(args.dataset)
+    # elif args.mode == "predict":
+    #     # print("Unimplemented")
+    #     predict(args.dataset)
     else:
         logger.error(f"Unknown mode: {args.mode}")
 

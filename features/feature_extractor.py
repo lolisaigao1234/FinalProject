@@ -1,0 +1,224 @@
+# features/feature_extractor.py
+import logging
+from typing import List, Dict, Tuple, Optional
+
+import pandas as pd
+import numpy as np
+import torch
+from transformers import AutoTokenizer, AutoModel
+from tqdm import tqdm
+
+from config import MODEL_NAME, MAX_SEQ_LENGTH
+from utils.database import DatabaseHandler
+from data.preprocessor import TextPreprocessor
+
+logger = logging.getLogger(__name__)
+
+
+class FeatureExtractor:
+    """Extract both lexical and syntactic features for NLI tasks."""
+
+    def __init__(self, db_handler: DatabaseHandler, preprocessor: TextPreprocessor):
+        """Initialize feature extractor with BERT model."""
+        self.db_handler = db_handler
+        self.preprocessor = preprocessor
+
+        # Initialize BERT tokenizer and model
+        self.tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+        self.bert_model = AutoModel.from_pretrained(MODEL_NAME)
+
+        # Move model to GPU if available
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.bert_model.to(self.device)
+
+    def extract_features(
+            self,
+            dataset_name: str,
+            split: str,
+            feature_types: List[str] = ["lexical", "syntactic"],
+            force_recompute: bool = False
+    ) -> pd.DataFrame:
+        """Extract features from a dataset."""
+        # Check if features already exist
+        feature_name = "_".join(feature_types)
+        if not force_recompute and self.db_handler.check_exists(
+                dataset_name, split, f"features_{feature_name}"
+        ):
+            logger.info(f"Loading features for {dataset_name} {split} from database")
+            return self.db_handler.load_dataframe(dataset_name, split, f"features_{feature_name}")
+
+        # Load pairs and parse trees
+        pairs = self.db_handler.load_dataframe(dataset_name, split, "pairs")
+        sentences = self.db_handler.load_dataframe(dataset_name, split, "sentences")
+        parse_trees = self.db_handler.load_dataframe(dataset_name, split, "parse_trees")
+
+        # Join to get text and parse trees
+        pairs_with_text = self._join_data(pairs, sentences, parse_trees)
+
+        # Extract features
+        features = []
+
+        logger.info(f"Extracting features for {len(pairs_with_text)} pairs")
+        for idx, row in tqdm(pairs_with_text.iterrows(), total=len(pairs_with_text)):
+            pair_features = {
+                "pair_id": row.get("id"),
+                "label": row.get("label")
+            }
+
+            # Extract lexical features if requested
+            if "lexical" in feature_types:
+                lexical_features = self._extract_lexical_features(
+                    row["premise_text"],
+                    row["hypothesis_text"]
+                )
+                pair_features.update(lexical_features)
+
+            # Extract syntactic features if requested
+            if "syntactic" in feature_types:
+                syntactic_features = self._extract_syntactic_features(
+                    row["premise_constituency"],
+                    row["premise_dependency"],
+                    row["hypothesis_constituency"],
+                    row["hypothesis_dependency"]
+                )
+                pair_features.update(syntactic_features)
+
+            features.append(pair_features)
+
+        # Convert to dataframe and store
+        features_df = pd.DataFrame(features)
+        self.db_handler.store_dataframe(
+            features_df, dataset_name, split, f"features_{feature_name}"
+        )
+
+        return features_df
+
+    def _join_data(self, pairs, sentences, parse_trees):
+        """Join pairs, sentences, and parse trees."""
+        pairs_with_text = pairs.merge(
+            sentences, left_on="premise_id", right_on="id", how="left"
+        ).rename(columns={"text": "premise_text"})
+
+        pairs_with_text = pairs_with_text.merge(
+            sentences, left_on="hypothesis_id", right_on="id", how="left", suffixes=("", "_hyp")
+        ).rename(columns={"text": "hypothesis_text"})
+
+        pairs_with_text = pairs_with_text.merge(
+            parse_trees, left_on="premise_id", right_on="sentence_id", how="left"
+        ).rename(columns={
+            "constituency_tree": "premise_constituency",
+            "dependency_tree": "premise_dependency"
+        })
+
+        pairs_with_text = pairs_with_text.merge(
+            parse_trees, left_on="hypothesis_id", right_on="sentence_id", how="left", suffixes=("", "_hyp")
+        ).rename(columns={
+            "constituency_tree": "hypothesis_constituency",
+            "dependency_tree": "hypothesis_dependency"
+        })
+
+        return pairs_with_text
+
+    def _extract_lexical_features(self, premise_text: str, hypothesis_text: str) -> Dict:
+        """Extract lexical features using BERT embeddings."""
+        features = {}
+
+        # BERT embeddings
+        with torch.no_grad():
+            # Tokenize
+            inputs = self.tokenizer(
+                [premise_text, hypothesis_text],
+                max_length=MAX_SEQ_LENGTH,
+                padding="max_length",
+                truncation=True,
+                return_tensors="pt"
+            )
+
+            # Move to device
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+            # Get BERT embeddings
+            outputs = self.bert_model(**inputs)
+
+            # Use CLS token embeddings
+            premise_embedding = outputs.last_hidden_state[0, 0, :].cpu().numpy()
+            hypothesis_embedding = outputs.last_hidden_state[1, 0, :].cpu().numpy()
+
+            # Store first 10 dimensions as features
+            for i in range(10):
+                features[f"premise_bert_{i}"] = float(premise_embedding[i])
+                features[f"hypothesis_bert_{i}"] = float(hypothesis_embedding[i])
+
+            # Compute difference and element-wise product
+            diff_embedding = premise_embedding - hypothesis_embedding
+            prod_embedding = premise_embedding * hypothesis_embedding
+
+            for i in range(10):
+                features[f"diff_bert_{i}"] = float(diff_embedding[i])
+                features[f"prod_bert_{i}"] = float(prod_embedding[i])
+
+        # Add text statistics
+        features["premise_length"] = len(premise_text.split())
+        features["hypothesis_length"] = len(hypothesis_text.split())
+        features["length_diff"] = abs(features["premise_length"] - features["hypothesis_length"])
+        features["length_ratio"] = (features["premise_length"] / features["hypothesis_length"]
+                                    if features["hypothesis_length"] > 0 else 0)
+
+        # Add word overlap metrics
+        premise_words = set(premise_text.lower().split())
+        hypothesis_words = set(hypothesis_text.lower().split())
+
+        intersection = premise_words.intersection(hypothesis_words)
+        union = premise_words.union(hypothesis_words)
+
+        features["word_overlap_count"] = len(intersection)
+        features["word_overlap_ratio"] = len(intersection) / len(union) if union else 0
+
+        return features
+
+    def _extract_syntactic_features(
+            self,
+            premise_constituency: str,
+            premise_dependency: str,
+            hypothesis_constituency: str,
+            hypothesis_dependency: str
+    ) -> Dict:
+        """Extract syntactic features from parse trees."""
+        features = {}
+
+        # Extract features from constituency trees
+        premise_const_features = self.preprocessor.extract_parse_features(
+            premise_constituency, "constituency"
+        )
+        hypothesis_const_features = self.preprocessor.extract_parse_features(
+            hypothesis_constituency, "constituency"
+        )
+
+        # Extract features from dependency trees
+        premise_dep_features = self.preprocessor.extract_parse_features(
+            premise_dependency, "dependency"
+        )
+        hypothesis_dep_features = self.preprocessor.extract_parse_features(
+            hypothesis_dependency, "dependency"
+        )
+
+        # Add prefix to distinguish features
+        for key, value in premise_const_features.items():
+            features[f"premise_const_{key}"] = value
+
+        for key, value in hypothesis_const_features.items():
+            features[f"hypothesis_const_{key}"] = value
+
+        for key, value in premise_dep_features.items():
+            features[f"premise_dep_{key}"] = value
+
+        for key, value in hypothesis_dep_features.items():
+            features[f"hypothesis_dep_{key}"] = value
+
+        # Compute feature differences
+        for key in premise_const_features:
+            p_val = premise_const_features.get(key, 0)
+            h_val = hypothesis_const_features.get(key, 0)
+            features[f"diff_const_{key}"] = p_val - h_val
+
+        return features

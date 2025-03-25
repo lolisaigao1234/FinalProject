@@ -30,12 +30,16 @@ class DatabaseHandler:
         logger.info(f"Saved dataframe to {filepath}")
 
     def load_dataframe(self, dataset: str, split: str, table: str = None) -> pd.DataFrame:
-        """Load a dataframe from Parquet storage."""
+        """Load a dataframe from Parquet storage or from HuggingFace if not in storage."""
         filename = f"{dataset}_{split}_{table if table else 'data'}.parquet"
         filepath = os.path.join(PARQUET_DIR, filename)
 
         if os.path.exists(filepath):
             return pd.read_parquet(filepath)
+        elif table is None:
+            # If no specific table is requested and file doesn't exist, try loading from HuggingFace
+            logger.info(f"No cached data found for {dataset}_{split}, attempting to load from HuggingFace")
+            return self.load_from_huggingface(dataset, split)
         else:
             logger.warning(f"No data found at {filepath}")
             return pd.DataFrame()

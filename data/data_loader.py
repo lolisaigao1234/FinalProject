@@ -24,16 +24,6 @@ class DatasetLoader:
         self.datasets = {}
 
     def load_dataset(self, dataset_name: str, split: str = None, force_reload: bool = False) -> pd.DataFrame:
-        """Load a dataset from HuggingFace or local files.
-
-        Args:
-            dataset_name: Name of the dataset (SNLI, MNLI, SICK)
-            split: Dataset split to load (train, validation, test)
-            force_reload: Whether to force reload from source
-
-        Returns:
-            Pandas DataFrame containing the dataset
-        """
         # Check if already loaded and cached
         if not force_reload and self.db_handler and self.db_handler.check_exists(dataset_name, split or "all"):
             logger.info(f"Loading {dataset_name} {split or 'all'} from database")
@@ -43,9 +33,8 @@ class DatasetLoader:
 
         try:
             # Map dataset names to HuggingFace dataset IDs
-            print("Into the dataset mapping")
             dataset_mapping = {
-                "SNLI": "stanfordnlp/snli",  # This should be "snli" in practice
+                "SNLI": "stanfordnlp/snli",
                 "MNLI": "nyu-mll/multi_nli",
                 "ANLI": "facebook/anli"
             }
@@ -54,22 +43,22 @@ class DatasetLoader:
                 # Load from HuggingFace
                 hf_dataset = load_dataset(dataset_mapping[dataset_name], split=split)
                 df = self._convert_hf_to_dataframe(hf_dataset, dataset_name)
+
+                # Store in database if handler is provided
+                if self.db_handler:
+                    self.db_handler.store_dataframe(df, dataset_name, split or "all")
+
+                return df
             else:
-                # Fallback to local files if specified in config
-                df = self._load_from_local(dataset_name, split)
-
-            # Store in database if handler is provided
-            if self.db_handler:
-                self.db_handler.store_dataframe(df, dataset_name, split or "all")
-
-            return df
+                raise ValueError(f"Dataset {dataset_name} not configured for HuggingFace loading")
 
         except Exception as e:
             logger.error(f"Error loading dataset {dataset_name}: {str(e)}")
-            # Fallback to local files
-            return self._load_from_local(dataset_name, split)
+            raise  # Re-raise the exception instead of falling back to local files
 
     def _convert_hf_to_dataframe(self, hf_dataset, dataset_name: str) -> pd.DataFrame:
+        """Convert HuggingFace dataset to pandas DataFrame with standardized columns."""
+
         """Convert HuggingFace dataset to pandas DataFrame with standardized columns.
 
         Args:
@@ -79,8 +68,17 @@ class DatasetLoader:
         Returns:
             Standardized pandas DataFrame
         """
-        # Convert to pandas DataFrame
-        df = pd.DataFrame(hf_dataset)
+
+        # Convert to pandas DataFrame - handle HuggingFace dataset structure
+        if hasattr(hf_dataset, 'to_pandas'):
+            # Use the built-in conversion if available
+            df = hf_dataset.to_pandas()
+        else:
+            # Manual conversion for older versions
+            data = {}
+            for key in hf_dataset.features.keys():
+                data[key] = hf_dataset[key]
+            df = pd.DataFrame(data)
 
         # Standardize column names based on dataset
         if "premise" in df.columns and "hypothesis" in df.columns:

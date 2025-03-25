@@ -36,9 +36,9 @@ def parse_args():
     parser.add_argument(
         "--mode",
         type=str,
-        default="train",
-        # choices=["preprocess", "train", "evaluate", "predict"],
-        choices=["preprocess"],
+        default="preprocess",
+        choices=["preprocess", "train", "evaluate", "predict"],
+        # choices=["preprocess"],
         help="Mode to run"
     )
     parser.add_argument(
@@ -171,15 +171,11 @@ def main():
 
     if args.mode == "preprocess":
         preprocess_data(args.dataset, args.force_reprocess)
-        # assert False
     # elif args.mode == "train":
-    #     # print("Unimplemented")
     #     train_model(args.dataset, args.batch_size, args.epochs, args.learning_rate)
     # elif args.mode == "evaluate":
-    #     # print("Unimplemented")
     #     evaluate_model(args.dataset)
     # elif args.mode == "predict":
-    #     # print("Unimplemented")
     #     predict(args.dataset)
     else:
         logger.error(f"Unknown mode: {args.mode}")

@@ -12,24 +12,37 @@ MODELS_DIR = os.path.join(PROJECT_ROOT, "saved_models")
 for directory in [DATA_DIR, CACHE_DIR, MODELS_DIR]:
     os.makedirs(directory, exist_ok=True)
 
-# Dataset settings
+# Dataset settings for HuggingFace datasets
 DATASETS = {
     "SNLI": {
-        "train_path": os.path.join(DATA_DIR, "snli_1.0_train.jsonl"),
-        "dev_path": os.path.join(DATA_DIR, "snli_1.0_dev.jsonl"),
-        "test_path": os.path.join(DATA_DIR, "snli_1.0_test.jsonl"),
+        "hf_name": "snli",
+        "splits": {
+            "train": "train",
+            "dev": "validation",
+            "test": "test"
+        }
     },
     "MNLI": {
-        "train_path": os.path.join(DATA_DIR, "multinli_1.0_train.jsonl"),
-        "dev_path": os.path.join(DATA_DIR, "multinli_1.0_dev.jsonl"),
-        "test_path": os.path.join(DATA_DIR, "multinli_1.0_test.jsonl"),
+        "hf_name": "multi_nli",
+        "splits": {
+            "train": "train",
+            "dev": "validation_matched",
+            "test": "test_matched"
+        }
     },
     "SICK": {
-        "train_path": os.path.join(DATA_DIR, "SICK_train.txt"),
-        "dev_path": os.path.join(DATA_DIR, "SICK_trial.txt"),
-        "test_path": os.path.join(DATA_DIR, "SICK_test.txt"),
-    },
+        "hf_name": "sick",
+        "splits": {
+            "train": "train",
+            "dev": "validation",
+            "test": "test"
+        }
+    }
 }
+
+# HuggingFace cache directory
+HF_CACHE_DIR = os.path.join(CACHE_DIR, "huggingface")
+os.makedirs(HF_CACHE_DIR, exist_ok=True)
 
 # Preprocessing settings
 MAX_SEQ_LENGTH = 128

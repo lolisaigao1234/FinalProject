@@ -15,7 +15,7 @@ for directory in [DATA_DIR, CACHE_DIR, MODELS_DIR]:
 # Dataset settings for HuggingFace datasets
 DATASETS = {
     "SNLI": {
-        "hf_name": "snli",
+        "hf_name": "stanfordnlp/snli",
         "splits": {
             "train": "train",
             "dev": "validation",
@@ -23,15 +23,15 @@ DATASETS = {
         }
     },
     "MNLI": {
-        "hf_name": "multi_nli",
+        "hf_name": "nyu-mll/multi_nli",
         "splits": {
             "train": "train",
             "dev": "validation_matched",
             "test": "test_matched"
         }
     },
-    "SICK": {
-        "hf_name": "sick",
+    "ANLI": {
+        "hf_name": "facebook/anli",
         "splits": {
             "train": "train",
             "dev": "validation",

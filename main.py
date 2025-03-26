@@ -28,7 +28,7 @@ def parse_args():
         "--dataset",
         type=str,
         default="SNLI",
-        choices=["SNLI", "MNLI", "SICK"],
+        choices=["SNLI", "MNLI", "ANLI"],
         help="Dataset to use"
     )
     parser.add_argument(

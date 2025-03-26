@@ -1,10 +1,8 @@
 import os
 import logging
-from typing import Dict, List, Optional, Union, Tuple
+from typing import Tuple
 import pandas as pd
-import numpy as np
 from datasets import load_dataset
-from tqdm import tqdm
 
 from config import DATASETS, DATA_DIR
 

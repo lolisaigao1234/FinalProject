@@ -79,11 +79,29 @@ def preprocess_data(dataset_name, force_reprocess=False):
     # Initialize data loader
     data_loader = DatasetLoader(db_handler)
 
-    # Prepare sentence pairs
+    # Prepare sentence pairs - this loads and stores the combined dataset
     logger.info("Preparing sentence pairs")
-    pairs_df, sentences_df, _ = data_loader.prepare_sentence_pairs(
-        dataset_name
-    )
+    pairs_df, sentences_df, _ = data_loader.prepare_sentence_pairs(dataset_name)
+
+    # Now separate the data by split
+    if 'split' in pairs_df.columns:
+        # Map HuggingFace split names to your project's split names
+        split_mapping = {'train': 'train', 'validation': 'dev', 'test': 'test'}
+
+        for hf_split, project_split in split_mapping.items():
+            # Filter pairs for this split
+            split_pairs = pairs_df[pairs_df['split'] == hf_split]
+            if not split_pairs.empty:
+                db_handler.store_dataframe(split_pairs, dataset_name, project_split, "pairs")
+
+                # Get unique sentence IDs in this split
+                premise_ids = split_pairs['premise_id'].unique()
+                hypothesis_ids = split_pairs['hypothesis_id'].unique()
+                all_ids = np.union1d(premise_ids, hypothesis_ids)
+
+                # Filter sentences for this split
+                split_sentences = sentences_df[sentences_df['id'].isin(all_ids)]
+                db_handler.store_dataframe(split_sentences, dataset_name, project_split, "sentences")
 
     # Initialize text preprocessor
     preprocessor = TextPreprocessor(db_handler)
@@ -104,6 +122,44 @@ def preprocess_data(dataset_name, force_reprocess=False):
         )
 
     logger.info("Preprocessing complete")
+
+
+# def preprocess_data(dataset_name, force_reprocess=False):
+#     """Preprocess data for a dataset."""
+#     print("Enter the preprocess data section")
+#     logger.info(f"Preprocessing {dataset_name} dataset")
+#
+#     # Initialize database handler
+#     db_handler = DatabaseHandler()
+#
+#     # Initialize data loader
+#     data_loader = DatasetLoader(db_handler)
+#
+#     # Prepare sentence pairs
+#     logger.info("Preparing sentence pairs")
+#     pairs_df, sentences_df, _ = data_loader.prepare_sentence_pairs(
+#         dataset_name
+#     )
+#
+#     # Initialize text preprocessor
+#     preprocessor = TextPreprocessor(db_handler)
+#
+#     # Process sentences with Stanza
+#     logger.info("Processing sentences with Stanza")
+#     for split in ["train", "dev", "test"]:
+#         preprocessor.preprocess_dataset(
+#             dataset_name, split, force_reprocess=force_reprocess
+#         )
+#
+#     # Extract features
+#     logger.info("Extracting features")
+#     feature_extractor = FeatureExtractor(db_handler, preprocessor)
+#     for split in ["train", "dev", "test"]:
+#         feature_extractor.extract_features(
+#             dataset_name, split, force_recompute=force_reprocess
+#         )
+#
+#     logger.info("Preprocessing complete")
 
 
 def train_model(dataset_name, batch_size=32, epochs=5, learning_rate=2e-5):

@@ -171,6 +171,7 @@ import logging
 import time
 import torch
 import pandas as pd
+import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
 
 from data import DatasetLoader
@@ -188,13 +189,32 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+#
+# def create_dataloader(features_df, batch_size, shuffle=True):
+#     """Create optimized DataLoader from features DataFrame"""
+#     # Convert features to tensors
+#     syntactic_features = torch.tensor(
+#         features_df.drop(columns=['pair_id', 'label']).float().to(DEVICE))
+#     labels = torch.tensor(features_df['label'].values).long().to(DEVICE)
+#
+#     dataset = TensorDataset(syntactic_features, labels)
+#     return DataLoader(
+#         dataset,
+#         batch_size=batch_size,
+#         shuffle=shuffle,
+#         num_workers=NUM_WORKERS,
+#         pin_memory=PIN_MEMORY,
+#         persistent_workers=True  # Reduces initialization overhead
+#     )
 
 def create_dataloader(features_df, batch_size, shuffle=True):
     """Create optimized DataLoader from features DataFrame"""
-    # Convert features to tensors
-    syntactic_features = torch.tensor(
-        features_df.drop(columns=['pair_id', 'label']).float().to(DEVICE))
-    labels = torch.tensor(features_df['label'].values).long().to(DEVICE)
+    # Handle NaNs and convert to numpy
+    features_clean = features_df.drop(columns=['pair_id', 'label']).fillna(0)
+    features_np = features_clean.values.astype(np.float32)
+
+    syntactic_features = torch.tensor(features_np, dtype=torch.float32).to(DEVICE)
+    labels = torch.tensor(features_df['label'].values, dtype=torch.long).to(DEVICE)
 
     dataset = TensorDataset(syntactic_features, labels)
     return DataLoader(
@@ -203,7 +223,7 @@ def create_dataloader(features_df, batch_size, shuffle=True):
         shuffle=shuffle,
         num_workers=NUM_WORKERS,
         pin_memory=PIN_MEMORY,
-        persistent_workers=True  # Reduces initialization overhead
+        persistent_workers=True
     )
 
 
@@ -289,12 +309,12 @@ def train_model(dataset_name, sample_size=300, batch_size=BATCH_SIZE,
     # Load features
     train_features = db_handler.load_dataframe(
         dataset_name, "train", f"features_lexical_syntactic_sample{sample_size}")
-    val_features = db_handler.load_dataframe(
-        dataset_name, "dev", f"features_lexical_syntactic_sample{sample_size}")
+    # val_features = db_handler.load_dataframe(
+    #     dataset_name, "dev", f"features_lexical_syntactic_sample{sample_size}")
 
     # Create optimized DataLoaders
     train_loader = create_dataloader(train_features, batch_size)
-    val_loader = create_dataloader(val_features, batch_size, shuffle=False)
+    # val_loader = create_dataloader(val_features, batch_size, shuffle=False)
 
     # Initialize model with compilation
     model = BERTWithSyntacticAttention(

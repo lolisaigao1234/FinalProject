@@ -259,7 +259,7 @@ class FeatureExtractor:
             self,
             dataset_name: str,
             split: str,
-            sample_size: int = 300,
+            sample_size: int,
             feature_types: List[str] = ["lexical", "syntactic"],
             force_recompute: bool = False
     ) -> pd.DataFrame:

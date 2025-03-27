@@ -270,6 +270,7 @@ def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
             feature_extractor = FeatureExtractor(db_handler, preprocessor)
             feature_extractor.extract_features(
                 dataset_name=dataset_name,
+                sample_size=sample_size,
                 split=split_name,
                 force_recompute=force_reprocess
             )

@@ -12,7 +12,7 @@
 
 # Load modules (fix CUDA/Anaconda compatibility)
 module purge
-module load cuda/12.8             # Confirm CUDA matches your Conda environment!
+module load cuda/12.6             # Confirm CUDA matches your Conda environment!
 module load anaconda3/2024.10
 
 # Activate Conda environment

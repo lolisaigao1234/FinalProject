@@ -132,6 +132,10 @@ USE_FP16 = True       # Enable mixed precision training
 CUDA_BENCHMARK = True # Enable cuDNN auto-tuner
 PIN_MEMORY = True     # Faster data transfer to GPU
 
+# Stanza settings
+STANZA_PROCESSORS = "tokenize,pos,lemma,depparse,constituency"
+STANZA_LANG = "en"
+
 # Model optimization
 MODEL_NAME = "bert-base-uncased"
 HIDDEN_SIZE = 768
@@ -148,6 +152,11 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 HF_CACHE_DIR = os.path.join(CACHE_DIR, "huggingface")
 os.environ["HF_HOME"] = HF_CACHE_DIR  # Set huggingface cache location
 os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Disable tokenizer parallelism
+
+# Database settings
+DB_TYPE = "parquet"
+PARQUET_DIR = os.path.join(CACHE_DIR, "parquet")
+os.makedirs(PARQUET_DIR, exist_ok=True)
 
 def parse_args():
     """Parse command line arguments with performance-related options"""

@@ -354,12 +354,12 @@ def main():
     torch.backends.cudnn.benchmark = True  # Keep True unless using deterministic mode
     torch.backends.cudnn.deterministic = False
 
-    sample_size = 100000  # Can be changed as needed
+    sample_size = 100  # Can be changed as needed
 
     logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
     logger.info(f"Using device: {DEVICE}")
     logger.info(f"Batch size: {args.batch_size}, Grad accum: {args.grad_accum}")
-    logger.info(f"Mixed precision: {args.fp16}, Torch compile: {not args.no_compile}")
+    logger.info(f"Mixed precision: {args.fp16}, Torch compile: {args.compile}")
 
     if args.mode == "preprocess":
         preprocess_data(args.dataset, sample_size, args.force_reprocess)

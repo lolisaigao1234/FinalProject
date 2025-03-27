@@ -1,24 +1,29 @@
 #!/bin/bash
-#SBATCH --job-name=IS567FP          # Job name
-#SBATCH --partition=IllinoisComputes-GPU             # Use the GPU partition
-#SBATCH --time=48:00:00             # Max runtime (e.g., 1 hour)
-#SBATCH --nodes=1                   # Use 1 node
-#SBATCH --ntasks-per-node=1         # 1 task per node
-#SBATCH --gres=gpu:A100:1                # Request 1 GPU
-#SBATCH --account=jywu3-ic    # Replace with your NCSA account
-#SBATCH --output=output_%j.log      # Output log file
+#SBATCH --job-name=IS567FP
+#SBATCH --partition=IllinoisComputes-GPU
+#SBATCH --time=48:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:A100:1         # Explicitly request A100
+#SBATCH --cpus-per-task=8         # Add more CPU cores for data loading
+#SBATCH --mem=64G                 # Request sufficient RAM
+#SBATCH --account=your_account
+#SBATCH --output=output_%j.log
 
-# Load required modules
+# Load modules (fix CUDA/Anaconda compatibility)
 module purge
-module load cuda/12.8               # Load CUDA (check version with `module avail cuda`)
-module load anaconda3/2024.10       # Load Anaconda
-module load
+module load cuda/12.8             # Confirm CUDA matches your Conda environment!
+module load anaconda3/2024.10
 
-# Activate your Conda environment
-source activate IS567               # Replace with your environment name
+# Activate Conda environment
+source activate IS567
 
-# Navigate to your project directory
+# Set environment variables for GPU performance
+export NCCL_DEBUG=INFO            # Optional: Debug GPU comms
+export TF_CPP_MIN_LOG_LEVEL=3     # Reduce TensorFlow logging (if used)
+
+# Navigate to project
 cd /u/jywu3/scratch/IS567FP || exit
 
-# Run the main Python script
-python main.py
+# Run with optimizations
+python -u main.py                 # -u: Unbuffered output for real-time logs

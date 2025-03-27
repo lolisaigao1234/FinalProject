@@ -1,6 +1,7 @@
 # config.py
 import os
 from pathlib import Path
+import argparse
 
 # Project paths
 PROJECT_ROOT = Path(__file__).parent.absolute()
@@ -65,3 +66,83 @@ EPOCHS = 5
 DB_TYPE = "parquet"
 PARQUET_DIR = os.path.join(CACHE_DIR, "parquet")
 os.makedirs(PARQUET_DIR, exist_ok=True)
+
+
+# def parse_args():
+#     """Parse command line arguments."""
+#     parser = argparse.ArgumentParser(description="Natural Language Inference Pipeline")
+#     parser.add_argument("--dataset", type=str, nargs='+', choices=["SNLI", "MNLI", "ANLI", "ALL"],
+#                         default=["SNLI"],
+#                         help="Dataset(s) to use. Specify multiple datasets or use 'ALL' for all datasets.")
+#     parser.add_argument("--mode", type=str, default="preprocess",
+#                         choices=["preprocess", "train", "evaluate", "predict"], help="Mode to run")
+#     parser.add_argument("--batch_size", type=int, default=BATCH_SIZE, help="Batch size for training")
+#     parser.add_argument("--epochs", type=int, default=EPOCHS, help="Number of epochs for training")
+#     parser.add_argument("--learning_rate", type=float, default=2e-5, help="Learning rate for training")
+#     parser.add_argument("--force_reprocess", action="store_true", help="Force reprocessing of data")
+#
+#     args = parser.parse_args()
+#
+#     # Handle 'ALL' option
+#     if "ALL" in args.dataset:
+#         args.dataset = ["SNLI", "MNLI", "ANLI"]
+#
+#     return args
+
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="Natural Language Inference Pipeline")
+    parser.add_argument("--dataset", type=str, default="SNLI", choices=["SNLI", "MNLI", "ANLI"], help="Dataset to use")
+    parser.add_argument("--mode", type=str, default="preprocess", choices=["preprocess", "train", "evaluate", "predict"], help="Mode to run")
+    parser.add_argument("--batch_size", type=int, default=BATCH_SIZE, help="Batch size for training")
+    parser.add_argument("--epochs", type=int, default=EPOCHS, help="Number of epochs for training")
+    parser.add_argument("--learning_rate", type=float, default=2e-5, help="Learning rate for training")
+    parser.add_argument("--force_reprocess", action="store_true", help="Force reprocessing of data")
+    return parser.parse_args()
+
+
+# def parse_args():
+#     """Parse command line arguments."""
+#     parser = argparse.ArgumentParser(
+#         description="NLI with Syntactic Parsing"
+#     )
+#     parser.add_argument(
+#         "--dataset",
+#         type=str,
+#         default="SNLI",
+#         choices=["SNLI", "MNLI", "ANLI"],
+#         help="Dataset to use"
+#     )
+#     parser.add_argument(
+#         "--mode",
+#         type=str,
+#         default="preprocess",
+#         choices=["preprocess", "train", "evaluate", "predict"],
+#         # choices=["preprocess"],
+#         help="Mode to run"
+#     )
+#     parser.add_argument(
+#         "--batch_size",
+#         type=int,
+#         default=32,
+#         help="Batch size for training"
+#     )
+#     parser.add_argument(
+#         "--epochs",
+#         type=int,
+#         default=5,
+#         help="Number of epochs for training"
+#     )
+#     parser.add_argument(
+#         "--learning_rate",
+#         type=float,
+#         default=2e-5,
+#         help="Learning rate for training"
+#     )
+#     parser.add_argument(
+#         "--force_reprocess",
+#         action="store_true",
+#         help="Force reprocessing of data"
+#     )
+#
+#     return parser.parse_args()

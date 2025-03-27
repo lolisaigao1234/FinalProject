@@ -1,15 +1,14 @@
 # main.py
 import logging
-import argparse
 
 import torch
-import numpy as np
 
 from data import DatasetLoader
 from data.preprocessor import TextPreprocessor
 from features.feature_extractor import FeatureExtractor
 from models import BERTWithSyntacticAttention, ModelTrainer
 from utils.database import DatabaseHandler
+from config import parse_args
 
 # Configure logging
 logging.basicConfig(
@@ -19,55 +18,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def parse_args():
-    """Parse command line arguments."""
-    parser = argparse.ArgumentParser(
-        description="NLI with Syntactic Parsing"
-    )
-    parser.add_argument(
-        "--dataset",
-        type=str,
-        default="SNLI",
-        choices=["SNLI", "MNLI", "ANLI"],
-        help="Dataset to use"
-    )
-    parser.add_argument(
-        "--mode",
-        type=str,
-        default="preprocess",
-        choices=["preprocess", "train", "evaluate", "predict"],
-        # choices=["preprocess"],
-        help="Mode to run"
-    )
-    parser.add_argument(
-        "--batch_size",
-        type=int,
-        default=32,
-        help="Batch size for training"
-    )
-    parser.add_argument(
-        "--epochs",
-        type=int,
-        default=5,
-        help="Number of epochs for training"
-    )
-    parser.add_argument(
-        "--learning_rate",
-        type=float,
-        default=2e-5,
-        help="Learning rate for training"
-    )
-    parser.add_argument(
-        "--force_reprocess",
-        action="store_true",
-        help="Force reprocessing of data"
-    )
-
-    return parser.parse_args()
-
-def preprocess_data(dataset_name, sample_size, force_reprocess=False):
+def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
     """Preprocess data for a dataset."""
-    logger.info(f"Preprocessing {dataset_name} dataset")
+    logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size}")
 
     # Initialize database handler
     db_handler = DatabaseHandler()
@@ -75,61 +28,37 @@ def preprocess_data(dataset_name, sample_size, force_reprocess=False):
     # Initialize data loader
     data_loader = DatasetLoader(db_handler)
 
-    # Prepare sentence pairs
-    logger.info("Preparing sentence pairs")
-    pairs_df, sentences_df, pairs_with_text_df = data_loader.prepare_sentence_pairs(dataset_name)
+    # Create train/test splits with stratified sampling
+    train_df, test_df = data_loader.create_train_test_splits(dataset_name, sample_size)
+    logger.info(f"Created train/test splits: {len(train_df)} train, {len(test_df)} test samples")
 
-    # Now separate the data by split if it exists in the combined dataset
-    if 'split' in pairs_df.columns:
-        logger.info("Separating data by split")
-
-        # Map HuggingFace split names to your project's split names
-        split_mapping = {'train': 'train', 'validation': 'dev', 'test': 'test'}
-
-        for hf_split, project_split in split_mapping.items():
-            # Filter pairs for this split
-            split_pairs = pairs_df[pairs_df['split'] == hf_split]
-            if not split_pairs.empty:
-                logger.info(f"Creating {project_split} split with {len(split_pairs)} pairs")
-                db_handler.store_dataframe(split_pairs, dataset_name, project_split, "pairs")
-
-                # Get unique sentence IDs in this split
-                premise_ids = split_pairs['premise_id'].unique()
-                hypothesis_ids = split_pairs['hypothesis_id'].unique()
-                all_ids = np.union1d(premise_ids, hypothesis_ids)
-
-                # Filter sentences for this split
-                split_sentences = sentences_df[sentences_df['id'].isin(all_ids)]
-                db_handler.store_dataframe(split_sentences, dataset_name, project_split, "sentences")
-
-                # Create pairs with text for this split
-                split_pairs_with_text = pairs_with_text_df[pairs_with_text_df['id'].isin(split_pairs['id'])]
-                db_handler.store_dataframe(split_pairs_with_text, dataset_name, project_split, "pairs_with_text")
-    else:
-        logger.warning("No 'split' column found in the dataset. Using 'all' as the only split.")
-        # If there's no split column, copy the 'all' data to each split for compatibility
-        for split in ["train", "dev", "test"]:
-            db_handler.store_dataframe(pairs_df, dataset_name, split, "pairs")
-            db_handler.store_dataframe(sentences_df, dataset_name, split, "sentences")
-            db_handler.store_dataframe(pairs_with_text_df, dataset_name, split, "pairs_with_text")
-
-    # Initialize text preprocessor
-    preprocessor = TextPreprocessor(db_handler)
-
-    # Process sentences with Stanza
-    logger.info("Processing sentences with Stanza")
-    for split in ["train", "dev", "test"]:
-        preprocessor.preprocess_dataset(
-            dataset_name, split, force_reprocess=force_reprocess
+    # Prepare sentence pairs for train and test
+    for split in ["train", "test"]:
+        logger.info(f"Preparing sentence pairs for {split} split")
+        pairs_df, sentences_df, _ = data_loader.prepare_sentence_pairs(
+            dataset_name, split, sample_size
         )
 
-    # Extract features
-    logger.info("Extracting features")
-    feature_extractor = FeatureExtractor(db_handler, preprocessor)
-    for split in ["train", "dev", "test"]:
-        feature_extractor.extract_features(
-            dataset_name, split, force_recompute=force_reprocess
+        # Initialize text preprocessor
+        preprocessor = TextPreprocessor(db_handler)
+
+        # Process sentences with Stanza
+        # logger.info(f"Processing {len(sentences_df)} sentences with Stanza for {split} split")
+        # parse_trees_df = preprocessor.preprocess_dataset(
+        #     dataset_name, split, force_reprocess=force_reprocess
+        # )
+        logger.info(f"Processing {len(sentences_df)} sentences with Stanza for {split} split")
+        parse_trees_df = preprocessor.preprocess_dataset(
+            dataset_name, split, sample_size=sample_size, force_reprocess=force_reprocess
         )
+
+        # Extract features
+        if parse_trees_df is not None and not parse_trees_df.empty:
+            logger.info(f"Extracting features for {split} split")
+            feature_extractor = FeatureExtractor(db_handler, preprocessor)
+            feature_extractor.extract_features(
+                dataset_name, split, force_recompute=force_reprocess
+            )
 
     logger.info("Preprocessing complete")
 

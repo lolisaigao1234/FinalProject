@@ -44,16 +44,20 @@ class TextPreprocessor:
             self,
             dataset_name: str,
             split: str,
+            sample_size: int = None,
             force_reprocess: bool = False
     ) -> pd.DataFrame:
         """Preprocess a dataset with syntactic parsing."""
-        # Check if already processed
-        if not force_reprocess and self.db_handler.check_exists(dataset_name, split, "parse_trees"):
-            logger.info(f"Loading preprocessed {dataset_name} {split} from database")
-            return self.db_handler.load_dataframe(dataset_name, split, "parse_trees")
+        # Add sample suffix to cache keys if needed
+        suffix = f"_sample{sample_size}" if sample_size else ""
 
-        # Load sentences
-        sentences = self.db_handler.load_dataframe(dataset_name, split, "sentences")
+        # Check if already processed with appropriate suffix
+        if not force_reprocess and self.db_handler.check_exists(dataset_name, split, f"parse_trees{suffix}"):
+            logger.info(f"Loading preprocessed {dataset_name} {split} from database")
+            return self.db_handler.load_dataframe(dataset_name, split, f"parse_trees{suffix}")
+
+        # Load sentences with sample suffix
+        sentences = self.db_handler.load_dataframe(dataset_name, split, f"sentences{suffix}")
 
         if sentences.empty:
             logger.warning(f"No sentences found for {dataset_name} {split}")
@@ -101,11 +105,78 @@ class TextPreprocessor:
                     "dependency_tree": ""
                 })
 
-        # Convert to dataframe and store
+        # Convert to dataframe and store with appropriate suffix
         parse_trees_df = pd.DataFrame(parse_trees)
-        self.db_handler.store_dataframe(parse_trees_df, dataset_name, split, "parse_trees")
+        self.db_handler.store_dataframe(parse_trees_df, dataset_name, split, f"parse_trees{suffix}")
 
         return parse_trees_df
+
+    # def preprocess_dataset(
+    #         self,
+    #         dataset_name: str,
+    #         split: str,
+    #         force_reprocess: bool = False
+    # ) -> pd.DataFrame:
+    #     """Preprocess a dataset with syntactic parsing."""
+    #     # Check if already processed
+    #     if not force_reprocess and self.db_handler.check_exists(dataset_name, split, "parse_trees"):
+    #         logger.info(f"Loading preprocessed {dataset_name} {split} from database")
+    #         return self.db_handler.load_dataframe(dataset_name, split, "parse_trees")
+    #
+    #     # Load sentences
+    #     sentences = self.db_handler.load_dataframe(dataset_name, split, "sentences")
+    #
+    #     if sentences.empty:
+    #         logger.warning(f"No sentences found for {dataset_name} {split}")
+    #         return pd.DataFrame()
+    #
+    #     # Process sentences with Stanza
+    #     parse_trees = []
+    #
+    #     logger.info(f"Processing {len(sentences)} sentences with Stanza")
+    #     for idx, row in tqdm(sentences.iterrows(), total=len(sentences)):
+    #         sentence_id = row["id"]
+    #         text = row["text"]
+    #
+    #         try:
+    #             doc = self.nlp(text)
+    #
+    #             # Extract constituency tree
+    #             constituency_tree = str(doc.sentences[0].constituency)
+    #
+    #             # Extract dependency tree as a serialized format
+    #             dep_edges = []
+    #             for word in doc.sentences[0].words:
+    #                 dep_edges.append({
+    #                     "id": word.id,
+    #                     "text": word.text,
+    #                     "lemma": word.lemma,
+    #                     "pos": word.pos,
+    #                     "head": word.head,
+    #                     "deprel": word.deprel
+    #                 })
+    #
+    #             dependency_tree = str(dep_edges)
+    #
+    #             parse_trees.append({
+    #                 "sentence_id": sentence_id,
+    #                 "constituency_tree": constituency_tree,
+    #                 "dependency_tree": dependency_tree
+    #             })
+    #
+    #         except Exception as e:
+    #             logger.error(f"Error processing sentence {sentence_id}: {str(e)}")
+    #             parse_trees.append({
+    #                 "sentence_id": sentence_id,
+    #                 "constituency_tree": "",
+    #                 "dependency_tree": ""
+    #             })
+    #
+    #     # Convert to dataframe and store
+    #     parse_trees_df = pd.DataFrame(parse_trees)
+    #     self.db_handler.store_dataframe(parse_trees_df, dataset_name, split, "parse_trees")
+    #
+    #     return parse_trees_df
 
     def extract_parse_features(self, parse_tree_str: str, tree_type: str = "constituency") -> Dict:
         """Extract features from a parse tree."""

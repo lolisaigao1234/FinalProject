@@ -250,7 +250,7 @@ def main():
     """Main entry point."""
     args = parse_args()
 
-    sample_size = 300  # Can be changed as needed
+    sample_size = 100000  # Can be changed as needed
 
     logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
 

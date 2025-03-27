@@ -278,9 +278,13 @@ class FeatureExtractor:
         logger.info(f"Loading downsampled {dataset_name} {split} data (sample size: {sample_size})")
 
         # Load the downsampled data with specific suffixes
-        pairs = self.db_handler.load_dataframe(dataset_name, split, f"pairs_sample{sample_size}")
-        sentences = self.db_handler.load_dataframe(dataset_name, split, f"sentences_sample{sample_size}")
-        parse_trees = self.db_handler.load_dataframe(dataset_name, split, f"parse_trees_sample{sample_size}")
+        pairs = self.db_handler.load_dataframe(dataset_name, split, "pairs")
+        sentences = self.db_handler.load_dataframe(dataset_name, split, "sentences")
+        parse_trees = self.db_handler.load_dataframe(dataset_name, split, "parse_trees")
+
+        assert not pairs.empty, f"No downsampled pairs found for {dataset_name} {split}"
+        assert not sentences.empty, f"No downsampled sentences found for {dataset_name} {split}"
+        assert not parse_trees.empty, f"No downsampled parse trees found for {dataset_name} {split}"
 
         if pairs.empty or sentences.empty:
             logger.warning(f"No downsampled data found for {dataset_name} {split}. "

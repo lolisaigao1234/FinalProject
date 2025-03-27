@@ -31,7 +31,7 @@ class DatabaseHandler:
 
     def load_dataframe(self, dataset: str, split: str, table: str = None) -> pd.DataFrame:
         """Load a dataframe from Parquet storage or from HuggingFace if not in storage."""
-        filename = f"{dataset}_{split}_{table if table else 'data'}.parquet"
+        filename = f"{dataset}_{split}_{table if table else ''}.parquet"
         filepath = os.path.join(PARQUET_DIR, filename)
 
         if os.path.exists(filepath):

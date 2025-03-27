@@ -53,15 +53,14 @@ class TextPreprocessor:
         """Preprocess a dataset with syntactic parsing."""
         # Add sample suffix to cache keys if needed
         logger.info(f"Preprocessing {dataset_name} {split} with syntactic parsing. Sample size: {sample_size}")
-        suffix = f"_sample{sample_size}" if sample_size else ""
 
         # Check if already processed with appropriate suffix
-        if not force_reprocess and self.db_handler.check_exists(dataset_name, split, f"parse_trees{suffix}"):
+        if not force_reprocess and self.db_handler.check_exists(dataset_name, split, "parse_trees"):
             logger.info(f"Loading preprocessed {dataset_name} {split} from database")
-            return self.db_handler.load_dataframe(dataset_name, split, f"parse_trees{suffix}")
+            return self.db_handler.load_dataframe(dataset_name, split, "parse_trees")
 
         # Load sentences with sample suffix
-        sentences = self.db_handler.load_dataframe(dataset_name, split, f"sentences{suffix}")
+        sentences = self.db_handler.load_dataframe(dataset_name, split, "sentences")
 
         if sentences.empty:
             logger.warning(f"No sentences found for {dataset_name} {split}")
@@ -111,7 +110,7 @@ class TextPreprocessor:
 
         # Convert to dataframe and store with appropriate suffix
         parse_trees_df = pd.DataFrame(parse_trees)
-        self.db_handler.store_dataframe(parse_trees_df, dataset_name, split, f"parse_trees{suffix}")
+        self.db_handler.store_dataframe(parse_trees_df, dataset_name, split, "parse_trees")
 
         return parse_trees_df
 
@@ -311,7 +310,7 @@ class TextPreprocessor:
 
         # Load full dataset
         logger.info(f"Loading full dataset: {dataset_name}")
-        full_dataset = self.db_handler.load_dataframe(dataset_name, "all", f"sample{total_samples}")
+        full_dataset = self.db_handler.load_dataframe(dataset_name, "all", "data")
 
         if full_dataset.empty:
             logger.warning(f"No data found for {dataset_name}")

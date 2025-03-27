@@ -42,11 +42,6 @@ def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
         # Initialize text preprocessor
         preprocessor = TextPreprocessor(db_handler)
 
-        # Process sentences with Stanza
-        # logger.info(f"Processing {len(sentences_df)} sentences with Stanza for {split} split")
-        # parse_trees_df = preprocessor.preprocess_dataset(
-        #     dataset_name, split, force_reprocess=force_reprocess
-        # )
         logger.info(f"Processing {len(sentences_df)} sentences with Stanza for {split} split")
         parse_trees_df = preprocessor.preprocess_dataset(
             dataset_name, split, sample_size=sample_size, force_reprocess=force_reprocess
@@ -63,7 +58,7 @@ def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
     logger.info("Preprocessing complete")
 
 
-def train_model(dataset_name, batch_size=32, epochs=5, learning_rate=2e-5):
+def train_model(dataset_name, sample_size=300, batch_size=32, epochs=5, learning_rate=2e-5):
     """Train a model on a dataset."""
     logger.info(f"Training model on {dataset_name} dataset")
 
@@ -72,10 +67,10 @@ def train_model(dataset_name, batch_size=32, epochs=5, learning_rate=2e-5):
 
     # Load features
     train_features = db_handler.load_dataframe(
-        dataset_name, "train", "features_lexical_syntactic"
+        dataset_name, "train", f"features_lexical_syntactic_sample{sample_size}"
     )
     val_features = db_handler.load_dataframe(
-        dataset_name, "dev", "features_lexical_syntactic"
+        dataset_name, "dev", f"features_lexical_syntactic_sample{sample_size}"
     )
 
     # TODO: Convert features to tensors and create dataloaders
@@ -123,30 +118,18 @@ def main():
 
     sample_size = 300  # Can be changed as needed
 
-    logger.info(f"Running pipeline up to {args.mode} mode on {args.dataset} dataset")
+    logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
 
-    # Define the sequence of modes
-    modes = ["preprocess", "train", "evaluate", "predict"]
-
-    # Find the index of the target mode
-    try:
-        target_index = modes.index(args.mode)
-    except ValueError:
+    if args.mode == "preprocess":
+        preprocess_data(args.dataset, sample_size, args.force_reprocess)
+    elif args.mode == "train":
+        train_model(args.dataset, sample_size, args.batch_size, args.epochs, args.learning_rate)
+    elif args.mode == "evaluate":
+        evaluate_model(args.dataset)
+    elif args.mode == "predict":
+        predict(args.dataset)
+    else:
         logger.error(f"Unknown mode: {args.mode}")
-        return
-
-    # Run all steps up to and including the specified mode
-    for mode in modes[:target_index + 1]:
-        logger.info(f"Running {mode} step")
-
-        if mode == "preprocess":
-            preprocess_data(args.dataset, sample_size, args.force_reprocess)
-        elif mode == "train":
-            train_model(args.dataset, args.batch_size, args.epochs, args.learning_rate)
-        elif mode == "evaluate":
-            evaluate_model(args.dataset)
-        elif mode == "predict":
-            predict(args.dataset)
 
 
 if __name__ == "__main__":

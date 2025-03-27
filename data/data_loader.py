@@ -5,8 +5,18 @@ import pandas as pd
 from datasets import load_dataset
 
 from config import DATASETS, DATA_DIR
+from sklearn.model_selection import train_test_split
 
 logger = logging.getLogger(__name__)
+
+
+def stratified_sample(df, sample_size):
+    samples_per_label = sample_size // 3
+    sampled_dfs = []
+    for label in [0, 1, 2]:
+        label_df = df[df['label'] == label].sample(n=samples_per_label, random_state=42)
+        sampled_dfs.append(label_df)
+    return pd.concat(sampled_dfs).sample(frac=1, random_state=42)
 
 
 class DatasetLoader:
@@ -21,38 +31,75 @@ class DatasetLoader:
         self.db_handler = db_handler
         self.datasets = {}
 
-    def load_dataset(self, dataset_name: str, split: str = None, force_reload: bool = False) -> pd.DataFrame:
-        # Check if already loaded and cached
-        if not force_reload and self.db_handler and self.db_handler.check_exists(dataset_name, split or "all"):
-            logger.info(f"Loading {dataset_name} {split or 'all'} from database")
-            return self.db_handler.load_dataframe(dataset_name, split or "all")
+        # Define dataset mapping
+        self.dataset_mapping = {
+            "SNLI": "stanfordnlp/snli",
+            "MNLI": "nyu-mll/multi_nli",
+            "ANLI": "facebook/anli"
+        }
 
-        logger.info(f"Loading {dataset_name} dataset from source")
+        # Define data directory
+        self.data_dir = DATA_DIR
+        os.makedirs(self.data_dir, exist_ok=True)
 
-        try:
-            # Map dataset names to HuggingFace dataset IDs
-            dataset_mapping = {
-                "SNLI": "stanfordnlp/snli",
-                "MNLI": "nyu-mll/multi_nli",
-                "ANLI": "facebook/anli"
-            }
+    # def __init__(self, db_handler=None):
+    #     """Initialize the dataset loader.
+    #
+    #     Args:
+    #         db_handler: Database handler for storing processed data
+    #     """
+    #     self.db_handler = db_handler
+    #     self.datasets = {}
 
-            if dataset_name in dataset_mapping:
-                # Load from HuggingFace
-                hf_dataset = load_dataset(dataset_mapping[dataset_name], split=split)
-                df = self._convert_hf_to_dataframe(hf_dataset, dataset_name)
+    def save_downsampled_dataset(self, df, dataset_name, sample_size):
+        filename = f"{dataset_name}_downsample_{sample_size}.parquet"
+        df.to_parquet(os.path.join(self.data_dir, filename))
 
-                # Store in database if handler is provided
-                if self.db_handler:
-                    self.db_handler.store_dataframe(df, dataset_name, split or "all")
+    def load_dataset(self, dataset_name, sample_size=300):
+        hf_dataset = load_dataset(self.dataset_mapping[dataset_name])
+        df = pd.DataFrame(hf_dataset['train'])
+        sampled_df = stratified_sample(df, sample_size)
+        return sampled_df
 
-                return df
-            else:
-                raise ValueError(f"Dataset {dataset_name} not configured for HuggingFace loading")
+    def preprocess_data(dataset_names, sample_size=300, test_size=0.2):
+        for dataset_name in dataset_names:
+            df = data_loader.load_dataset(dataset_name, sample_size)
+            train_df, test_df = train_test_split(df, test_size=test_size, stratify=df['label'], random_state=42)
+            data_loader.save_downsampled_dataset(train_df, f"{dataset_name}_train", sample_size)
+            data_loader.save_downsampled_dataset(test_df, f"{dataset_name}_test", sample_size)
 
-        except Exception as e:
-            logger.error(f"Error loading dataset {dataset_name}: {str(e)}")
-            raise  # Re-raise the exception instead of falling back to local files
+    # def load_dataset(self, dataset_name: str, split: str = None, force_reload: bool = False) -> pd.DataFrame:
+    #     # Check if already loaded and cached
+    #     if not force_reload and self.db_handler and self.db_handler.check_exists(dataset_name, split or "all"):
+    #         logger.info(f"Loading {dataset_name} {split or 'all'} from database")
+    #         return self.db_handler.load_dataframe(dataset_name, split or "all")
+    #
+    #     logger.info(f"Loading {dataset_name} dataset from source")
+    #
+    #     try:
+    #         # Map dataset names to HuggingFace dataset IDs
+    #         dataset_mapping = {
+    #             "SNLI": "stanfordnlp/snli",
+    #             "MNLI": "nyu-mll/multi_nli",
+    #             "ANLI": "facebook/anli"
+    #         }
+    #
+    #         if dataset_name in dataset_mapping:
+    #             # Load from HuggingFace
+    #             hf_dataset = load_dataset(dataset_mapping[dataset_name], split=split)
+    #             df = self._convert_hf_to_dataframe(hf_dataset, dataset_name)
+    #
+    #             # Store in database if handler is provided
+    #             if self.db_handler:
+    #                 self.db_handler.store_dataframe(df, dataset_name, split or "all")
+    #
+    #             return df
+    #         else:
+    #             raise ValueError(f"Dataset {dataset_name} not configured for HuggingFace loading")
+    #
+    #     except Exception as e:
+    #         logger.error(f"Error loading dataset {dataset_name}: {str(e)}")
+    #         raise  # Re-raise the exception instead of falling back to local files
 
     def _convert_hf_to_dataframe(self, hf_dataset, dataset_name: str) -> pd.DataFrame:
         """Convert HuggingFace dataset to pandas DataFrame with standardized columns."""

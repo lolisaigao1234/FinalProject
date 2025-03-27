@@ -192,10 +192,13 @@ def main():
     """Main entry point."""
     args = parse_args()
 
+    dataset_names = ["SNLI", "MNLI", "ANLI"]
+    sample_size = 300  # Can be changed as needed
+
     logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
 
     if args.mode == "preprocess":
-        preprocess_data(args.dataset, args.force_reprocess)
+        preprocess_data(dataset_names, sample_size)
     # elif args.mode == "train":
     #     train_model(args.dataset, args.batch_size, args.epochs, args.learning_rate)
     # elif args.mode == "evaluate":

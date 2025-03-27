@@ -292,6 +292,46 @@ def stratified_sample(df, sample_size):
     return pd.concat(sampled_dfs).sample(frac=1, random_state=42)
 
 
+def _convert_hf_to_dataframe(hf_dataset, dataset_name: str) -> pd.DataFrame:
+    """Convert HuggingFace dataset to pandas DataFrame with standardized columns."""
+    # Handle DatasetDict vs Dataset
+    if hasattr(hf_dataset, 'features'):
+        # It's a Dataset object
+        df = pd.DataFrame(hf_dataset)
+    else:
+        # It's a DatasetDict object, we need to merge all splits
+        dfs = []
+        for split_name, split_dataset in hf_dataset.items():
+            split_df = pd.DataFrame(split_dataset)
+            split_df['split'] = split_name
+            dfs.append(split_df)
+        df = pd.concat(dfs, ignore_index=True)
+
+    # Standardize column names
+    if "premise" in df.columns and "hypothesis" in df.columns:
+        df = df.rename(columns={
+            "premise": "premise_text",
+            "hypothesis": "hypothesis_text"
+        })
+    elif "sentence1" in df.columns and "sentence2" in df.columns:
+        df = df.rename(columns={
+            "sentence1": "premise_text",
+            "sentence2": "hypothesis_text"
+        })
+
+    # Add unique IDs if not present
+    if "id" not in df.columns:
+        df["id"] = [f"{dataset_name}_{i}" for i in range(len(df))]
+
+    # Standardize label format
+    if "label" in df.columns:
+        if df["label"].dtype == object:
+            label_map = {"entailment": 0, "contradiction": 1, "neutral": 2}
+            df["label"] = df["label"].map(lambda x: label_map.get(x, x))
+
+    return df
+
+
 class DatasetLoader:
     """Handles loading and preprocessing of NLI datasets from HuggingFace."""
 
@@ -392,45 +432,6 @@ class DatasetLoader:
     #
     #     return df
 
-    def _convert_hf_to_dataframe(self, hf_dataset, dataset_name: str) -> pd.DataFrame:
-        """Convert HuggingFace dataset to pandas DataFrame with standardized columns."""
-        # Handle DatasetDict vs Dataset
-        if hasattr(hf_dataset, 'features'):
-            # It's a Dataset object
-            df = pd.DataFrame(hf_dataset)
-        else:
-            # It's a DatasetDict object, we need to merge all splits
-            dfs = []
-            for split_name, split_dataset in hf_dataset.items():
-                split_df = pd.DataFrame(split_dataset)
-                split_df['split'] = split_name
-                dfs.append(split_df)
-            df = pd.concat(dfs, ignore_index=True)
-
-        # Standardize column names
-        if "premise" in df.columns and "hypothesis" in df.columns:
-            df = df.rename(columns={
-                "premise": "premise_text",
-                "hypothesis": "hypothesis_text"
-            })
-        elif "sentence1" in df.columns and "sentence2" in df.columns:
-            df = df.rename(columns={
-                "sentence1": "premise_text",
-                "sentence2": "hypothesis_text"
-            })
-
-        # Add unique IDs if not present
-        if "id" not in df.columns:
-            df["id"] = [f"{dataset_name}_{i}" for i in range(len(df))]
-
-        # Standardize label format
-        if "label" in df.columns:
-            if df["label"].dtype == object:
-                label_map = {"entailment": 0, "contradiction": 1, "neutral": 2}
-                df["label"] = df["label"].map(lambda x: label_map.get(x, x))
-
-        return df
-
     def load_dataset(self, dataset_name, split=None, sample_size=None):
         """Load dataset by name or list of names."""
         # Handle case when dataset_name is a list
@@ -449,45 +450,13 @@ class DatasetLoader:
             # Original single dataset case
             return self._load_single_dataset(dataset_name, split, sample_size)
 
-    # def _load_single_dataset(self, dataset_name, split=None, sample_size=None):
-    #     """Load a single dataset by name."""
-    #     try:
-    #         # Load from HuggingFace
-    #         if dataset_name in self.dataset_mapping:
-    #             hf_dataset = load_dataset(self.dataset_mapping[dataset_name], split=split)
-    #             df = _convert_hf_to_dataframe(hf_dataset, dataset_name)
-    #
-    #             # Apply stratified sampling if requested
-    #             if sample_size:
-    #                 logger.info(f"Creating stratified sample of size {sample_size} for {dataset_name}")
-    #                 df = stratified_sample(df, sample_size)
-    #
-    #             # Store in database
-    #             if self.db_handler:
-    #                 if sample_size:
-    #                     self.db_handler.store_dataframe(df, dataset_name, split or "all", f"sample{sample_size}")
-    #                 else:
-    #                     self.db_handler.store_dataframe(df, dataset_name, split or "all")
-    #
-    #             return df
-    #         else:
-    #             raise ValueError(f"Dataset {dataset_name} not configured")
-    #
-    #     except Exception as e:
-    #         logger.error(f"Error loading dataset {dataset_name}: {str(e)}")
-    #         raise
-
     def _load_single_dataset(self, dataset_name, split=None, sample_size=None):
         """Load a single dataset by name."""
         try:
-            # Handle HuggingFace dataset loading
+            # Load from HuggingFace
             if dataset_name in self.dataset_mapping:
-                # Use dataset-specific split handling when needed
-                df = self._handle_dataset_specific_splits(dataset_name, split)
-                if df is None:
-                    # Regular case for standard splits
-                    hf_dataset = load_dataset(self.dataset_mapping[dataset_name], split=split)
-                    df = self._convert_hf_to_dataframe(hf_dataset, dataset_name)
+                hf_dataset = load_dataset(self.dataset_mapping[dataset_name], split=split)
+                df = _convert_hf_to_dataframe(hf_dataset, dataset_name)
 
                 # Apply stratified sampling if requested
                 if sample_size:
@@ -509,6 +478,38 @@ class DatasetLoader:
             logger.error(f"Error loading dataset {dataset_name}: {str(e)}")
             raise
 
+    # def _load_single_dataset(self, dataset_name, split=None, sample_size=None):
+    #     """Load a single dataset by name."""
+    #     try:
+    #         # Handle HuggingFace dataset loading
+    #         if dataset_name in self.dataset_mapping:
+    #             # Use dataset-specific split handling when needed
+    #             df = self._handle_dataset_specific_splits(dataset_name, split)
+    #             if df is None:
+    #                 # Regular case for standard splits
+    #                 hf_dataset = load_dataset(self.dataset_mapping[dataset_name], split=split)
+    #                 df = self._convert_hf_to_dataframe(hf_dataset, dataset_name)
+    #
+    #             # Apply stratified sampling if requested
+    #             if sample_size:
+    #                 logger.info(f"Creating stratified sample of size {sample_size} for {dataset_name}")
+    #                 df = stratified_sample(df, sample_size)
+    #
+    #             # Store in database
+    #             if self.db_handler:
+    #                 if sample_size:
+    #                     self.db_handler.store_dataframe(df, dataset_name, split or "all", f"sample{sample_size}")
+    #                 else:
+    #                     self.db_handler.store_dataframe(df, dataset_name, split or "all")
+    #
+    #             return df
+    #         else:
+    #             raise ValueError(f"Dataset {dataset_name} not configured")
+    #
+    #     except Exception as e:
+    #         logger.error(f"Error loading dataset {dataset_name}: {str(e)}")
+    #         raise
+
     def _handle_dataset_specific_splits(self, dataset_name, split):
         """Handle dataset-specific split naming conventions."""
         # Handle ANLI's specific split naming
@@ -524,7 +525,7 @@ class DatasetLoader:
             logger.info(f"Loading {dataset_name} {split} splits: {', '.join(specific_splits)}")
 
             return pd.concat([
-                self._convert_hf_to_dataframe(
+                _convert_hf_to_dataframe(
                     load_dataset(self.dataset_mapping[dataset_name], split=s),
                     dataset_name
                 )

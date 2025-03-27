@@ -71,6 +71,24 @@ os.makedirs(PARQUET_DIR, exist_ok=True)
 # def parse_args():
 #     """Parse command line arguments."""
 #     parser = argparse.ArgumentParser(description="Natural Language Inference Pipeline")
+#     parser.add_argument("--dataset", type=str, choices=["SNLI", "MNLI", "ANLI"],
+#                         default=["SNLI"],
+#                         help="Dataset(s) to use. Specify multiple datasets")
+#     parser.add_argument("--mode", type=str, default="preprocess",
+#                         choices=["preprocess", "train", "evaluate", "predict", "all"],
+#                         help="Mode to run")
+#     parser.add_argument("--batch_size", type=int, default=BATCH_SIZE, help="Batch size for training")
+#     parser.add_argument("--epochs", type=int, default=EPOCHS, help="Number of epochs for training")
+#     parser.add_argument("--learning_rate", type=float, default=2e-5, help="Learning rate for training")
+#     parser.add_argument("--force_reprocess", action="store_true", help="Force reprocessing of data")
+#
+#     args = parser.parse_args()
+#
+#     return args
+
+# def parse_args():
+#     """Parse command line arguments."""
+#     parser = argparse.ArgumentParser(description="Natural Language Inference Pipeline")
 #     parser.add_argument("--dataset", type=str, nargs='+', choices=["SNLI", "MNLI", "ANLI", "ALL"],
 #                         default=["SNLI"],
 #                         help="Dataset(s) to use. Specify multiple datasets or use 'ALL' for all datasets.")

@@ -123,18 +123,30 @@ def main():
 
     sample_size = 300  # Can be changed as needed
 
-    logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
+    logger.info(f"Running pipeline up to {args.mode} mode on {args.dataset} dataset")
 
-    if args.mode == "preprocess":
-        preprocess_data(args.dataset, sample_size, args.force_reprocess)
-    elif args.mode == "train":
-        train_model(args.dataset, args.batch_size, args.epochs, args.learning_rate)
-    elif args.mode == "evaluate":
-        evaluate_model(args.dataset)
-    elif args.mode == "predict":
-        predict(args.dataset)
-    else:
+    # Define the sequence of modes
+    modes = ["preprocess", "train", "evaluate", "predict"]
+
+    # Find the index of the target mode
+    try:
+        target_index = modes.index(args.mode)
+    except ValueError:
         logger.error(f"Unknown mode: {args.mode}")
+        return
+
+    # Run all steps up to and including the specified mode
+    for mode in modes[:target_index + 1]:
+        logger.info(f"Running {mode} step")
+
+        if mode == "preprocess":
+            preprocess_data(args.dataset, sample_size, args.force_reprocess)
+        elif mode == "train":
+            train_model(args.dataset, args.batch_size, args.epochs, args.learning_rate)
+        elif mode == "evaluate":
+            evaluate_model(args.dataset)
+        elif mode == "predict":
+            predict(args.dataset)
 
 
 if __name__ == "__main__":

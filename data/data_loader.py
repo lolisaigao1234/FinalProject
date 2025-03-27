@@ -279,19 +279,6 @@ from config import DATASETS, DATA_DIR
 
 logger = logging.getLogger(__name__)
 
-
-def stratified_sample(df, sample_size):
-    """Create a stratified sample with equal representation of all labels."""
-    samples_per_label = sample_size // 3
-    sampled_dfs = []
-    for label in [0, 1, 2]:
-        label_df = df[df['label'] == label]
-        if len(label_df) > samples_per_label:
-            label_df = label_df.sample(n=samples_per_label, random_state=42)
-        sampled_dfs.append(label_df)
-    return pd.concat(sampled_dfs).sample(frac=1, random_state=42)
-
-
 def _convert_hf_to_dataframe(hf_dataset, dataset_name: str) -> pd.DataFrame:
     """Convert HuggingFace dataset to pandas DataFrame with standardized columns."""
     # Handle DatasetDict vs Dataset
@@ -458,17 +445,12 @@ class DatasetLoader:
                 hf_dataset = load_dataset(self.dataset_mapping[dataset_name], split=split)
                 df = _convert_hf_to_dataframe(hf_dataset, dataset_name)
 
-                # Apply stratified sampling if requested
-                if sample_size:
-                    logger.info(f"Creating stratified sample of size {sample_size} for {dataset_name}")
-                    df = stratified_sample(df, sample_size)
-
                 # Store in database
                 if self.db_handler:
-                    if sample_size:
-                        self.db_handler.store_dataframe(df, dataset_name, split or "all", f"sample{sample_size}")
-                    else:
-                        self.db_handler.store_dataframe(df, dataset_name, split or "all")
+                    # if sample_size:
+                    #     self.db_handler.store_dataframe(df, dataset_name, split or "all")
+                    # else:
+                    self.db_handler.store_dataframe(df, dataset_name, split or "all")
 
                 return df
             else:

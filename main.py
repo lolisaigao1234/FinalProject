@@ -58,6 +58,70 @@ logger = logging.getLogger(__name__)
 #
 #     logger.info("Preprocessing complete")
 
+# def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
+#     """Preprocess data for a dataset."""
+#     logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size}")
+#
+#     # Initialize database handler
+#     db_handler = DatabaseHandler()
+#
+#     # Initialize text preprocessor
+#     preprocessor = TextPreprocessor(db_handler)
+#
+#     # Create stratified sample and splits
+#     splits = preprocessor.create_stratified_sample_and_splits(
+#         dataset_name=dataset_name,
+#         label_column="label",  # Adjust based on your dataset's label column name
+#         total_samples=sample_size,
+#         samples_per_class=sample_size // 3,
+#         test_size=0.2,
+#         n_folds=5,
+#         force_reprocess=force_reprocess
+#     )
+#
+#     # Check if splits are empty
+#     if not splits or splits.get("stratified_sample", pd.DataFrame()).empty:
+#         logger.error("Stratified sample creation failed. Exiting preprocessing.")
+#         return
+#
+#     stratified_sample = splits["stratified_sample"]
+#     train_split = splits["train_split"]
+#     test_split = splits["test_split"]
+#     cv_folds = splits["cv_folds"]
+#
+#     logger.info(f"Created stratified sample and splits: {len(train_split)} train, {len(test_split)} test samples")
+#
+#     # Process sentences for train and test splits
+#     for split_name, split_data in [("train", train_split), ("test", test_split)]:
+#         if split_data.empty:
+#             logger.warning(f"No data available for {split_name} split")
+#             continue
+#
+#         logger.info(f"Processing sentences for {split_name} split")
+#
+#         # Prepare sentence pairs using the new method in TextPreprocessor
+#         pairs_df, sentences_df = preprocessor.prepare_sentence_pairs(split_data,
+#                                                                      f"SNLI_all_sample{sample_size}",
+#                                                                      split_name)
+#
+#         logger.info(f"Processing {len(sentences_df)} sentences with Stanza for {split_name} split")
+#         parse_trees_df = preprocessor.preprocess_dataset(
+#             dataset_name=f"SNLI_all_sample{sample_size}",
+#             split=split_name,
+#             sample_size=len(sentences_df),
+#             force_reprocess=force_reprocess
+#         )
+#
+#         # Extract features
+#         if parse_trees_df is not None and not parse_trees_df.empty:
+#             logger.info(f"Extracting features for {split_name} split")
+#             feature_extractor = FeatureExtractor(db_handler, preprocessor)
+#             feature_extractor.extract_features(
+#                 dataset_name, split_name, force_recompute=force_reprocess
+#             )
+#
+#     logger.info("Preprocessing complete")
+
 def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
     """Preprocess data for a dataset."""
     logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size}")
@@ -65,7 +129,13 @@ def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
     # Initialize database handler
     db_handler = DatabaseHandler()
 
+    # Initialize data loader
     data_loader = DatasetLoader(db_handler)
+
+    # Load and save the dataset as a parquet file
+    full_dataset = data_loader.load_dataset(dataset_name, sample_size=sample_size)
+    # db_handler.store_dataframe(full_dataset, dataset_name, "all", f"data_sample{sample_size}")
+    logger.info(f"Loaded and stored {len(full_dataset)} samples for {dataset_name}")
 
     # Initialize text preprocessor
     preprocessor = TextPreprocessor(db_handler)
@@ -73,7 +143,7 @@ def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
     # Create stratified sample and splits
     splits = preprocessor.create_stratified_sample_and_splits(
         dataset_name=dataset_name,
-        label_column="label",  # Adjust based on your dataset's label column name
+        label_column="label",
         total_samples=sample_size,
         samples_per_class=sample_size // 3,
         test_size=0.2,
@@ -81,32 +151,29 @@ def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
         force_reprocess=force_reprocess
     )
 
-    # Check if splits are empty
     if not splits or splits.get("stratified_sample", pd.DataFrame()).empty:
         logger.error("Stratified sample creation failed. Exiting preprocessing.")
         return
 
-    stratified_sample = splits["stratified_sample"]
-    train_split = splits["train_split"]
-    test_split = splits["test_split"]
-    cv_folds = splits["cv_folds"]
-
-    logger.info(f"Created stratified sample and splits: {len(train_split)} train, {len(test_split)} test samples")
+    logger.info(
+        f"Created stratified sample and splits: {len(splits['train_split'])} train, {len(splits['test_split'])} test samples")
 
     # Process sentences for train and test splits
-    for split_name, split_data in [("train", train_split), ("test", test_split)]:
+    for split_name, split_data in [("train", splits["train_split"]), ("test", splits["test_split"])]:
         if split_data.empty:
             logger.warning(f"No data available for {split_name} split")
             continue
 
         logger.info(f"Processing sentences for {split_name} split")
 
-        # Prepare sentence pairs using the new method in TextPreprocessor
-        pairs_df, sentences_df = preprocessor.prepare_sentence_pairs(split_data, "SNLI_all_sample300", split_name)
+        # Prepare sentence pairs
+        pairs_df, sentences_df = preprocessor.prepare_sentence_pairs(split_data=split_data,
+                                                                     dataset_name=dataset_name,
+                                                                     split=split_name)
 
         logger.info(f"Processing {len(sentences_df)} sentences with Stanza for {split_name} split")
         parse_trees_df = preprocessor.preprocess_dataset(
-            dataset_name="SNLI_all_sample300",
+            dataset_name=dataset_name,
             split=split_name,
             sample_size=len(sentences_df),
             force_reprocess=force_reprocess
@@ -117,7 +184,9 @@ def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
             logger.info(f"Extracting features for {split_name} split")
             feature_extractor = FeatureExtractor(db_handler, preprocessor)
             feature_extractor.extract_features(
-                dataset_name, split_name, force_recompute=force_reprocess
+                dataset_name=dataset_name,
+                split=split_name,
+                force_recompute=force_reprocess
             )
 
     logger.info("Preprocessing complete")

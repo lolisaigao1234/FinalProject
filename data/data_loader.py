@@ -3,6 +3,7 @@ import logging
 from typing import Tuple
 import pandas as pd
 from datasets import load_dataset
+from utils.database import DatabaseHandler
 
 from config import DATASETS, DATA_DIR
 from sklearn.model_selection import train_test_split
@@ -62,11 +63,31 @@ class DatasetLoader:
         return sampled_df
 
     def preprocess_data(dataset_names, sample_size=300, test_size=0.2):
+        """Preprocess multiple datasets with stratified sampling."""
+        # Initialize database handler
+        db_handler = DatabaseHandler()
+
+        # Initialize data loader
+        data_loader = DatasetLoader(db_handler)
+
+        # Process each dataset
         for dataset_name in dataset_names:
+            logger.info(f"Processing dataset: {dataset_name}")
             df = data_loader.load_dataset(dataset_name, sample_size)
-            train_df, test_df = train_test_split(df, test_size=test_size, stratify=df['label'], random_state=42)
+
+            # Perform train-test split
+            train_df, test_df = train_test_split(
+                df, test_size=test_size,
+                stratify=df['label'],
+                random_state=42
+            )
+
+            # Save the downsampled datasets
             data_loader.save_downsampled_dataset(train_df, f"{dataset_name}_train", sample_size)
             data_loader.save_downsampled_dataset(test_df, f"{dataset_name}_test", sample_size)
+
+            # Continue with the rest of your preprocessing pipeline
+            # ...
 
     # def load_dataset(self, dataset_name: str, split: str = None, force_reload: bool = False) -> pd.DataFrame:
     #     # Check if already loaded and cached

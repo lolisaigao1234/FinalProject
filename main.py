@@ -65,7 +65,7 @@ def parse_args():
 
     return parser.parse_args()
 
-def preprocess_data(dataset_name, force_reprocess=False):
+def preprocess_data(dataset_name, sample_size, force_reprocess=False):
     """Preprocess data for a dataset."""
     logger.info(f"Preprocessing {dataset_name} dataset")
 
@@ -192,19 +192,18 @@ def main():
     """Main entry point."""
     args = parse_args()
 
-    dataset_names = ["SNLI", "MNLI", "ANLI"]
     sample_size = 300  # Can be changed as needed
 
     logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
 
     if args.mode == "preprocess":
-        preprocess_data(dataset_names, sample_size)
-    # elif args.mode == "train":
-    #     train_model(args.dataset, args.batch_size, args.epochs, args.learning_rate)
-    # elif args.mode == "evaluate":
-    #     evaluate_model(args.dataset)
-    # elif args.mode == "predict":
-    #     predict(args.dataset)
+        preprocess_data(args.dataset, sample_size, args.force_reprocess)
+    elif args.mode == "train":
+        train_model(args.dataset, args.batch_size, args.epochs, args.learning_rate)
+    elif args.mode == "evaluate":
+        evaluate_model(args.dataset)
+    elif args.mode == "predict":
+        predict(args.dataset)
     else:
         logger.error(f"Unknown mode: {args.mode}")
 

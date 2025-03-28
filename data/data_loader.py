@@ -90,37 +90,15 @@ class DatasetLoader:
             # Original single dataset case
             return self._load_single_dataset(dataset_name, split, sample_size)
 
-    # def _load_single_dataset(self, dataset_name, split=None, sample_size=None):
-    #     """Load a single dataset by name."""
-    #     try:
-    #         # Load from HuggingFace
-    #         if dataset_name in self.dataset_mapping:
-    #             hf_dataset = load_dataset(self.dataset_mapping[dataset_name], split=split)
-    #             df = _convert_hf_to_dataframe(hf_dataset, dataset_name)
-    #
-    #             # Store in database
-    #             if self.db_handler:
-    #                 if sample_size:
-    #                     self.db_handler.store_dataframe(df, dataset_name, split or "all", f"sample{sample_size}")
-    #                 else:
-    #                     self.db_handler.store_dataframe(df, dataset_name, split or "all")
-    #
-    #             return df
-    #         else:
-    #             raise ValueError(f"Dataset {dataset_name} not configured")
-    #
-    #     except Exception as e:
-    #         logger.error(f"Error loading dataset {dataset_name}: {str(e)}")
-    #         raise
-
     def _load_single_dataset(self, dataset_name: str, split: Optional[str] = None,
                              sample_size: Optional[int] = None) -> pd.DataFrame:
         """Load and sample dataset splits with proper file naming."""
         # Get predefined splits for the dataset
         logger.info(f"Loading {dataset_name}, split: {split}, sample_size: {sample_size}")
         splits = ["train", "validation", "test"] if split is None else [split]
-        dfs = []
 
+        dfs = []
+        logger.info(f"Splits names: {splits}")
         for split_name in splits:
             # Generate standardized filename
             file_name = f"{dataset_name}_{split_name}"
@@ -134,41 +112,44 @@ class DatasetLoader:
                 dfs.append(df)
                 continue
 
-            # Load from HuggingFace if not cached
-            try:
-                hf_dataset = load_dataset(self.dataset_mapping[dataset_name], split=split_name)
-                df = _convert_hf_to_dataframe(hf_dataset, dataset_name)
+            # Check if dataset has specific split handling
+            specific_df = self._handle_dataset_specific_splits(dataset_name, split_name)
+            if specific_df is not None:
+                # If specific handling was applied, use the returned dataframe
+                df = specific_df
+            else:
+                # Load from HuggingFace if no specific handling
+                try:
+                    hf_dataset = load_dataset(self.dataset_mapping[dataset_name], split=split_name)
+                    df = _convert_hf_to_dataframe(hf_dataset, dataset_name)
+                except Exception as e:
+                    logger.error(f"Error loading {split_name} split for {dataset_name}: {str(e)}")
+                    continue
 
-                logger.info(f"Using full {split_name} split of {dataset_name} ({len(df)} examples)")
+            logger.info(f"Using full {split_name} split of {dataset_name} ({len(df)} examples)")
 
-                # Save with split-specific filename
-                df.to_parquet(file_path)
-                dfs.append(df)
+            # Save with split-specific filename
+            df.to_parquet(file_path)
+            dfs.append(df)
 
-                # Store in database
-                if self.db_handler:
-                    suffix = "data" # f"sample{sample_size}" if sample_size else "full"
-                    self.db_handler.store_dataframe(
-                        df,
-                        dataset_name,
-                        split_name,  # Store under correct split
-                        suffix
-                    )
-
-            except Exception as e:
-                logger.error(f"Error loading {split_name} split for {dataset_name}: {str(e)}")
-                continue
+            # Store in database
+            if self.db_handler:
+                suffix = "data"  # f"sample{sample_size}" if sample_size else "full"
+                self.db_handler.store_dataframe(
+                    df,
+                    dataset_name,
+                    split_name,  # Store under correct split
+                    suffix
+                )
 
         return pd.concat(dfs, ignore_index=True) if len(dfs) > 1 else dfs[0]
 
-    # For ANLI
     def _handle_dataset_specific_splits(self, dataset_name, split):
         """Handle dataset-specific split naming conventions."""
         # Handle ANLI's specific split naming
-        if dataset_name == "ANLI" and split in ["train", "dev", "validation", "test"]:
+        if dataset_name == "ANLI" and split in ["train", "validation", "test"]:
             split_mapping = {
                 "train": ["train_r1", "train_r2", "train_r3"],
-                "dev": ["dev_r1", "dev_r2", "dev_r3"],
                 "validation": ["dev_r1", "dev_r2", "dev_r3"],
                 "test": ["test_r1", "test_r2", "test_r3"]
             }
@@ -184,7 +165,24 @@ class DatasetLoader:
                 for s in specific_splits
             ], ignore_index=True)
 
-        # Add handlers for other datasets with special split naming here
+        if dataset_name == "MNLI" and split in ["train", "validation", "test"]:
+            # MNLI has specific split names
+            split_mapping = {
+                "train": "train",
+                "validation": "validation_matched",
+                "test": "validation_mismatched"
+            }
+
+            specific_split = split_mapping[split]
+            logger.info(f"Loading {dataset_name} {split} split: {specific_split}")
+
+            # No need for pd.concat since we're only loading one split
+            return _convert_hf_to_dataframe(
+                load_dataset(self.dataset_mapping[dataset_name], split=specific_split),
+                dataset_name
+            )
+
+        # For SNLI, no special handling needed as it uses standard split names
 
         # Return None if no special handling needed
         return None

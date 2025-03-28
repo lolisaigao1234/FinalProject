@@ -81,7 +81,7 @@ def parse_args():
     """Parse command line arguments with performance-related options"""
     parser = argparse.ArgumentParser(description="NLI Pipeline")
     parser.add_argument("--dataset", default="SNLI", choices=["SNLI", "MNLI", "ANLI"])
-    parser.add_argument("--mode", default="train", choices=["preprocess", "train", "evaluate", "predict"])
+    parser.add_argument("--mode", default="preprocess", choices=["preprocess", "train", "evaluate", "predict"])
     parser.add_argument("--batch_size", type=int, default=BATCH_SIZE,
                        help=f"Batch size (default: {BATCH_SIZE})")
     parser.add_argument("--grad_accum", type=int, default=GRAD_ACCUM_STEPS,
@@ -93,6 +93,7 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=EPOCHS)
     parser.add_argument("--learning_rate", type=float, default=LEARNING_RATE)
     parser.add_argument("--force_reprocess", action="store_true")
-    parser.add_argument("--sample_size", type=int, default=300,
+    parser.add_argument("--sample_size", type=int, default=0,
                         help="Sample size for preprocessing")
+    parser.add_argument("--train_ratio", type=float, default=0.8)
     return parser.parse_args()

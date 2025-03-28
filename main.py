@@ -14,13 +14,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def preprocess_data(dataset_name, sample_size, force_reprocess=False):
+def preprocess_data(dataset_name, sample_size, train_ratio, force_reprocess=False):
     logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size}")
 
     db_handler = DatabaseHandler()
     preprocessor = TextPreprocessor(db_handler, sample_size)
 
-    preprocessor.preprocess_dataset_pipeline(dataset_name, sample_size, force_reprocess)
+    preprocessor.preprocess_dataset_pipeline(dataset_name, sample_size, train_ratio, force_reprocess)
 
     logger.info("Preprocessing complete")
 
@@ -33,7 +33,7 @@ def main():
     torch.backends.cudnn.benchmark = True  # Keep True unless using deterministic mode
     torch.backends.cudnn.deterministic = False
 
-    # sample_size = 100  # Can be changed as needed
+    sample_size = args.sample_size if args.sample_size != 0 else None  # Can be changed as needed
 
     logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
     logger.info(f"Using device: {DEVICE}")
@@ -41,7 +41,7 @@ def main():
     logger.info(f"Mixed precision: {args.fp16}, Torch compile: {args.compile}")
 
     if args.mode == "preprocess":
-        preprocess_data(args.dataset, args.sample_size, args.force_reprocess)
+        preprocess_data(args.dataset, sample_size, args.train_ratio, args.force_reprocess)
     elif args.mode == "train":
         pass
     elif args.mode == "evaluate":

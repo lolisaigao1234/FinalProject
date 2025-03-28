@@ -49,15 +49,9 @@ class PreprocessorInterface(ABC):
         pass
 
     @abstractmethod
-    def create_train_test_split(self, dataset_name: str,
-                                label_column: str = "label",
-                                test_size: float = 0.2,
-                                random_state: int = 42) -> Dict[str, pd.DataFrame]:
-        pass
-
-    @abstractmethod
     def preprocess_dataset_pipeline(self, dataset_name: str,
-                                    sample_size: int,
+                                    total_sample_size: int,
+                                    train_ratio: float,
                                     force_reprocess: bool) -> None:
         pass
 

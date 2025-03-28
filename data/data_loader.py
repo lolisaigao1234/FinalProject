@@ -1,15 +1,12 @@
 # data/data_loader.py
 import os
-import logging
-from typing import Dict, List, Optional, Union, Tuple
-import pandas as pd
-import numpy as np
-from datasets import load_dataset
-from pandas import DataFrame
-from tqdm import tqdm
-from sklearn.model_selection import train_test_split
 
-from config import DATASETS, DATA_DIR
+from typing import Optional
+import pandas as pd
+from datasets import load_dataset
+
+from config import DATA_DIR
+from utils.common import logging
 
 logger = logging.getLogger(__name__)
 
@@ -93,28 +90,76 @@ class DatasetLoader:
             # Original single dataset case
             return self._load_single_dataset(dataset_name, split, sample_size)
 
-    def _load_single_dataset(self, dataset_name, split=None, sample_size=None):
-        """Load a single dataset by name."""
-        try:
-            # Load from HuggingFace
-            if dataset_name in self.dataset_mapping:
-                hf_dataset = load_dataset(self.dataset_mapping[dataset_name], split=split)
+    # def _load_single_dataset(self, dataset_name, split=None, sample_size=None):
+    #     """Load a single dataset by name."""
+    #     try:
+    #         # Load from HuggingFace
+    #         if dataset_name in self.dataset_mapping:
+    #             hf_dataset = load_dataset(self.dataset_mapping[dataset_name], split=split)
+    #             df = _convert_hf_to_dataframe(hf_dataset, dataset_name)
+    #
+    #             # Store in database
+    #             if self.db_handler:
+    #                 if sample_size:
+    #                     self.db_handler.store_dataframe(df, dataset_name, split or "all", f"sample{sample_size}")
+    #                 else:
+    #                     self.db_handler.store_dataframe(df, dataset_name, split or "all")
+    #
+    #             return df
+    #         else:
+    #             raise ValueError(f"Dataset {dataset_name} not configured")
+    #
+    #     except Exception as e:
+    #         logger.error(f"Error loading dataset {dataset_name}: {str(e)}")
+    #         raise
+
+    def _load_single_dataset(self, dataset_name: str, split: Optional[str] = None,
+                             sample_size: Optional[int] = None) -> pd.DataFrame:
+        """Load and sample dataset splits with proper file naming."""
+        # Get predefined splits for the dataset
+        logger.info(f"Loading {dataset_name}, split: {split}, sample_size: {sample_size}")
+        splits = ["train", "validation", "test"] if split is None else [split]
+        dfs = []
+
+        for split_name in splits:
+            # Generate standardized filename
+            file_name = f"{dataset_name}_{split_name}"
+            if sample_size:
+                file_name += f"_sample{sample_size}"
+            file_path = os.path.join(self.data_dir, f"{file_name}.parquet")
+
+            # Try loading existing data first
+            if os.path.exists(file_path):
+                df = pd.read_parquet(file_path)
+                dfs.append(df)
+                continue
+
+            # Load from HuggingFace if not cached
+            try:
+                hf_dataset = load_dataset(self.dataset_mapping[dataset_name], split=split_name)
                 df = _convert_hf_to_dataframe(hf_dataset, dataset_name)
+
+                logger.info(f"Using full {split_name} split of {dataset_name} ({len(df)} examples)")
+
+                # Save with split-specific filename
+                df.to_parquet(file_path)
+                dfs.append(df)
 
                 # Store in database
                 if self.db_handler:
-                    if sample_size:
-                        self.db_handler.store_dataframe(df, dataset_name, split or "all", f"sample{sample_size}")
-                    else:
-                        self.db_handler.store_dataframe(df, dataset_name, split or "all")
+                    suffix = "data" # f"sample{sample_size}" if sample_size else "full"
+                    self.db_handler.store_dataframe(
+                        df,
+                        dataset_name,
+                        split_name,  # Store under correct split
+                        suffix
+                    )
 
-                return df
-            else:
-                raise ValueError(f"Dataset {dataset_name} not configured")
+            except Exception as e:
+                logger.error(f"Error loading {split_name} split for {dataset_name}: {str(e)}")
+                continue
 
-        except Exception as e:
-            logger.error(f"Error loading dataset {dataset_name}: {str(e)}")
-            raise
+        return pd.concat(dfs, ignore_index=True) if len(dfs) > 1 else dfs[0]
 
     # For ANLI
     def _handle_dataset_specific_splits(self, dataset_name, split):

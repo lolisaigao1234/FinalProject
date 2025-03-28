@@ -3,7 +3,6 @@ from typing import List, Dict
 
 import pandas as pd
 import torch
-from torch.utils.hipify.hipify_python import preprocessor
 from transformers import AutoTokenizer, AutoModel
 from tqdm import tqdm
 
@@ -12,6 +11,101 @@ from utils.database import DatabaseHandler
 from data.preprocessor import TextPreprocessor
 
 logger = logging.getLogger(__name__)
+
+
+def extract_parse_features(parse_tree_str: str, tree_type: str = "constituency") -> Dict:
+    """Extract features from a parse tree."""
+    features = {}
+
+    if not parse_tree_str:
+        return features
+
+    if tree_type == "constituency":
+        # Extract constituency features
+        features["tree_depth"] = parse_tree_str.count("(")
+
+        # Count phrase types
+        phrase_types = ["NP", "VP", "PP", "ADJP", "ADVP", "S", "SBAR"]
+        for phrase in phrase_types:
+            features[f"count_{phrase}"] = parse_tree_str.count(f"({phrase} ")
+
+    elif tree_type == "dependency":
+        # Parse the string representation back to a list of dicts
+        try:
+            dep_edges = eval(parse_tree_str)
+
+            # Extract dependency features
+            pos_counts = {}
+            deprel_counts = {}
+
+            for edge in dep_edges:
+                pos = edge.get("pos", "UNKNOWN")
+                deprel = edge.get("deprel", "UNKNOWN")
+
+                pos_counts[pos] = pos_counts.get(pos, 0) + 1
+                deprel_counts[deprel] = deprel_counts.get(deprel, 0) + 1
+
+            # Add counts to features
+            for pos, count in pos_counts.items():
+                features[f"pos_{pos}"] = count
+
+            for deprel, count in deprel_counts.items():
+                features[f"deprel_{deprel}"] = count
+
+            # Tree depth approximation
+            features["tree_depth"] = max(edge.get("head", 0) for edge in dep_edges)
+
+        except Exception as e:
+            logger.error(f"Error parsing dependency tree: {str(e)}")
+
+    return features
+
+
+def _extract_syntactic_features(
+        premise_constituency: str,
+        premise_dependency: str,
+        hypothesis_constituency: str,
+        hypothesis_dependency: str
+) -> Dict:
+    """Extract syntactic features from parse trees."""
+    features = {}
+
+    # Extract features from constituency trees
+    premise_const_features = extract_parse_features(
+        premise_constituency, "constituency"
+    )
+    hypothesis_const_features = extract_parse_features(
+        hypothesis_constituency, "constituency"
+    )
+
+    # Extract features from dependency trees
+    premise_dep_features = extract_parse_features(
+        premise_dependency, "dependency"
+    )
+    hypothesis_dep_features = extract_parse_features(
+        hypothesis_dependency, "dependency"
+    )
+
+    # Add prefix to distinguish features
+    for key, value in premise_const_features.items():
+        features[f"premise_const_{key}"] = value
+
+    for key, value in hypothesis_const_features.items():
+        features[f"hypothesis_const_{key}"] = value
+
+    for key, value in premise_dep_features.items():
+        features[f"premise_dep_{key}"] = value
+
+    for key, value in hypothesis_dep_features.items():
+        features[f"hypothesis_dep_{key}"] = value
+
+    # Compute feature differences
+    for key in premise_const_features:
+        p_val = premise_const_features.get(key, 0)
+        h_val = hypothesis_const_features.get(key, 0)
+        features[f"diff_const_{key}"] = p_val - h_val
+
+    return features
 
 
 class FeatureExtractor:
@@ -96,7 +190,7 @@ class FeatureExtractor:
 
             # Extract syntactic features if requested
             if "syntactic" in feature_types and "premise_constituency" in row and "hypothesis_constituency" in row:
-                syntactic_features = self._extract_syntactic_features(
+                syntactic_features = _extract_syntactic_features(
                     row.get("premise_constituency", ""),
                     row.get("premise_dependency", ""),
                     row.get("hypothesis_constituency", ""),
@@ -212,52 +306,5 @@ class FeatureExtractor:
 
         features["word_overlap_count"] = len(intersection)
         features["word_overlap_ratio"] = len(intersection) / len(union) if union else 0
-
-        return features
-
-    def _extract_syntactic_features(
-            self,
-            premise_constituency: str,
-            premise_dependency: str,
-            hypothesis_constituency: str,
-            hypothesis_dependency: str
-    ) -> Dict:
-        """Extract syntactic features from parse trees."""
-        features = {}
-
-        # Extract features from constituency trees
-        premise_const_features = self.preprocessor.extract_parse_features(
-            premise_constituency, "constituency"
-        )
-        hypothesis_const_features = self.preprocessor.extract_parse_features(
-            hypothesis_constituency, "constituency"
-        )
-
-        # Extract features from dependency trees
-        premise_dep_features = self.preprocessor.extract_parse_features(
-            premise_dependency, "dependency"
-        )
-        hypothesis_dep_features = self.preprocessor.extract_parse_features(
-            hypothesis_dependency, "dependency"
-        )
-
-        # Add prefix to distinguish features
-        for key, value in premise_const_features.items():
-            features[f"premise_const_{key}"] = value
-
-        for key, value in hypothesis_const_features.items():
-            features[f"hypothesis_const_{key}"] = value
-
-        for key, value in premise_dep_features.items():
-            features[f"premise_dep_{key}"] = value
-
-        for key, value in hypothesis_dep_features.items():
-            features[f"hypothesis_dep_{key}"] = value
-
-        # Compute feature differences
-        for key in premise_const_features:
-            p_val = premise_const_features.get(key, 0)
-            h_val = hypothesis_const_features.get(key, 0)
-            features[f"diff_const_{key}"] = p_val - h_val
 
         return features

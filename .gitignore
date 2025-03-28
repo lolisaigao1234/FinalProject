@@ -4,3 +4,5 @@ cache
 __pycache__
 data_files
 saved_models
+/.idea
+*.pyc

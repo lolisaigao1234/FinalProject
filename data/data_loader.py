@@ -103,10 +103,10 @@ class DatasetLoader:
 
                 # Store in database
                 if self.db_handler:
-                    # if sample_size:
-                    #     self.db_handler.store_dataframe(df, dataset_name, split or "all")
-                    # else:
-                    self.db_handler.store_dataframe(df, dataset_name, split or "all")
+                    if sample_size:
+                        self.db_handler.store_dataframe(df, dataset_name, split or "all", f"sample{sample_size}")
+                    else:
+                        self.db_handler.store_dataframe(df, dataset_name, split or "all")
 
                 return df
             else:
@@ -116,6 +116,7 @@ class DatasetLoader:
             logger.error(f"Error loading dataset {dataset_name}: {str(e)}")
             raise
 
+    # For ANLI
     def _handle_dataset_specific_splits(self, dataset_name, split):
         """Handle dataset-specific split naming conventions."""
         # Handle ANLI's specific split naming

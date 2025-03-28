@@ -93,7 +93,7 @@ def parse_args():
     parser.add_argument("--epochs", type=int, default=EPOCHS)
     parser.add_argument("--learning_rate", type=float, default=LEARNING_RATE)
     parser.add_argument("--force_reprocess", action="store_true")
-    parser.add_argument("--sample_size", type=int, default=0,
+    parser.add_argument("--sample_size", type=int, default=None,
                         help="Sample size for preprocessing")
     parser.add_argument("--train_ratio", type=float, default=0.8)
     return parser.parse_args()

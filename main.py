@@ -1,46 +1,21 @@
 # main.py (optimized for A100)
-import logging
-import time
-import torch
-import pandas as pd
-import numpy as np
-from torch.utils.data import DataLoader, TensorDataset
-
-from data import DatasetLoader
-from data.preprocessor import TextPreprocessor
-from features.feature_extractor import FeatureExtractor
-from models import BERTWithSyntacticAttention, ModelTrainer
+from utils.common import logging, torch
 from utils.database import DatabaseHandler
+from data.preprocessor import TextPreprocessor
+
 from config import (parse_args, DEVICE, BATCH_SIZE, NUM_WORKERS, PIN_MEMORY, USE_FP16, GRAD_ACCUM_STEPS, TORCH_COMPILE,
                     MODELS_DIR, LEARNING_RATE)
 
 # Configure logging
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+# )
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-
-def create_dataloader(features_df, batch_size, shuffle=True):
-    """Create optimized DataLoader from features DataFrame"""
-    # Handle NaNs and convert to numpy
-    features_clean = features_df.drop(columns=['pair_id', 'label']).fillna(0)
-    features_np = features_clean.values.astype(np.float32)
-
-    syntactic_features = torch.tensor(features_np, dtype=torch.float32).to(DEVICE)
-    labels = torch.tensor(features_df['label'].values, dtype=torch.long).to(DEVICE)
-
-    dataset = TensorDataset(syntactic_features, labels)
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=NUM_WORKERS,
-        pin_memory=PIN_MEMORY,
-        persistent_workers=True
-    )
-
 
 # def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
 #     """Preprocess data for a dataset."""
@@ -112,120 +87,61 @@ def create_dataloader(features_df, batch_size, shuffle=True):
 #
 #     logger.info("Preprocessing complete")
 
+#def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
+#     logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size}")
+#
+#     db_handler = DatabaseHandler()
+#     data_loader = DatasetLoader(db_handler)
+#     preprocessor = TextPreprocessor(db_handler, sample_size)
+#
+#     full_dataset = data_loader.load_dataset(dataset_name, sample_size=sample_size)
+#     logger.info(f"Loaded {len(full_dataset)} samples for {dataset_name}")
+#
+#     splits = preprocessor.create_train_test_split(dataset_name)
+#     if not splits:
+#         logger.error("Train-test split creation failed. Exiting preprocessing.")
+#         return
+#
+#     logger.info(f"Created train-test split: {len(splits['train_split'])} train, {len(splits['test_split'])} test samples")
+#
+#     for split_name, split_data in splits.items():
+#         if split_data.empty:
+#             logger.warning(f"No data available for {split_name} split")
+#             continue
+#
+#         logger.info(f"Processing sentences for {split_name} split")
+#         pairs_df, sentences_df = preprocessor.prepare_sentence_pairs(split_data, dataset_name, split_name)
+#
+#         logger.info(f"Processing {sample_size} sentences with Stanza for {split_name} split")
+#         parse_trees_df = preprocessor.preprocess_dataset(
+#             dataset_name=dataset_name,
+#             split=split_name,
+#             sample_size= sample_size, #len(sentences_df)
+#             force_reprocess=force_reprocess
+#         )
+#
+#         if parse_trees_df is not None and not parse_trees_df.empty:
+#             logger.info(f"Extracting features for {split_name} split")
+#             feature_extractor = FeatureExtractor(db_handler, preprocessor)
+#             feature_extractor.extract_features(
+#                 dataset_name=dataset_name,
+#                 split=split_name,
+#                 force_recompute=force_reprocess,
+#                 sample_size=sample_size
+#             )
+#
+#     logger.info("Preprocessing complete")
+
+
 def preprocess_data(dataset_name, sample_size=300, force_reprocess=False):
     logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size}")
 
     db_handler = DatabaseHandler()
-    data_loader = DatasetLoader(db_handler)
     preprocessor = TextPreprocessor(db_handler, sample_size)
 
-    full_dataset = data_loader.load_dataset(dataset_name, sample_size=sample_size)
-    logger.info(f"Loaded {len(full_dataset)} samples for {dataset_name}")
-
-    splits = preprocessor.create_train_test_split(dataset_name)
-    if not splits:
-        logger.error("Train-test split creation failed. Exiting preprocessing.")
-        return
-
-    logger.info(f"Created train-test split: {len(splits['train_split'])} train, {len(splits['test_split'])} test samples")
-
-    for split_name, split_data in splits.items():
-        if split_data.empty:
-            logger.warning(f"No data available for {split_name} split")
-            continue
-
-        logger.info(f"Processing sentences for {split_name} split")
-        pairs_df, sentences_df = preprocessor.prepare_sentence_pairs(split_data, dataset_name, split_name)
-
-        logger.info(f"Processing {sample_size} sentences with Stanza for {split_name} split")
-        parse_trees_df = preprocessor.preprocess_dataset(
-            dataset_name=dataset_name,
-            split=split_name,
-            sample_size= sample_size, #len(sentences_df)
-            force_reprocess=force_reprocess
-        )
-
-        if parse_trees_df is not None and not parse_trees_df.empty:
-            logger.info(f"Extracting features for {split_name} split")
-            feature_extractor = FeatureExtractor(db_handler, preprocessor)
-            feature_extractor.extract_features(
-                dataset_name=dataset_name,
-                split=split_name,
-                force_recompute=force_reprocess,
-                sample_size=sample_size
-            )
+    preprocessor.preprocess_dataset_pipeline(dataset_name, sample_size, force_reprocess)
 
     logger.info("Preprocessing complete")
-
-
-
-def train_model(dataset_name, sample_size=300, batch_size=BATCH_SIZE,
-                epochs=5, learning_rate=2e-5):
-    """Optimized training function for A100 GPUs"""
-    logger.info(f"Training model on {dataset_name} dataset with batch size {batch_size}")
-
-    # Initialize database handler
-    db_handler = DatabaseHandler()
-
-    # Load features
-    train_features = db_handler.load_dataframe(
-        dataset_name, "train", f"features_lexical_syntactic_sample{sample_size}")
-    val_features = db_handler.load_dataframe(
-        dataset_name, "dev", f"features_lexical_syntactic_sample{sample_size}")
-
-    # Create optimized DataLoaders
-    train_loader = create_dataloader(train_features, batch_size)
-    val_loader = create_dataloader(val_features, batch_size, shuffle=False)
-
-    # Initialize model with compilation
-    model = BERTWithSyntacticAttention(
-        syntactic_feature_dim=train_features.shape[1] - 2
-    ).to(DEVICE)
-
-    if TORCH_COMPILE and hasattr(torch, 'compile'):
-        model = torch.compile(model)  # PyTorch 2.0 compiler
-
-    # Initialize trainer with AMP support
-    trainer = ModelTrainer(
-        model=model,
-        device=DEVICE,
-        learning_rate=LEARNING_RATE,
-        use_amp=USE_FP16,
-        grad_accum_steps=GRAD_ACCUM_STEPS,
-        enable_compile=TORCH_COMPILE
-    )
-
-    # Training loop with metrics tracking
-    best_acc = 0.0
-    for epoch in range(epochs):
-        start_time = time.time()
-
-        # Train
-        train_metrics = trainer.train_epoch(train_loader, epoch)
-
-        # Validate
-        val_metrics = trainer.validate(val_loader)
-
-        # Epoch summary
-        epoch_time = time.time() - start_time
-        logger.info(
-            f"Epoch {epoch + 1}/{epochs} | "
-            f"Time: {epoch_time:.2f}s | "
-            f"Train Loss: {train_metrics['loss']:.4f} | "
-            f"Val Acc: {val_metrics['accuracy']:.2%} | "
-            f"LR: {trainer.optimizer.param_groups[0]['lr']:.2e}"
-        )
-
-        # Save best model
-        if val_metrics['accuracy'] > best_acc:
-            best_acc = val_metrics['accuracy']
-            trainer.save_model(
-                path=f"{MODELS_DIR}/best_model_{dataset_name}.pt",
-                epoch=epoch,
-                metrics=val_metrics
-            )
-
-    logger.info(f"Training complete. Best validation accuracy: {best_acc:.2%}")
 
 
 def main():
@@ -246,13 +162,7 @@ def main():
     if args.mode == "preprocess":
         preprocess_data(args.dataset, sample_size, args.force_reprocess)
     elif args.mode == "train":
-        train_model(
-            args.dataset,
-            sample_size,
-            batch_size=args.batch_size,
-            epochs=args.epochs,
-            learning_rate=args.learning_rate
-        )
+        pass
     elif args.mode == "evaluate":
         # evaluate_model(args.dataset)
         pass

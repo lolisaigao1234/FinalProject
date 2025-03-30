@@ -1,9 +1,10 @@
 # utils/common.py
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Tuple, List, Optional, Any
+from typing import Tuple, List, Optional, Any
 import pandas as pd
 import torch
+import numpy as np
 
 
 class NLPBaseComponent:
@@ -67,4 +68,34 @@ class FeatureExtractorInterface(ABC):
 
     @abstractmethod
     def get_embeddings(self, text: List[str]) -> torch.Tensor:
+        pass
+
+
+class NLIModel(ABC):
+    """Abstract base class for NLI models."""
+
+    @abstractmethod
+    def extract_features(self, data: pd.DataFrame) -> np.ndarray:
+        """Extract features from input data."""
+        pass
+
+    @abstractmethod
+    def train(self, X: np.ndarray, y: np.ndarray) -> None:
+        """Train the model."""
+        pass
+
+    @abstractmethod
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Make predictions on new data."""
+        pass
+
+    @abstractmethod
+    def save(self, filepath: str) -> None:
+        """Save model to disk."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def load(cls, filepath: str) -> 'NLIModel':
+        """Load model from disk."""
         pass

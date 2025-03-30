@@ -27,43 +27,6 @@ from config import MODELS_DIR, LEARNING_RATE, WEIGHT_DECAY, EPOCHS
 logger = logging.getLogger(__name__)
 
 
-# Data loading functions
-# def load_parquet_data(dataset_name: str, split: str = 'train',
-#                       sample_size: Optional[int] = None,
-#                       cache_dir: Optional[str] = None) -> pd.DataFrame:
-#     """Load data from parquet files."""
-#     if cache_dir is None:
-#         cache_dir = 'cache/parquet'
-#
-#     pattern = os.path.join(cache_dir, f'{dataset_name}_{split}*.parquet')
-#     parquet_files = glob.glob(pattern)
-#
-#     print("pattern", pattern)
-#     print("parquet_files", parquet_files)
-#
-#     if not parquet_files:
-#         raise FileNotFoundError(f"No parquet files found for {dataset_name} {split} split")
-#
-#     dfs = []
-#     for file in parquet_files:
-#         df = pd.read_parquet(file)
-#         dfs.append(df)
-#
-#     result = pd.concat(dfs, ignore_index=True)
-#
-#     # print(result)
-#     logger.info(f"Printing out result")
-#     print(result)
-#     logger.info("Printing out result.shape")
-#     print(result.shape)
-#
-#     # Apply sample size if specified
-#     # if sample_size and len(result) > sample_size:
-#     #     result = result.sample(sample_size, random_state=42)
-#
-#     logger.info(f"Loaded {len(result)} examples from {dataset_name} {split} split")
-#     return result
-
 # Data loading functions for SVM models
 def load_parquet_data(dataset_name: str, split: str = 'train',
                       feature_type: str = None,
@@ -128,213 +91,6 @@ class SVMBaseModel(NLIModel, ABC):
             raise RuntimeError("Model has not been trained yet")
         return self.svm.predict(X)
 
-
-# class SVMWithBagOfWords(SVMBaseModel):
-#     """SVM model using only bag of words features."""
-#
-#     def __init__(self, kernel: str = 'linear', C: float = 1.0, max_features: int = 10000, use_tfidf: bool = True):
-#         """Initialize BoW SVM model."""
-#         super().__init__(kernel, C)
-#         self.max_features = max_features
-#         self.use_tfidf = use_tfidf
-#
-#         if use_tfidf:
-#             self.vectorizer = TfidfVectorizer(max_features=max_features, stop_words='english')
-#         else:
-#             self.vectorizer = CountVectorizer(max_features=max_features, stop_words='english')
-#
-#     def extract_features(self, data: pd.DataFrame) -> np.ndarray:
-#         """Extract bag of words features from text data."""
-#         logger.info("Extracting bag of words features")
-#
-#         # Combine premise and hypothesis texts
-#         texts = data['premise'].fillna('').astype(str) + ' ' + data['hypothesis'].fillna('').astype(str)
-#
-#         # Transform or fit_transform based on training status
-#         if hasattr(self.vectorizer, 'vocabulary_') and self.is_trained:
-#             features = self.vectorizer.transform(texts)
-#         else:
-#             logger.info(f"Fitting vectorizer with {len(texts)} texts")
-#             features = self.vectorizer.fit_transform(texts)
-#
-#         logger.info(f"Extracted {features.shape[1]} bag of words features")
-#         return features
-#
-#     def save(self, filepath: str) -> None:
-#         """Save model to disk."""
-#         model_data = {
-#             'svm': self.svm,
-#             'vectorizer': self.vectorizer,
-#             'kernel': self.kernel,
-#             'C': self.C,
-#             'max_features': self.max_features,
-#             'use_tfidf': self.use_tfidf,
-#             'is_trained': self.is_trained
-#         }
-#         joblib.dump(model_data, filepath)
-#         logger.info(f"Saved model to {filepath}")
-#
-#     @classmethod
-#     def load(cls, filepath: str) -> 'SVMWithBagOfWords':
-#         """Load model from disk."""
-#         model_data = joblib.load(filepath)
-#         instance = cls(
-#             kernel=model_data['kernel'],
-#             C=model_data['C'],
-#             max_features=model_data['max_features'],
-#             use_tfidf=model_data['use_tfidf']
-#         )
-#         instance.svm = model_data['svm']
-#         instance.vectorizer = model_data['vectorizer']
-#         instance.is_trained = model_data['is_trained']
-#         logger.info(f"Loaded model from {filepath}")
-#         return instance
-
-
-# class SVMWithSyntax(SVMBaseModel):
-#     """SVM model using only syntactic features."""
-#
-#     def __init__(self, kernel: str = 'linear', C: float = 1.0,
-#                  feature_types: List[str] = None, max_features: int = 5000):
-#         """Initialize syntax SVM model."""
-#         super().__init__(kernel, C)
-#         self.feature_types = feature_types or ['dependency', 'constituency', 'pos']
-#         self.max_features = max_features
-#         self.vectorizers = {
-#             feature_type: CountVectorizer(max_features=max_features, ngram_range=(1, 2))
-#             for feature_type in self.feature_types
-#         }
-#
-#     def extract_features(self, data: pd.DataFrame) -> np.ndarray:
-#         """Extract syntactic features from parsed data."""
-#         logger.info("Extracting syntactic features")
-#         feature_matrices = []
-#
-#         for feature_type in self.feature_types:
-#             premise_col = f'premise_{feature_type}'
-#             hypothesis_col = f'hypothesis_{feature_type}'
-#
-#             if premise_col in data.columns and hypothesis_col in data.columns:
-#                 # Combine premise and hypothesis syntactic features
-#                 texts = data[premise_col].fillna('').astype(str) + ' ' + data[hypothesis_col].fillna('').astype(str)
-#
-#                 vectorizer = self.vectorizers[feature_type]
-#                 if hasattr(vectorizer, 'vocabulary_') and self.is_trained:
-#                     feature_matrix = vectorizer.transform(texts)
-#                 else:
-#                     logger.info(f"Fitting {feature_type} vectorizer with {len(texts)} texts")
-#                     feature_matrix = vectorizer.fit_transform(texts)
-#
-#                 feature_matrices.append(feature_matrix)
-#                 logger.info(f"Extracted {feature_matrix.shape[1]} {feature_type} features")
-#
-#         if not feature_matrices:
-#             raise ValueError("No syntactic features found in the data")
-#
-#         # Combine all feature matrices
-#         if len(feature_matrices) == 1:
-#             return feature_matrices[0]
-#         else:
-#             return sp.hstack(feature_matrices)
-#
-#     def save(self, filepath: str) -> None:
-#         """Save model to disk."""
-#         model_data = {
-#             'svm': self.svm,
-#             'vectorizers': self.vectorizers,
-#             'kernel': self.kernel,
-#             'C': self.C,
-#             'feature_types': self.feature_types,
-#             'max_features': self.max_features,
-#             'is_trained': self.is_trained
-#         }
-#         joblib.dump(model_data, filepath)
-#         logger.info(f"Saved model to {filepath}")
-#
-#     @classmethod
-#     def load(cls, filepath: str) -> 'SVMWithSyntax':
-#         """Load model from disk."""
-#         model_data = joblib.load(filepath)
-#         instance = cls(
-#             kernel=model_data['kernel'],
-#             C=model_data['C'],
-#             feature_types=model_data['feature_types'],
-#             max_features=model_data['max_features']
-#         )
-#         instance.svm = model_data['svm']
-#         instance.vectorizers = model_data['vectorizers']
-#         instance.is_trained = model_data['is_trained']
-#         logger.info(f"Loaded model from {filepath}")
-#         return instance
-
-
-# class SVMWithBothFeatures(SVMBaseModel):
-#     """SVM model using both bag of words and syntactic features."""
-#
-#     def __init__(self, kernel: str = 'linear', C: float = 1.0,
-#                  max_features: int = 10000, use_tfidf: bool = True,
-#                  feature_types: List[str] = None, syntax_max_features: int = 5000):
-#         """Initialize combined SVM model."""
-#         super().__init__(kernel, C)
-#         self.max_features = max_features
-#         self.use_tfidf = use_tfidf
-#         self.feature_types = feature_types or ['dependency', 'constituency', 'pos']
-#         self.syntax_max_features = syntax_max_features
-#
-#         # Create separate models for feature extraction
-#         self.bow_model = SVMWithBagOfWords(kernel, C, max_features, use_tfidf)
-#         self.syntax_model = SVMWithSyntax(kernel, C, feature_types, syntax_max_features)
-#
-#     def extract_features(self, data: pd.DataFrame) -> np.ndarray:
-#         """Extract combined features from text data."""
-#         logger.info("Extracting combined features (BoW + Syntax)")
-#
-#         # Extract features from component models
-#         bow_features = self.bow_model.extract_features(data)
-#         syntax_features = self.syntax_model.extract_features(data)
-#
-#         # Combine features
-#         combined = sp.hstack([bow_features, syntax_features])
-#         logger.info(f"Extracted {combined.shape[1]} total features")
-#         return combined
-#
-#     def save(self, filepath: str) -> None:
-#         """Save model to disk."""
-#         model_data = {
-#             'svm': self.svm,
-#             'bow_model': self.bow_model,
-#             'syntax_model': self.syntax_model,
-#             'kernel': self.kernel,
-#             'C': self.C,
-#             'max_features': self.max_features,
-#             'use_tfidf': self.use_tfidf,
-#             'feature_types': self.feature_types,
-#             'syntax_max_features': self.syntax_max_features,
-#             'is_trained': self.is_trained
-#         }
-#         joblib.dump(model_data, filepath)
-#         logger.info(f"Saved model to {filepath}")
-#
-#     @classmethod
-#     def load(cls, filepath: str) -> 'SVMWithBothFeatures':
-#         """Load model from disk."""
-#         model_data = joblib.load(filepath)
-#         instance = cls(
-#             kernel=model_data['kernel'],
-#             C=model_data['C'],
-#             max_features=model_data['max_features'],
-#             use_tfidf=model_data['use_tfidf'],
-#             feature_types=model_data['feature_types'],
-#             syntax_max_features=model_data['syntax_max_features']
-#         )
-#         instance.svm = model_data['svm']
-#         instance.bow_model = model_data['bow_model']
-#         instance.syntax_model = model_data['syntax_model']
-#         instance.is_trained = model_data['is_trained']
-#         logger.info(f"Loaded model from {filepath}")
-#         return instance
-
-# Add to models/trainer.py
 
 # Feature selection and filtering helpers
 def filter_syntactic_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -441,6 +197,33 @@ class SVMWithBagOfWords(NLIModel):
         return instance
 
 
+# class SVMWithSyntax(NLIModel):
+#     """SVM model using only syntactic features."""
+#
+#     def __init__(self, kernel: str = 'linear', C: float = 1.0):
+#         """Initialize syntax SVM model."""
+#         self.kernel = kernel
+#         self.C = C
+#         self.svm = SVC(kernel=kernel, C=C, probability=True)
+#         self.is_trained = False
+#         self.feature_cols = None
+#
+#     def extract_features(self, data: pd.DataFrame) -> np.ndarray:
+#         """Extract syntactic features from preprocessed data."""
+#         logger.info("Extracting syntactic features for SVM model")
+#
+#         # Filter to keep only syntactic features
+#         filtered_data = filter_syntactic_features(data)
+#
+#         # Get feature columns (all except label/ID columns)
+#         if not self.is_trained:
+#             self.feature_cols = [col for col in filtered_data.columns
+#                                  if col not in ['label', 'gold_label', 'pair_id']]
+#             logger.info(f"Using {len(self.feature_cols)} syntactic feature columns")
+#
+#         # Return features as numpy array
+#         return filtered_data[self.feature_cols].values
+
 class SVMWithSyntax(NLIModel):
     """SVM model using only syntactic features."""
 
@@ -459,21 +242,29 @@ class SVMWithSyntax(NLIModel):
         # Filter to keep only syntactic features
         filtered_data = filter_syntactic_features(data)
 
-        # Get feature columns (all except label/ID columns)
+        # During training: identify and store feature columns
         if not self.is_trained:
             self.feature_cols = [col for col in filtered_data.columns
                                  if col not in ['label', 'gold_label', 'pair_id']]
             logger.info(f"Using {len(self.feature_cols)} syntactic feature columns")
 
-        # Return features as numpy array
-        return filtered_data[self.feature_cols].values
+            # Extract features as numpy array
+            return filtered_data[self.feature_cols].values
+        else:
+            # During validation/testing: ensure consistent features with training set
+            logger.info(f"Ensuring consistent feature set with training ({len(self.feature_cols)} features)")
+
+            # Create missing columns with zeros
+            for col in self.feature_cols:
+                if col not in filtered_data.columns:
+                    filtered_data[col] = 0
+
+            # Return features with the same columns as training data
+            return filtered_data[self.feature_cols].values
 
     def train(self, X: np.ndarray, y: np.ndarray) -> None:
         """Train the SVM model."""
         logger.info(f"Training SVM with {X.shape[0]} samples and {X.shape[1]} syntactic features")
-        logger.info("Printing out X")
-        print(X)
-        assert False
         self.svm.fit(X, y)
         self.is_trained = True
 
@@ -481,6 +272,11 @@ class SVMWithSyntax(NLIModel):
         """Make predictions with the SVM model."""
         if not self.is_trained:
             raise RuntimeError("Model has not been trained yet")
+
+        logger.info(f"Making predictions with SVMWithSyntax model")
+        '''
+        This line is causing problem.
+        '''
         return self.svm.predict(X)
 
     def save(self, filepath: str) -> None:
@@ -590,172 +386,6 @@ def prepare_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray]:
 
     return df, labels
 
-
-# class SVMTrainer:
-#     """Trainer for SVM baseline models."""
-#
-#     def __init__(self, save_dir: str = os.path.join(MODELS_DIR, 'svm_baselines')):
-#         """Initialize SVM trainer."""
-#         self.save_dir = save_dir
-#         os.makedirs(save_dir, exist_ok=True)
-#
-#     def run_training(self, args):
-#         """Run the complete SVM training pipeline based on command line arguments."""
-#         logger.info(f"Training SVM baselines on {args.dataset} dataset")
-#
-#         # Load training data
-#         train_data = load_parquet_data(args.dataset, 'train', args.sample_size)
-#
-#         # Load validation data if available
-#         try:
-#             val_data = load_parquet_data(args.dataset, 'validation', args.sample_size)
-#         except FileNotFoundError:
-#             logger.info("No validation split found, will use train-test split")
-#             val_data = None
-#
-#         # Train all three baseline models
-#         results = self.train_all_models(
-#             train_data,
-#             val_data,
-#             test_size=0.2,
-#             random_state=42,
-#             kernel=args.kernel if hasattr(args, 'kernel') else 'linear',
-#             C=args.C if hasattr(args, 'C') else 1.0,
-#             max_features=args.max_features if hasattr(args, 'max_features') else 10000
-#         )
-#
-#         # Cross-dataset evaluation if requested
-#         if hasattr(args, 'cross_evaluate') and args.cross_evaluate:
-#             datasets = {}
-#             for dataset_name in ['SNLI', 'MNLI', 'ANLI']:
-#                 if dataset_name != args.dataset:  # Skip training dataset
-#                     try:
-#                         datasets[dataset_name] = load_parquet_data(dataset_name, 'test')
-#                     except FileNotFoundError:
-#                         logger.warning(f"Could not load test data for {dataset_name}")
-#
-#             if datasets:
-#                 cross_results = self.cross_dataset_evaluation(datasets)
-#                 logger.info("Cross-dataset evaluation complete")
-#
-#         return results
-#
-#     def train_model(self, model: NLIModel, train_df: pd.DataFrame,
-#                     val_df: pd.DataFrame = None, test_size: float = 0.2,
-#                     random_state: int = 42) -> Dict:
-#         """Train and evaluate a single SVM model."""
-#         # Split data if validation set not provided
-#         if val_df is None:
-#             train_df, val_df = train_test_split(
-#                 train_df, test_size=test_size, random_state=random_state
-#             )
-#
-#         # Prepare data
-#         train_df, y_train = prepare_data(train_df)
-#         val_df, y_val = prepare_data(val_df)
-#
-#         # Extract features
-#         logger.info(f"Training {model.__class__.__name__}")
-#         x_train = model.extract_features(train_df)
-#         x_val = model.extract_features(val_df)
-#
-#         # Train model
-#         start_time = time.time()
-#         model.train(x_train, y_train)
-#         train_time = time.time() - start_time
-#
-#         # Evaluate model
-#         start_time = time.time()
-#         y_pred = model.predict(x_val)
-#         eval_time = time.time() - start_time
-#
-#         # Calculate metrics
-#         accuracy = accuracy_score(y_val, y_pred)
-#         precision, recall, f1, _ = precision_recall_fscore_support(
-#             y_val, y_pred, average='weighted'
-#         )
-#
-#         # Save model
-#         model_path = os.path.join(self.save_dir, f"{model.__class__.__name__}.joblib")
-#         model.save(model_path)
-#
-#         # Log results
-#         logger.info(f"Accuracy: {accuracy:.4f}, F1: {f1:.4f}")
-#         logger.info(f"Training time: {train_time:.2f}s, Evaluation time: {eval_time:.2f}s")
-#
-#         return {
-#             'accuracy': accuracy,
-#             'precision': precision,
-#             'recall': recall,
-#             'f1': f1,
-#             'train_time': train_time,
-#             'eval_time': eval_time
-#         }
-#
-#     def train_all_models(self, train_df: pd.DataFrame, val_df: pd.DataFrame = None,
-#                          test_size: float = 0.2, random_state: int = 42,
-#                          kernel: str = 'linear', C: float = 1.0,
-#                          max_features: int = 10000) -> Dict:
-#         """Train all three SVM baseline models."""
-#         results = {}
-#
-#         # 1. Bag of Words SVM
-#         logger.info("Training Bag of Words SVM baseline")
-#         bow_model = SVMWithBagOfWords(kernel=kernel, C=C, max_features=max_features)
-#         results['bow'] = self.train_model(bow_model, train_df, val_df, test_size, random_state)
-#
-#         # 2. Syntax SVM
-#         logger.info("Training Syntax-only SVM baseline")
-#         syntax_model = SVMWithSyntax(kernel=kernel, C=C)
-#         results['syntax'] = self.train_model(syntax_model, train_df, val_df, test_size, random_state)
-#
-#         # 3. Combined SVM
-#         logger.info("Training Combined (BoW + Syntax) SVM baseline")
-#         combined_model = SVMWithBothFeatures(kernel=kernel, C=C, max_features=max_features)
-#         results['combined'] = self.train_model(combined_model, train_df, val_df, test_size, random_state)
-#
-#         logger.info("All SVM baselines trained successfully")
-#         return results
-#
-#     def cross_dataset_evaluation(self, datasets: Dict[str, pd.DataFrame]) -> Dict:
-#         """Evaluate trained models on multiple datasets for generalization analysis."""
-#         logger.info("Performing cross-dataset evaluation")
-#         results = {}
-#
-#         # Load trained models
-#         bow_model = SVMWithBagOfWords.load(os.path.join(self.save_dir, "SVMWithBagOfWords.joblib"))
-#         syntax_model = SVMWithSyntax.load(os.path.join(self.save_dir, "SVMWithSyntax.joblib"))
-#         combined_model = SVMWithBothFeatures.load(os.path.join(self.save_dir, "SVMWithBothFeatures.joblib"))
-#
-#         for dataset_name, df in datasets.items():
-#             logger.info(f"Evaluating on {dataset_name} dataset")
-#             df, labels = prepare_data(df)
-#
-#             dataset_results = {}
-#
-#             # Evaluate BoW model
-#             bow_features = bow_model.extract_features(df)
-#             bow_preds = bow_model.predict(bow_features)
-#             bow_acc = accuracy_score(labels, bow_preds)
-#             dataset_results['bow'] = {'accuracy': bow_acc}
-#
-#             # Evaluate Syntax model
-#             syntax_features = syntax_model.extract_features(df)
-#             syntax_preds = syntax_model.predict(syntax_features)
-#             syntax_acc = accuracy_score(labels, syntax_preds)
-#             dataset_results['syntax'] = {'accuracy': syntax_acc}
-#
-#             # Evaluate Combined model
-#             combined_features = combined_model.extract_features(df)
-#             combined_preds = combined_model.predict(combined_features)
-#             combined_acc = accuracy_score(labels, combined_preds)
-#             dataset_results['combined'] = {'accuracy': combined_acc}
-#
-#             results[dataset_name] = dataset_results
-#             logger.info(
-#                 f"{dataset_name} results - BoW: {bow_acc:.4f}, Syntax: {syntax_acc:.4f}, Combined: {combined_acc:.4f}")
-#
-#         return results
 
 class SVMTrainer:
     """Trainer for SVM baseline models using preprocessed features."""

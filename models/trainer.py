@@ -197,33 +197,6 @@ class SVMWithBagOfWords(NLIModel):
         return instance
 
 
-# class SVMWithSyntax(NLIModel):
-#     """SVM model using only syntactic features."""
-#
-#     def __init__(self, kernel: str = 'linear', C: float = 1.0):
-#         """Initialize syntax SVM model."""
-#         self.kernel = kernel
-#         self.C = C
-#         self.svm = SVC(kernel=kernel, C=C, probability=True)
-#         self.is_trained = False
-#         self.feature_cols = None
-#
-#     def extract_features(self, data: pd.DataFrame) -> np.ndarray:
-#         """Extract syntactic features from preprocessed data."""
-#         logger.info("Extracting syntactic features for SVM model")
-#
-#         # Filter to keep only syntactic features
-#         filtered_data = filter_syntactic_features(data)
-#
-#         # Get feature columns (all except label/ID columns)
-#         if not self.is_trained:
-#             self.feature_cols = [col for col in filtered_data.columns
-#                                  if col not in ['label', 'gold_label', 'pair_id']]
-#             logger.info(f"Using {len(self.feature_cols)} syntactic feature columns")
-#
-#         # Return features as numpy array
-#         return filtered_data[self.feature_cols].values
-
 class SVMWithSyntax(NLIModel):
     """SVM model using only syntactic features."""
 
@@ -242,25 +215,32 @@ class SVMWithSyntax(NLIModel):
         # Filter to keep only syntactic features
         filtered_data = filter_syntactic_features(data)
 
-        # During training: identify and store feature columns
-        if not self.is_trained:
-            self.feature_cols = [col for col in filtered_data.columns
-                                 if col not in ['label', 'gold_label', 'pair_id']]
-            logger.info(f"Using {len(self.feature_cols)} syntactic feature columns")
+        # Remove label and ID columns from consideration
+        data_cols = [col for col in filtered_data.columns
+                     if col not in ['label', 'gold_label', 'pair_id']]
 
-            # Extract features as numpy array
+        if not self.is_trained:
+            # During training, store feature columns
+            self.feature_cols = data_cols
+            logger.info(f"Using {len(self.feature_cols)} syntactic feature columns for training")
             return filtered_data[self.feature_cols].values
         else:
-            # During validation/testing: ensure consistent features with training set
-            logger.info(f"Ensuring consistent feature set with training ({len(self.feature_cols)} features)")
+            # During validation/testing, ensure feature consistency
+            logger.info(
+                f"Ensuring consistent feature set with training data ({len(self.feature_cols)} features expected)")
 
-            # Create missing columns with zeros
-            for col in self.feature_cols:
-                if col not in filtered_data.columns:
+            # Check for missing columns and add them with zeros
+            missing_cols = set(self.feature_cols) - set(data_cols)
+            if missing_cols:
+                logger.warning(f"Adding {len(missing_cols)} missing columns to validation data")
+                for col in missing_cols:
                     filtered_data[col] = 0
 
-            # Return features with the same columns as training data
-            return filtered_data[self.feature_cols].values
+            # Ensure we only use the columns that were present during training
+            # This handles both missing columns (now added) and any extra columns (will be ignored)
+            result = filtered_data[self.feature_cols].values
+            logger.info(f"Final feature matrix shape: {result.shape}")
+            return result
 
     def train(self, X: np.ndarray, y: np.ndarray) -> None:
         """Train the SVM model."""
@@ -318,14 +298,31 @@ class SVMWithBothFeatures(NLIModel):
         """Extract combined features from preprocessed data."""
         logger.info("Extracting combined features for SVM model")
 
-        # Get feature columns (all except label/ID columns)
-        if not self.is_trained:
-            self.feature_cols = [col for col in data.columns
-                                 if col not in ['label', 'gold_label', 'pair_id']]
-            logger.info(f"Using {len(self.feature_cols)} total feature columns")
+        # Get all feature columns (excluding label/ID columns)
+        data_cols = [col for col in data.columns
+                     if col not in ['label', 'gold_label', 'pair_id']]
 
-        # Return features as numpy array
-        return data[self.feature_cols].values
+        if not self.is_trained:
+            # During training, store feature columns
+            self.feature_cols = data_cols
+            logger.info(f"Using {len(self.feature_cols)} total feature columns for training")
+            return data[self.feature_cols].values
+        else:
+            # During validation/testing, ensure feature consistency
+            logger.info(f"Ensuring consistent feature set with training data")
+
+            # Add missing columns with zeros
+
+            missing_cols = set(self.feature_cols) - set(data_cols)
+            if missing_cols:
+                logger.warning(f"Adding {len(missing_cols)} missing columns to validation data")
+                for col in missing_cols:
+                    data[col] = 0
+
+            # Use only the training columns in the same order
+            result = data[self.feature_cols].values
+            logger.info(f"Final feature matrix shape: {result.shape}")
+            return result
 
     def train(self, X: np.ndarray, y: np.ndarray) -> None:
         """Train the SVM model."""

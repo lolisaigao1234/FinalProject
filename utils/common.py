@@ -80,12 +80,12 @@ class NLIModel(ABC):
         pass
 
     @abstractmethod
-    def train(self, X: np.ndarray, y: np.ndarray) -> None:
+    def train(self, x: np.ndarray, y: np.ndarray) -> None:
         """Train the model."""
         pass
 
     @abstractmethod
-    def predict(self, X: np.ndarray) -> np.ndarray:
+    def predict(self, x: np.ndarray) -> np.ndarray:
         """Make predictions on new data."""
         pass
 

@@ -247,6 +247,9 @@ def load_parquet_data(dataset_name: str, split: str = 'train',
     pattern = os.path.join(cache_dir, f'{dataset_name}_{split}*.parquet')
     parquet_files = glob.glob(pattern)
 
+    print("pattern", pattern)
+    print("parquet_files", parquet_files)
+
     if not parquet_files:
         raise FileNotFoundError(f"No parquet files found for {dataset_name} {split} split")
 
@@ -257,9 +260,15 @@ def load_parquet_data(dataset_name: str, split: str = 'train',
 
     result = pd.concat(dfs, ignore_index=True)
 
+    # print(result)
+    logger.info(f"Printing out result")
+    print(result)
+    logger.info("Printing out result.shape")
+    print(result.shape)
+
     # Apply sample size if specified
-    if sample_size and len(result) > sample_size:
-        result = result.sample(sample_size, random_state=42)
+    # if sample_size and len(result) > sample_size:
+    #     result = result.sample(sample_size, random_state=42)
 
     logger.info(f"Loaded {len(result)} examples from {dataset_name} {split} split")
     return result
@@ -685,9 +694,12 @@ class SVMTrainer:
 
         return results
 
+
 '''
 This part is not done yet. Missing implementation for the Dataset class and ModelTrainer class.
 '''
+
+
 class NLIDataset(Dataset):
     """Dataset class for NLI tasks."""
 

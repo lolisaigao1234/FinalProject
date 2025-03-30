@@ -108,6 +108,59 @@ def _extract_syntactic_features(
     return features
 
 
+def _fill_nan_values(features_df: pd.DataFrame) -> pd.DataFrame:
+    """Fill NaN values in feature DataFrame with appropriate strategies."""
+    logger.info(f"Filling NaN values in features DataFrame with shape {features_df.shape}")
+
+    # Create a copy to avoid modifying the original
+    df = features_df.copy()
+
+    # Identify feature types by column prefix
+    bert_cols = [col for col in df.columns if any(x in col for x in
+                                                  ['premise_bert_', 'hypothesis_bert_', 'diff_bert_',
+                                                   'prod_bert_'])]
+
+    syntactic_cols = [col for col in df.columns if any(x in col for x in
+                                                       ['premise_const_', 'hypothesis_const_', 'premise_dep_',
+                                                        'hypothesis_dep_', 'diff_const_', 'deprel_', 'pos_'])]
+
+    text_stat_cols = ['premise_length', 'hypothesis_length', 'length_diff',
+                      'length_ratio', 'word_overlap_count', 'word_overlap_ratio']
+
+    # Fill NaNs with appropriate strategies
+    # BERT embeddings: fill with 0 (common for embeddings)
+    for col in bert_cols:
+        df[col] = df[col].fillna(0)
+
+    # Syntactic features: fill with 0 (absence of feature)
+    for col in syntactic_cols:
+        df[col] = df[col].fillna(0)
+
+    # Text statistics: fill with appropriate defaults
+    if 'premise_length' in df.columns:
+        df['premise_length'] = df['premise_length'].fillna(0)
+    if 'hypothesis_length' in df.columns:
+        df['hypothesis_length'] = df['hypothesis_length'].fillna(0)
+    if 'length_diff' in df.columns:
+        df['length_diff'] = df['length_diff'].fillna(0)
+    if 'length_ratio' in df.columns:
+        df['length_ratio'] = df['length_ratio'].fillna(1)  # 1 is neutral for ratio
+    if 'word_overlap_count' in df.columns:
+        df['word_overlap_count'] = df['word_overlap_count'].fillna(0)
+    if 'word_overlap_ratio' in df.columns:
+        df['word_overlap_ratio'] = df['word_overlap_ratio'].fillna(0)
+
+    # Check if we got them all
+    remaining_nans = df.isna().sum().sum()
+    if remaining_nans > 0:
+        logger.warning(f"There are still {remaining_nans} NaN values after filling")
+        # Fill any remaining NaNs with 0
+        df = df.fillna(0)
+
+    logger.info("Successfully filled all NaN values in features")
+    return df
+
+
 class FeatureExtractor:
     """Extract both lexical and syntactic features for NLI tasks using downsampled datasets."""
 
@@ -202,9 +255,19 @@ class FeatureExtractor:
 
         # Convert to dataframe and store
         features_df = pd.DataFrame(features)
-        self.db_handler.store_dataframe(
-            features_df, dataset_name, split, feature_cache_name
-        )
+
+        # Add at the end of the extract_features method in FeatureExtractor class
+        # After creating features_df but before storing it
+
+        # Fill NaN values with appropriate strategies
+        features_df = _fill_nan_values(features_df)
+
+        # Then continue with storing
+        self.db_handler.store_dataframe(features_df, dataset_name, split, feature_cache_name)
+
+        # self.db_handler.store_dataframe(
+        #     features_df, dataset_name, split, feature_cache_name
+        # )
         logger.info(f"Stored {len(features_df)} features for downsampled {dataset_name} {split}")
 
         return features_df
@@ -308,3 +371,4 @@ class FeatureExtractor:
         features["word_overlap_ratio"] = len(intersection) / len(union) if union else 0
 
         return features
+

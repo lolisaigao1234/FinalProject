@@ -1,7 +1,6 @@
 # models/transformer_model.py
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from transformers import AutoModel
 
 from config import MODEL_NAME, HIDDEN_SIZE, NUM_CLASSES
@@ -95,4 +94,3 @@ class BERTWithSyntacticAttention(nn.Module):
         logits = self.classifier(integrated)  # [batch_size, num_classes]
 
         return logits
-

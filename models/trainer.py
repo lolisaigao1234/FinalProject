@@ -229,12 +229,15 @@ class SVMWithSyntax(NLIModel):
             logger.info(
                 f"Ensuring consistent feature set with training data ({len(self.feature_cols)} features expected)")
 
+            # In SVMWithSyntax class extract_features method:
             # Check for missing columns and add them with zeros
             missing_cols = set(self.feature_cols) - set(data_cols)
             if missing_cols:
                 logger.warning(f"Adding {len(missing_cols)} missing columns to validation data")
+                # Create an explicit copy before modifying
+                filtered_data = filtered_data.copy()
                 for col in missing_cols:
-                    filtered_data[col] = 0
+                    filtered_data.loc[:, col] = 0
 
             # Ensure we only use the columns that were present during training
             # This handles both missing columns (now added) and any extra columns (will be ignored)
@@ -312,12 +315,14 @@ class SVMWithBothFeatures(NLIModel):
             logger.info(f"Ensuring consistent feature set with training data")
 
             # Add missing columns with zeros
-
+            # Similarly in SVMWithBothFeatures class extract_features method:
             missing_cols = set(self.feature_cols) - set(data_cols)
             if missing_cols:
                 logger.warning(f"Adding {len(missing_cols)} missing columns to validation data")
+                # Create an explicit copy before modifying
+                data = data.copy()
                 for col in missing_cols:
-                    data[col] = 0
+                    data.loc[:, col] = 0
 
             # Use only the training columns in the same order
             result = data[self.feature_cols].values
@@ -520,8 +525,12 @@ class SVMTrainer:
 
         # The rest remains the same
         accuracy = accuracy_score(y_val, y_pred)
+        # precision, recall, f1, _ = precision_recall_fscore_support(
+        #     y_val, y_pred, average='weighted'
+        # )
+        # In models/trainer.py, update the train_model method:
         precision, recall, f1, _ = precision_recall_fscore_support(
-            y_val, y_pred, average='weighted'
+            y_val, y_pred, average='weighted', zero_division=0
         )
 
         # Save model

@@ -272,6 +272,8 @@ class TextPreprocessor(NLPBaseComponent, PreprocessorInterface):
             # Create the new suffix
             new_suffix = f"sample{sample_size}"
 
+            self.logger.info(f"Print out new suffix: {new_suffix}")
+
             # Store the sampled data
             self.db_handler.store_dataframe(sampled_data, dataset_name, split_name, new_suffix)
 

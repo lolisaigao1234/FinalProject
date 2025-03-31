@@ -16,11 +16,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def preprocess_data(dataset_name, sample_size, train_ratio, force_reprocess=False):
-    logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size}")
+# def preprocess_data(dataset_name, sample_size, train_ratio, force_reprocess=False):
+#     logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size}")
+#     db_handler = DatabaseHandler()
+#     preprocessor = TextPreprocessor(db_handler, sample_size)
+#     preprocessor.preprocess_dataset_pipeline(dataset_name, sample_size, train_ratio, force_reprocess)
+#     logger.info("Preprocessing complete")
+
+def preprocess_data(dataset_name, sample_size, train_ratio, force_reprocess=False, model_type="svm"):
+    logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size} for {model_type}")
     db_handler = DatabaseHandler()
-    preprocessor = TextPreprocessor(db_handler, sample_size)
-    preprocessor.preprocess_dataset_pipeline(dataset_name, sample_size, train_ratio, force_reprocess)
+
+    if model_type == "neural":
+        from data.preprocessor_nn import NeuralPreprocessor
+        preprocessor = NeuralPreprocessor(db_handler, sample_size)
+        preprocessor.preprocess_neural_dataset(dataset_name, sample_size, train_ratio, force_reprocess)
+    elif model_type == "svm":
+        preprocessor = TextPreprocessor(db_handler, sample_size)
+        preprocessor.preprocess_dataset_pipeline(dataset_name, sample_size, train_ratio, force_reprocess)
+    else:
+        logger.error(f"Unknown model type: {model_type}")
+        return
+
     logger.info("Preprocessing complete")
 
 
@@ -123,16 +140,24 @@ def main():
     logger.info(f"Using device: {DEVICE}")
 
     if args.mode == "preprocess":
-        preprocess_data(args.dataset, args.sample_size, args.train_ratio, args.force_reprocess)
+    #     model_type = getattr(args, 'model_type', 'svm')
+    #     preprocess_data(args.dataset, args.sample_size, args.train_ratio, args.force_reprocess, model_type)
+    # elif args.mode == "preprocess_neural":
+    #     # Specific command for neural preprocessing
+        preprocess_data(args.dataset, args.sample_size, args.train_ratio, args.force_reprocess, args.model_type)
     elif args.mode == "train":
         if hasattr(args, 'model_type') and args.model_type == "svm":
             svm_trainer = SVMTrainer()
             svm_trainer.run_training(args)
-        else:
+        elif hasattr(args, 'model_type') and args.model_type == "neural":
             logger.info(f"Batch size: {args.batch_size}, Grad accum: {args.grad_accum}")
             logger.info(f"Mixed precision: {args.fp16}, Torch compile: {args.compile}")
             # Train neural network model
             train_neural_model(args)
+        else:
+            logger.error(f"Unknown model type: {args.model_type}")
+            return
+    # ... rest of the function ...
     elif args.mode == "evaluate":
         # evaluate_model(args.dataset)
         pass

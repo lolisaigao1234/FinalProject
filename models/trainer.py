@@ -32,43 +32,43 @@ def load_parquet_data(dataset_name: str, split: str = 'train',
                       feature_type: str = None,
                       sample_size: Optional[int] = None,
                       cache_dir: Optional[str] = None) -> pd.DataFrame:
-    """Load data from parquet files with correct pattern matching."""
-    if cache_dir is None:
-        cache_dir = 'cache\\parquet'
+    """Load data from parquet files with proper pattern matching"""
+    cache_dir = cache_dir or 'cache\\parquet'
 
-    # Determine the file pattern based on what we need
-    if feature_type:
-        pattern = os.path.join(cache_dir, f'{dataset_name}_{split}_{feature_type}*.parquet')
-    else:
-        # Default to sample files if no specific type
-        pattern = os.path.join(cache_dir, f'{dataset_name}_{split}_sample*.parquet')
+    # Build the file pattern based on requirements
+    pattern = _build_file_pattern(cache_dir, dataset_name, split, feature_type)
 
+    # Find matching files
     parquet_files = glob.glob(pattern)
-
     if not parquet_files:
         logger.warning(f"No files found for pattern: {pattern}")
-        # Try fallback to data files
-        pattern = os.path.join(cache_dir, f'{dataset_name}_{split}_data.parquet')
-        parquet_files = glob.glob(pattern)
+        alternative_pattern = os.path.join(cache_dir, f'{dataset_name}_{split}_data.parquet')
+        parquet_files = glob.glob(alternative_pattern)
 
         if not parquet_files:
             raise FileNotFoundError(f"No parquet files found for {dataset_name} {split}")
 
+    # Load and concatenate files
     logger.info(f"Loading data from {len(parquet_files)} files matching: {pattern}")
-
-    dfs = []
-    for file in parquet_files:
-        logger.info(f"Loading file: {file}")
-        df = pd.read_parquet(file)
-        dfs.append(df)
-
+    dfs = [pd.read_parquet(file) for file in parquet_files]
     result = pd.concat(dfs, ignore_index=True)
-    logger.info(f"Loaded {len(result)} examples with {result.shape[1]} features")
 
+    # Apply sample size if specified and needed
+    if sample_size and len(result) > sample_size:
+        result = result.sample(sample_size, random_state=42)
+
+    logger.info(f"Loaded {len(result)} examples with {result.shape[1]} features")
     return result
 
 
-# SVM Model Implementations
+def _build_file_pattern(cache_dir, dataset_name, split, feature_type=None):
+    """Build file pattern for parquet files"""
+    if feature_type:
+        return os.path.join(cache_dir, f'{dataset_name}_{split}_{feature_type}*.parquet')
+    else:
+        return os.path.join(cache_dir, f'{dataset_name}_{split}_sample*.parquet')
+
+
 class SVMBaseModel(NLIModel, ABC):
     """Base class for SVM models implementing the NLIModel interface."""
 
@@ -365,6 +365,42 @@ class SVMWithBothFeatures(NLIModel):
         return instance
 
 
+def prepare_labels(labels, label_map=None):
+    """Convert string labels to integers with a consistent mapping"""
+    if label_map is None:
+        label_map = {'entailment': 0, 'contradiction': 1, 'neutral': 2}
+
+    if labels.dtype == object:
+        return np.array([label_map.get(label, -1) for label in labels])
+    return labels
+
+
+def get_label_column(df: pd.DataFrame) -> Tuple[str, np.ndarray]:
+    """Extract label column name and values from dataframe"""
+    if 'gold_label' in df.columns:
+        return 'gold_label', df['gold_label'].values
+    elif 'label' in df.columns:
+        return 'label', df['label'].values
+    else:
+        raise ValueError("No label column (gold_label or label) found in data")
+
+
+def clean_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray]:
+    """Clean dataset and extract labels"""
+    label_col, labels = get_label_column(df)
+
+    # Convert string labels to integers
+    int_labels = prepare_labels(labels)
+
+    # Remove examples with unknown labels
+    valid_mask = int_labels != -1
+    if not all(valid_mask):
+        df = df.loc[valid_mask].reset_index(drop=True)
+        int_labels = int_labels[valid_mask]
+
+    return df, int_labels
+
+
 def prepare_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray]:
     """Prepare data for training, handling label conversion."""
     # Get the label column
@@ -401,100 +437,79 @@ class SVMTrainer:
         """Run the complete SVM training pipeline based on command line arguments."""
         logger.info(f"Training SVM baselines on {args.dataset} dataset")
 
-        # Load precomputed features
-        logger.info("Loading preprocessed features")
-        train_data = load_parquet_data(
-            args.dataset, 'train',
-            feature_type='features_lexical_syntactic'
-        )
+        # Load and prepare datasets
+        train_data, val_data = self._load_datasets(args.dataset)
 
-        # Try loading validation data, otherwise split from train
-        try:
-            val_data = load_parquet_data(
-                args.dataset, 'validation',
-                feature_type='features_lexical_syntactic'
-            )
-            logger.info(f"Loaded separate validation set with {len(val_data)} examples")
-        except FileNotFoundError:
-            logger.info("No validation features found, will split from train set")
-            val_data = None
-
-        # Add to the run_training method in SVMTrainer
-        # After loading the train_data
-
-        # Handle any NaN values in training data
-        logger.info("Checking for NaN values in training data")
-        nan_count_before = train_data.isna().sum().sum()
-        if nan_count_before > 0:
-            logger.warning(f"Found {nan_count_before} NaN values in training data, filling with 0")
-            train_data = train_data.fillna(0)
-
-        # Similarly for val_data
-        if val_data is not None:
-            nan_count_before = val_data.isna().sum().sum()
-            if nan_count_before > 0:
-                logger.warning(f"Found {nan_count_before} NaN values in validation data, filling with 0")
-                val_data = val_data.fillna(0)
-
-        # Train all three baseline models
-        results = self.train_all_models(
+        # Train all models
+        results = self._train_all_models(
             train_data,
             val_data,
-            test_size=0.2,
-            random_state=42,
             kernel=args.kernel if hasattr(args, 'kernel') else 'linear',
             C=args.C if hasattr(args, 'C') else 1.0
         )
 
         # Cross-dataset evaluation if requested
         if hasattr(args, 'cross_evaluate') and args.cross_evaluate:
-            datasets = {}
-
-            for dataset_name in ['SNLI', 'MNLI', 'ANLI']:
-                if dataset_name != args.dataset:  # Skip training dataset
-                    try:
-                        datasets[dataset_name] = load_parquet_data(
-                            dataset_name, 'test',
-                            feature_type='features_lexical_syntactic'
-                        )
-                        logger.info(f"Loaded {len(datasets[dataset_name])} examples from {dataset_name} test set")
-                    except FileNotFoundError:
-                        logger.warning(f"Could not load test features for {dataset_name}")
-
-            if datasets:
-                logger.info("Running cross-dataset evaluation")
-                cross_results = self.cross_dataset_evaluation(datasets)
-                logger.info("Cross-dataset evaluation complete")
+            self._run_cross_evaluation(args.dataset)
 
         return results
 
-    def prepare_data(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray]:
-        """Prepare data for training, handling label conversion."""
-        # Get the label column
-        if 'gold_label' in df.columns:
-            label_col = 'gold_label'
-        elif 'label' in df.columns:
-            label_col = 'label'
-        else:
-            raise ValueError("No label column (gold_label or label) found in data")
+    def _load_datasets(self, dataset_name):
+        """Load training and validation datasets"""
+        # Load training data
+        logger.info("Loading preprocessed features")
+        train_data = load_parquet_data(
+            dataset_name, 'train',
+            feature_type='features_lexical_syntactic'
+        )
 
-        # Convert string labels to integers if needed
-        labels = df[label_col].values
-        if labels.dtype == object:
-            label_map = {'entailment': 0, 'contradiction': 1, 'neutral': 2}
-            labels = np.array([label_map.get(label, -1) for label in labels])
+        # Handle NaN values
+        train_data = self._handle_nan_values(train_data, "training")
 
-            # Remove examples with unknown labels
-            valid_mask = labels != -1
-            df = df.loc[valid_mask].reset_index(drop=True)
-            labels = labels[valid_mask]
+        # Try loading validation data, otherwise return None
+        try:
+            val_data = load_parquet_data(
+                dataset_name, 'validation',
+                feature_type='features_lexical_syntactic'
+            )
+            val_data = self._handle_nan_values(val_data, "validation")
+            logger.info(f"Loaded separate validation set with {len(val_data)} examples")
+        except FileNotFoundError:
+            logger.info("No validation features found, will split from train set")
+            val_data = None
 
-        return df, labels
+        return train_data, val_data
 
-    def train_model(self, model: NLIModel, train_df: pd.DataFrame,
-                    val_df: pd.DataFrame = None, test_size: float = 0.2,
-                    random_state: int = 42) -> Dict:
-        """Train and evaluate a single SVM model."""
+    def _handle_nan_values(self, df, dataset_name):
+        """Check for and handle NaN values in dataframe"""
+        nan_count = df.isna().sum().sum()
+        if nan_count > 0:
+            logger.warning(f"Found {nan_count} NaN values in {dataset_name} data, filling with 0")
+            return df.fillna(0)
+        return df
+
+    def _train_all_models(self, train_df, val_df=None, test_size=0.2,
+                          random_state=42, kernel='linear', C=1.0):
+        """Train all three SVM baseline models"""
+        results = {}
+
+        # Define model configurations
+        model_configs = [
+            ("bow", SVMWithBagOfWords(kernel=kernel, C=C), "Bag of Words"),
+            ("syntax", SVMWithSyntax(kernel=kernel, C=C), "Syntax-only"),
+            ("combined", SVMWithBothFeatures(kernel=kernel, C=C), "Combined (BoW + Syntax)")
+        ]
+
+        # Train each model
+        for model_key, model, model_desc in model_configs:
+            logger.info(f"Training {model_desc} SVM baseline")
+            results[model_key] = self.train_model(model, train_df, val_df, test_size, random_state)
+
+        logger.info("All SVM baselines trained successfully")
+        return results
+
+    def train_model(self, model, train_df, val_df=None, test_size=0.2, random_state=42):
+        """Train and evaluate a single SVM model"""
         # Split data if validation set not provided
         if val_df is None:
             train_df, val_df = train_test_split(
@@ -502,114 +517,107 @@ class SVMTrainer:
             )
 
         # Prepare data
-        train_df, y_train = self.prepare_data(train_df)
-        val_df, y_val = self.prepare_data(val_df)
+        train_df, y_train = clean_dataset(train_df)
+        val_df, y_val = clean_dataset(val_df)
 
         # Extract features for training only
         logger.info(f"Training {model.__class__.__name__}")
         X_train = model.extract_features(train_df)
 
-        # Train model - this sets self.is_trained = True
+        # Train model
         start_time = time.time()
         model.train(X_train, y_train)
         train_time = time.time() - start_time
 
         # Extract features for validation AFTER training
-        # Now self.is_trained = True, so proper feature alignment will occur
         X_val = model.extract_features(val_df)
 
         # Evaluate model
-        start_time = time.time()
-        y_pred = model.predict(X_val)
-        eval_time = time.time() - start_time
-
-        # The rest remains the same
-        accuracy = accuracy_score(y_val, y_pred)
-        # precision, recall, f1, _ = precision_recall_fscore_support(
-        #     y_val, y_pred, average='weighted'
-        # )
-        # In models/trainer.py, update the train_model method:
-        precision, recall, f1, _ = precision_recall_fscore_support(
-            y_val, y_pred, average='weighted', zero_division=0
-        )
+        eval_time, metrics = self._evaluate_model(model, X_val, y_val)
 
         # Save model
         model_path = os.path.join(self.save_dir, f"{model.__class__.__name__}.joblib")
         model.save(model_path)
 
         # Log results
-        logger.info(f"Accuracy: {accuracy:.4f}, F1: {f1:.4f}")
+        logger.info(f"Accuracy: {metrics['accuracy']:.4f}, F1: {metrics['f1']:.4f}")
         logger.info(f"Training time: {train_time:.2f}s, Evaluation time: {eval_time:.2f}s")
 
-        return {
+        return {**metrics, 'train_time': train_time, 'eval_time': eval_time}
+
+    def _evaluate_model(self, model, X_val, y_val):
+        """Evaluate model and return metrics"""
+        start_time = time.time()
+        y_pred = model.predict(X_val)
+        eval_time = time.time() - start_time
+
+        # Calculate metrics
+        accuracy = accuracy_score(y_val, y_pred)
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            y_val, y_pred, average='weighted', zero_division=0
+        )
+
+        return eval_time, {
             'accuracy': accuracy,
             'precision': precision,
             'recall': recall,
-            'f1': f1,
-            'train_time': train_time,
-            'eval_time': eval_time
+            'f1': f1
         }
 
-    def train_all_models(self, train_df: pd.DataFrame, val_df: pd.DataFrame = None,
-                         test_size: float = 0.2, random_state: int = 42,
-                         kernel: str = 'linear', C: float = 1.0) -> Dict:
-        """Train all three SVM baseline models."""
-        results = {}
+    def _run_cross_evaluation(self, source_dataset):
+        """Run cross-dataset evaluation"""
+        datasets = {}
 
-        # 1. Bag of Words SVM
-        logger.info("Training Bag of Words SVM baseline")
-        bow_model = SVMWithBagOfWords(kernel=kernel, C=C)
-        results['bow'] = self.train_model(bow_model, train_df, val_df, test_size, random_state)
+        # Load test datasets
+        for dataset_name in ['SNLI', 'MNLI', 'ANLI']:
+            if dataset_name != source_dataset:  # Skip training dataset
+                try:
+                    datasets[dataset_name] = load_parquet_data(
+                        dataset_name, 'test',
+                        feature_type='features_lexical_syntactic'
+                    )
+                    datasets[dataset_name] = self._handle_nan_values(
+                        datasets[dataset_name], f"{dataset_name} test"
+                    )
+                    logger.info(f"Loaded {len(datasets[dataset_name])} examples from {dataset_name}")
+                except FileNotFoundError:
+                    logger.warning(f"Could not load test features for {dataset_name}")
 
-        # 2. Syntax SVM
-        logger.info("Training Syntax-only SVM baseline")
-        syntax_model = SVMWithSyntax(kernel=kernel, C=C)
-        results['syntax'] = self.train_model(syntax_model, train_df, val_df, test_size, random_state)
+        if datasets:
+            logger.info("Running cross-dataset evaluation")
+            results = self.cross_dataset_evaluation(datasets)
+            logger.info("Cross-dataset evaluation complete")
+            return results
+        return {}
 
-        # 3. Combined SVM
-        logger.info("Training Combined (BoW + Syntax) SVM baseline")
-        combined_model = SVMWithBothFeatures(kernel=kernel, C=C)
-        results['combined'] = self.train_model(combined_model, train_df, val_df, test_size, random_state)
-
-        logger.info("All SVM baselines trained successfully")
-        return results
-
-    def cross_dataset_evaluation(self, datasets: Dict[str, pd.DataFrame]) -> Dict:
-        """Evaluate trained models on multiple datasets for generalization analysis."""
+    def cross_dataset_evaluation(self, datasets):
+        """Evaluate trained models on multiple datasets"""
         results = {}
 
         # Load trained models
-        bow_model = SVMWithBagOfWords.load(os.path.join(self.save_dir, "SVMWithBagOfWords.joblib"))
-        syntax_model = SVMWithSyntax.load(os.path.join(self.save_dir, "SVMWithSyntax.joblib"))
-        combined_model = SVMWithBothFeatures.load(os.path.join(self.save_dir, "SVMWithBothFeatures.joblib"))
+        models = {
+            'bow': SVMWithBagOfWords.load(os.path.join(self.save_dir, "SVMWithBagOfWords.joblib")),
+            'syntax': SVMWithSyntax.load(os.path.join(self.save_dir, "SVMWithSyntax.joblib")),
+            'combined': SVMWithBothFeatures.load(os.path.join(self.save_dir, "SVMWithBothFeatures.joblib"))
+        }
 
+        # Evaluate each dataset
         for dataset_name, df in datasets.items():
             logger.info(f"Evaluating on {dataset_name} dataset")
-            df, labels = self.prepare_data(df)
+            df, labels = clean_dataset(df)
 
+            # Evaluate each model
             dataset_results = {}
+            for model_name, model in models.items():
+                features = model.extract_features(df)
+                preds = model.predict(features)
+                acc = accuracy_score(labels, preds)
+                dataset_results[model_name] = {'accuracy': acc}
 
-            # Evaluate BoW model
-            bow_features = bow_model.extract_features(df)
-            bow_preds = bow_model.predict(bow_features)
-            bow_acc = accuracy_score(labels, bow_preds)
-            dataset_results['bow'] = {'accuracy': bow_acc}
-
-            # Evaluate Syntax model
-            syntax_features = syntax_model.extract_features(df)
-            syntax_preds = syntax_model.predict(syntax_features)
-            syntax_acc = accuracy_score(labels, syntax_preds)
-            dataset_results['syntax'] = {'accuracy': syntax_acc}
-
-            # Evaluate Combined model
-            combined_features = combined_model.extract_features(df)
-            combined_preds = combined_model.predict(combined_features)
-            combined_acc = accuracy_score(labels, combined_preds)
-            dataset_results['combined'] = {'accuracy': combined_acc}
-
+            # Log results
             results[dataset_name] = dataset_results
-            logger.info(
-                f"{dataset_name} results - BoW: {bow_acc:.4f}, Syntax: {syntax_acc:.4f}, Combined: {combined_acc:.4f}")
+            acc_summary = ', '.join([f"{k}: {v['accuracy']:.4f}" for k, v in dataset_results.items()])
+            logger.info(f"{dataset_name} results - {acc_summary}")
 
         return results
 

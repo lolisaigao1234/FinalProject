@@ -500,22 +500,25 @@ class SVMTrainer:
         train_df, y_train = self.prepare_data(train_df)
         val_df, y_val = self.prepare_data(val_df)
 
-        # Extract features using the model's specialized extractor
+        # Extract features for training only
         logger.info(f"Training {model.__class__.__name__}")
         X_train = model.extract_features(train_df)
-        X_val = model.extract_features(val_df)
 
-        # Train model
+        # Train model - this sets self.is_trained = True
         start_time = time.time()
         model.train(X_train, y_train)
         train_time = time.time() - start_time
+
+        # Extract features for validation AFTER training
+        # Now self.is_trained = True, so proper feature alignment will occur
+        X_val = model.extract_features(val_df)
 
         # Evaluate model
         start_time = time.time()
         y_pred = model.predict(X_val)
         eval_time = time.time() - start_time
 
-        # Calculate metrics
+        # The rest remains the same
         accuracy = accuracy_score(y_val, y_pred)
         precision, recall, f1, _ = precision_recall_fscore_support(
             y_val, y_pred, average='weighted'

@@ -1,11 +1,8 @@
 # utils/database.py
 import os
 import logging
-from typing import Dict, List, Union, Any, Optional
 
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 from datasets import load_dataset
 
 from config import PARQUET_DIR, DATASETS, HF_CACHE_DIR
@@ -13,19 +10,10 @@ from config import PARQUET_DIR, DATASETS, HF_CACHE_DIR
 logger = logging.getLogger(__name__)
 
 
-def store_dataframe(df: pd.DataFrame, dataset: str, split: str, table: str = None):
-    """Store a dataframe in Parquet format."""
-    filename = f"{dataset}_{split}_{table if table else 'data'}.parquet"
-    filepath = os.path.join(PARQUET_DIR, filename)
-    df.to_parquet(filepath, index=False)
-    logger.info(f"Saved dataframe to {filepath}")
 
 
-def check_exists(dataset: str, split: str, table: str = None) -> bool:
-    """Check if data exists in storage."""
-    filename = f"{dataset}_{split}_{table if table else 'data'}.parquet"
-    filepath = os.path.join(PARQUET_DIR, filename)
-    return os.path.exists(filepath)
+
+
 
 
 class DatabaseHandler:
@@ -42,6 +30,10 @@ class DatabaseHandler:
         filename = f"{dataset}_{split}_{table if table else ''}.parquet"
         filepath = os.path.join(PARQUET_DIR, filename)
 
+        logger.info(f"Loading {dataset}/{split}/{table} from {filepath}")
+
+        assert False
+
         if os.path.exists(filepath):
             return pd.read_parquet(filepath)
         elif table is None:
@@ -51,6 +43,21 @@ class DatabaseHandler:
         else:
             logger.warning(f"No data found at {filepath}")
             return pd.DataFrame()
+
+    @staticmethod
+    def store_dataframe(df: pd.DataFrame, dataset: str, split: str, table: str = None):
+        """Store a dataframe in Parquet format."""
+        filename = f"{dataset}_{split}_{table if table else 'data'}.parquet"
+        filepath = os.path.join(PARQUET_DIR, filename)
+        df.to_parquet(filepath, index=False)
+        logger.info(f"Saved dataframe to {filepath}")
+
+    @staticmethod
+    def check_exists(dataset: str, split: str, table: str = None) -> bool:
+        """Check if data exists in storage."""
+        filename = f"{dataset}_{split}_{table if table else 'data'}.parquet"
+        filepath = os.path.join(PARQUET_DIR, filename)
+        return os.path.exists(filepath)
 
     def load_from_huggingface(self, dataset_name: str, split: str = None) -> pd.DataFrame:
         """Load a dataset directly from HuggingFace.
@@ -109,6 +116,53 @@ class DatabaseHandler:
         except Exception as e:
             logger.error(f"Error loading dataset {dataset_name} from HuggingFace: {str(e)}")
             raise
+
+    def get_preprocessed_data(self, dataset: str, split: str) -> dict:
+        """
+        Load preprocessed data from database for neural network training.
+
+        Args:
+            dataset: Name of the dataset (e.g., 'snli', 'mnli')
+            split: Data split ('train', 'val', 'test')
+
+        Returns:
+            Dictionary containing preprocessed tensors ready for neural network training
+        """
+        import torch  # Add this import at the top of the file if not already present
+
+        logger.info(f"Loading preprocessed data for {dataset}_{split}")
+
+        # Load the main dataframe
+        df_main = self.load_dataframe(dataset, split)
+
+        # Load BERT features
+        df_bert = self.load_dataframe(dataset, split, table="bert_features")
+
+        # Load syntactic features
+        df_syntax = self.load_dataframe(dataset, split, table="syntax_features")
+
+        # Convert pandas dataframes to PyTorch tensors
+        input_ids = torch.tensor(df_bert["input_ids"].tolist(), dtype=torch.long)
+        attention_mask = torch.tensor(df_bert["attention_mask"].tolist(), dtype=torch.long)
+        token_type_ids = torch.tensor(df_bert["token_type_ids"].tolist(), dtype=torch.long)
+
+        syntax_features_premise = torch.tensor(df_syntax["premise_features"].tolist(), dtype=torch.float)
+        syntax_features_hypothesis = torch.tensor(df_syntax["hypothesis_features"].tolist(), dtype=torch.float)
+
+        # Convert labels if they exist (not for test set)
+        labels = None
+        if "label" in df_main.columns:
+            labels = torch.tensor(df_main["label"].tolist(), dtype=torch.long)
+
+        # Return the preprocessed data dictionary
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "token_type_ids": token_type_ids,
+            "syntax_features_premise": syntax_features_premise,
+            "syntax_features_hypothesis": syntax_features_hypothesis,
+            "labels": labels
+        }
 
     def clear_cache(self):
         """Clear the dataset cache."""

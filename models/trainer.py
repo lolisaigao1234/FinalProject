@@ -95,18 +95,6 @@ class LexicalFeatureExtractor(FeatureExtractor):
         """Extract lexical features from data"""
         filtered_data = filter_lexical_features(data)
         return _feature_extractor_helper(self, filtered_data, data, feature_cols)
-        # if feature_cols is not None:
-        #     # Ensure all columns exist in the data
-        #     missing_cols = set(feature_cols) - set(filtered_data.columns)
-        #     if missing_cols:
-        #         logger.warning(f"Adding {len(missing_cols)} missing lexical columns")
-        #         filtered_data = filtered_data.copy()  # Create explicit copy
-        #         for col in missing_cols:
-        #             filtered_data.loc[:, col] = 0
-        #     return filtered_data[feature_cols].values
-        # else:
-        #     cols = self.get_feature_columns(data)
-        #     return filtered_data[cols].values
 
 
 class SyntacticFeatureExtractor(FeatureExtractor):
@@ -122,18 +110,6 @@ class SyntacticFeatureExtractor(FeatureExtractor):
         """Extract syntactic features from data"""
         filtered_data = filter_syntactic_features(data)
         return _feature_extractor_helper(self, filtered_data, data, feature_cols)
-        # if feature_cols is not None:
-        #     # Ensure all columns exist in the data
-        #     missing_cols = set(feature_cols) - set(filtered_data.columns)
-        #     if missing_cols:
-        #         logger.warning(f"Adding {len(missing_cols)} missing syntactic columns")
-        #         filtered_data = filtered_data.copy()
-        #         for col in missing_cols:
-        #             filtered_data.loc[:, col] = 0
-        #     return filtered_data[feature_cols].values
-        # else:
-        #     cols = self.get_feature_columns(data)
-        #     return filtered_data[cols].values
 
 
 class CombinedFeatureExtractor(FeatureExtractor):
@@ -147,18 +123,6 @@ class CombinedFeatureExtractor(FeatureExtractor):
     def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
         """Extract combined features from data"""
         return _feature_extractor_helper(self, data, data, feature_cols)
-        # if feature_cols is not None:
-        #     # Ensure all columns exist in the data
-        #     missing_cols = set(feature_cols) - set(data.columns)
-        #     if missing_cols:
-        #         logger.warning(f"Adding {len(missing_cols)} missing columns")
-        #         data = data.copy()
-        #         for col in missing_cols:
-        #             data.loc[:, col] = 0
-        #     return data[feature_cols].values
-        # else:
-        #     cols = self.get_feature_columns(data)
-        #     return data[cols].values
 
 
 def _feature_extractor_helper(self, filtered_data: pd.DataFrame, data: pd.DataFrame,
@@ -201,8 +165,8 @@ class SVMModel(NLIModel):
             # During prediction, use stored feature columns
             logger.info(f"Extracting features with {len(self.feature_cols)} columns")
             logger.info("Not implemented, if entered, should terminate.")
-            return np.ndarray(0)
-            # return self.feature_extractor.extract(data, self.feature_cols)
+            # return np.ndarray(0)
+            return self.feature_extractor.extract(data, self.feature_cols)
 
     def train(self, X: np.ndarray, y: np.ndarray) -> None:
         """Train the SVM model"""
@@ -250,16 +214,6 @@ def filter_syntactic_features(df: pd.DataFrame) -> pd.DataFrame:
 
     # Always keep the label column
     return _feature_return_helper(df, syntax_cols)
-    # if 'label' in df.columns:
-    #     syntax_cols.append('label')
-    # elif 'gold_label' in df.columns:
-    #     syntax_cols.append('gold_label')
-    #
-    # if 'pair_id' in df.columns:
-    #     syntax_cols.append('pair_id')
-    #
-    # logger.info(f"Selected {len(syntax_cols)} syntactic feature columns")
-    # return df[syntax_cols]
 
 
 def filter_lexical_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -380,6 +334,35 @@ def prepare_data(df: pd.DataFrame) -> Tuple[pd.DataFrame, np.ndarray]:
     return df, labels
 
 
+def _handle_nan_values(df, dataset_name):
+    """Check for and handle NaN values in dataframe"""
+    nan_count = df.isna().sum().sum()
+    if nan_count > 0:
+        logger.warning(f"Found {nan_count} NaN values in {dataset_name} data, filling with 0")
+        return df.fillna(0)
+    return df
+
+
+def _evaluate_model(model, X_val, y_val):
+    """Evaluate model and return metrics"""
+    start_time = time.time()
+    y_pred = model.predict(X_val)
+    eval_time = time.time() - start_time
+
+    # Calculate metrics
+    accuracy = accuracy_score(y_val, y_pred)
+    precision, recall, f1, _ = precision_recall_fscore_support(
+        y_val, y_pred, average='weighted', zero_division=0
+    )
+
+    return eval_time, {
+        'accuracy': accuracy,
+        'precision': precision,
+        'recall': recall,
+        'f1': f1
+    }
+
+
 class SVMTrainer:
     """Trainer for SVM baseline models using preprocessed features."""
 
@@ -419,7 +402,7 @@ class SVMTrainer:
         )
 
         # Handle NaN values
-        train_data = self._handle_nan_values(train_data, "training")
+        train_data = _handle_nan_values(train_data, "training")
 
         # Try loading validation data, otherwise return None
         try:
@@ -427,21 +410,13 @@ class SVMTrainer:
                 dataset_name, 'validation',
                 feature_type='features_lexical_syntactic'
             )
-            val_data = self._handle_nan_values(val_data, "validation")
+            val_data = _handle_nan_values(val_data, "validation")
             logger.info(f"Loaded separate validation set with {len(val_data)} examples")
         except FileNotFoundError:
             logger.info("No validation features found, will split from train set")
             val_data = None
 
         return train_data, val_data
-
-    def _handle_nan_values(self, df, dataset_name):
-        """Check for and handle NaN values in dataframe"""
-        nan_count = df.isna().sum().sum()
-        if nan_count > 0:
-            logger.warning(f"Found {nan_count} NaN values in {dataset_name} data, filling with 0")
-            return df.fillna(0)
-        return df
 
     def _train_all_models(self, train_df, val_df=None, test_size=0.2,
                           random_state=42, kernel='linear', C=1.0):
@@ -488,7 +463,7 @@ class SVMTrainer:
         X_val = model.extract_features(val_df)
 
         # Evaluate model
-        eval_time, metrics = self._evaluate_model(model, X_val, y_val)
+        eval_time, metrics = _evaluate_model(model, X_val, y_val)
 
         # Save model
         model_path = os.path.join(self.save_dir, f"{model.__class__.__name__}.joblib")
@@ -499,25 +474,6 @@ class SVMTrainer:
         logger.info(f"Training time: {train_time:.2f}s, Evaluation time: {eval_time:.2f}s")
 
         return {**metrics, 'train_time': train_time, 'eval_time': eval_time}
-
-    def _evaluate_model(self, model, X_val, y_val):
-        """Evaluate model and return metrics"""
-        start_time = time.time()
-        y_pred = model.predict(X_val)
-        eval_time = time.time() - start_time
-
-        # Calculate metrics
-        accuracy = accuracy_score(y_val, y_pred)
-        precision, recall, f1, _ = precision_recall_fscore_support(
-            y_val, y_pred, average='weighted', zero_division=0
-        )
-
-        return eval_time, {
-            'accuracy': accuracy,
-            'precision': precision,
-            'recall': recall,
-            'f1': f1
-        }
 
     def _run_cross_evaluation(self, source_dataset):
         """Run cross-dataset evaluation"""
@@ -531,7 +487,7 @@ class SVMTrainer:
                         dataset_name, 'test',
                         feature_type='features_lexical_syntactic'
                     )
-                    datasets[dataset_name] = self._handle_nan_values(
+                    datasets[dataset_name] = _handle_nan_values(
                         datasets[dataset_name], f"{dataset_name} test"
                     )
                     logger.info(f"Loaded {len(datasets[dataset_name])} examples from {dataset_name}")

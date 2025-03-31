@@ -1,6 +1,3 @@
-'''
-This part is not done yet. Missing implementation for the Dataset class and ModelTrainer class.
-'''
 # models/NeuroTrainer.py
 import os
 import logging

@@ -1,7 +1,7 @@
 from utils.common import logging, torch
 from utils.database import DatabaseHandler
 from data.preprocessor import TextPreprocessor
-from models.trainer import SVMTrainer
+from models.SVMTrainer import SVMTrainer
 
 from config import parse_args, DEVICE
 

@@ -87,8 +87,8 @@ class ModelTrainer:
         torch.backends.cudnn.benchmark = True
 
         # Initialize AMP scaler
-        # self.scaler = torch.amp.GradScaler(device, enabled=use_amp)
-        self.scaler = torch.amp.GradScaler(device=device if not device else "cpu", enabled=use_amp)
+        # self.scaler = torch.amp.GradScaler(device=device if not device else "cpu", enabled=use_amp)
+        self.scaler = torch.amp.GradScaler(enabled=use_amp)
         # Model compilation for PyTorch 2.0+
         if enable_compile and hasattr(torch, 'compile'):
             self.model = torch.compile(model)
@@ -216,12 +216,21 @@ class ModelTrainer:
                 batch = {k: v.to(self.device, non_blocking=True) for k, v in batch.items()}
 
                 with torch.amp.autocast(device_type='cuda', dtype=torch.float16, enabled=self.use_amp):
+                    # outputs = self.model(
+                    #     input_ids=batch["input_ids"],
+                    #     attention_mask=batch["attention_mask"],
+                    #     syntax_features_premise=batch["syntax_features_premise"],
+                    #     syntax_features_hypothesis=batch["syntax_features_hypothesis"]
+                    # )
+                    # Add token_type_ids to forward calls in train method
                     outputs = self.model(
                         input_ids=batch["input_ids"],
                         attention_mask=batch["attention_mask"],
+                        token_type_ids=batch["token_type_ids"],  # Added this parameter
                         syntax_features_premise=batch["syntax_features_premise"],
                         syntax_features_hypothesis=batch["syntax_features_hypothesis"]
                     )
+
                     loss = self.criterion(outputs, batch["labels"])
 
                 val_loss += loss.item()

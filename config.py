@@ -62,6 +62,9 @@ NUM_CLASSES = 3
 LEARNING_RATE = 3e-5  # Adjusted for larger batch size
 WEIGHT_DECAY = 0.01
 EPOCHS = 5
+# Dimension of syntactic features extracted from Stanza parse trees
+SYNTACTIC_FEATURE_DIM = 200
+
 
 # A100-specific settings
 TORCH_COMPILE = True  # Enable PyTorch 2.0 compiler if available

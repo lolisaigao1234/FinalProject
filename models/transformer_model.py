@@ -70,4 +70,29 @@ class BERTWithSyntacticAttention(nn.Module):
         syntax_hypothesis = self.syntactic_encoder(syntax_features_hypothesis)  # [batch_size, hidden_size]
 
         # Reshape for attention
-        syntax_premise = syntax_premise.unsqueeze(1)  #
+        syntax_premise = syntax_premise.unsqueeze(1)  # [batch_size, 1, hidden_size]
+        syntax_hypothesis = syntax_hypothesis.unsqueeze(1)  # [batch_size, 1, hidden_size]
+
+        # Combine syntactic features for query
+        syntax_combined = torch.cat([syntax_premise, syntax_hypothesis], dim=1)  # [batch_size, 2, hidden_size]
+
+        # Apply attention between token representations and syntactic features
+        attn_output, _ = self.attention(
+            query=syntax_combined,  # [batch_size, 2, hidden_size]
+            key=token_reps,  # [batch_size, seq_len, hidden_size]
+            value=token_reps  # [batch_size, seq_len, hidden_size]
+        )
+
+        # Pool attention output
+        pooled_bert = torch.mean(bert_outputs.last_hidden_state, dim=1)  # [batch_size, hidden_size]
+        pooled_attn = torch.mean(attn_output, dim=1)  # [batch_size, hidden_size]
+
+        # Integrate BERT representation with attention-weighted syntactic information
+        integrated = torch.cat([pooled_bert, pooled_attn], dim=1)  # [batch_size, hidden_size*2]
+        integrated = self.integration(integrated)  # [batch_size, hidden_size]
+
+        # Classify
+        logits = self.classifier(integrated)  # [batch_size, num_classes]
+
+        return logits
+

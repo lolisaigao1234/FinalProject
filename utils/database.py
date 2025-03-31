@@ -13,6 +13,21 @@ from config import PARQUET_DIR, DATASETS, HF_CACHE_DIR
 logger = logging.getLogger(__name__)
 
 
+def store_dataframe(df: pd.DataFrame, dataset: str, split: str, table: str = None):
+    """Store a dataframe in Parquet format."""
+    filename = f"{dataset}_{split}_{table if table else 'data'}.parquet"
+    filepath = os.path.join(PARQUET_DIR, filename)
+    df.to_parquet(filepath, index=False)
+    logger.info(f"Saved dataframe to {filepath}")
+
+
+def check_exists(dataset: str, split: str, table: str = None) -> bool:
+    """Check if data exists in storage."""
+    filename = f"{dataset}_{split}_{table if table else 'data'}.parquet"
+    filepath = os.path.join(PARQUET_DIR, filename)
+    return os.path.exists(filepath)
+
+
 class DatabaseHandler:
     """Efficient database handler using Parquet for preprocessed data storage with HuggingFace integration."""
 
@@ -21,13 +36,6 @@ class DatabaseHandler:
         self.db_type = db_type
         os.makedirs(PARQUET_DIR, exist_ok=True)
         self.dataset_cache = {}  # Cache for loaded datasets
-
-    def store_dataframe(self, df: pd.DataFrame, dataset: str, split: str, table: str = None):
-        """Store a dataframe in Parquet format."""
-        filename = f"{dataset}_{split}_{table if table else 'data'}.parquet"
-        filepath = os.path.join(PARQUET_DIR, filename)
-        df.to_parquet(filepath, index=False)
-        logger.info(f"Saved dataframe to {filepath}")
 
     def load_dataframe(self, dataset: str, split: str, table: str = None) -> pd.DataFrame:
         """Load a dataframe from Parquet storage or from HuggingFace if not in storage."""
@@ -43,12 +51,6 @@ class DatabaseHandler:
         else:
             logger.warning(f"No data found at {filepath}")
             return pd.DataFrame()
-
-    def check_exists(self, dataset: str, split: str, table: str = None) -> bool:
-        """Check if data exists in storage."""
-        filename = f"{dataset}_{split}_{table if table else 'data'}.parquet"
-        filepath = os.path.join(PARQUET_DIR, filename)
-        return os.path.exists(filepath)
 
     def load_from_huggingface(self, dataset_name: str, split: str = None) -> pd.DataFrame:
         """Load a dataset directly from HuggingFace.

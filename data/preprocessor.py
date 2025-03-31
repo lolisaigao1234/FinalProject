@@ -156,9 +156,10 @@ class TextPreprocessor(NLPBaseComponent, PreprocessorInterface):
                 self._feature_extractor.extract_features(
                     dataset_name=dataset_name,
                     split=split_name,
-                    force_recompute=force_reprocess,
+                    force_recompute=True,
                     sample_size=sample_size
                 )
+
 
     def _initialize_feature_extractor(self) -> None:
         """Lazy initialization of feature extractor."""

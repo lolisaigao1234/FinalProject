@@ -32,10 +32,12 @@ def load_parquet_data(dataset_name: str, split: str = 'train',
                       sample_size: Optional[int] = None,
                       cache_dir: Optional[str] = None) -> pd.DataFrame:
     """Load data from parquet files with proper pattern matching"""
-    cache_dir = cache_dir or 'cache\\parquet'
+    cache_dir = cache_dir or 'cache/parquet'
 
     # Build the file pattern based on requirements
     pattern = _build_file_pattern(cache_dir, dataset_name, split, feature_type)
+
+    logger.info(f"Loading data from {pattern}")
 
     # Find matching files
     parquet_files = glob.glob(pattern)

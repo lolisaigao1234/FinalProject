@@ -1,11 +1,8 @@
 # utils/database.py
 import os
 import logging
-from typing import Dict, List, Union, Any, Optional
 
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 from datasets import load_dataset
 
 from config import PARQUET_DIR, DATASETS, HF_CACHE_DIR
@@ -109,6 +106,53 @@ class DatabaseHandler:
         except Exception as e:
             logger.error(f"Error loading dataset {dataset_name} from HuggingFace: {str(e)}")
             raise
+
+    def get_preprocessed_data(self, dataset: str, split: str) -> dict:
+        """
+        Load preprocessed data from database for neural network training.
+
+        Args:
+            dataset: Name of the dataset (e.g., 'snli', 'mnli')
+            split: Data split ('train', 'val', 'test')
+
+        Returns:
+            Dictionary containing preprocessed tensors ready for neural network training
+        """
+        import torch  # Add this import at the top of the file if not already present
+
+        logger.info(f"Loading preprocessed data for {dataset}_{split}")
+
+        # Load the main dataframe
+        df_main = self.load_dataframe(dataset, split)
+
+        # Load BERT features
+        df_bert = self.load_dataframe(dataset, split, table="bert_features")
+
+        # Load syntactic features
+        df_syntax = self.load_dataframe(dataset, split, table="syntax_features")
+
+        # Convert pandas dataframes to PyTorch tensors
+        input_ids = torch.tensor(df_bert["input_ids"].tolist(), dtype=torch.long)
+        attention_mask = torch.tensor(df_bert["attention_mask"].tolist(), dtype=torch.long)
+        token_type_ids = torch.tensor(df_bert["token_type_ids"].tolist(), dtype=torch.long)
+
+        syntax_features_premise = torch.tensor(df_syntax["premise_features"].tolist(), dtype=torch.float)
+        syntax_features_hypothesis = torch.tensor(df_syntax["hypothesis_features"].tolist(), dtype=torch.float)
+
+        # Convert labels if they exist (not for test set)
+        labels = None
+        if "label" in df_main.columns:
+            labels = torch.tensor(df_main["label"].tolist(), dtype=torch.long)
+
+        # Return the preprocessed data dictionary
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "token_type_ids": token_type_ids,
+            "syntax_features_premise": syntax_features_premise,
+            "syntax_features_hypothesis": syntax_features_hypothesis,
+            "labels": labels
+        }
 
     def clear_cache(self):
         """Clear the dataset cache."""

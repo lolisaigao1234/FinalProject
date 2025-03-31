@@ -69,27 +69,155 @@ def _build_file_pattern(cache_dir, dataset_name, split, feature_type=None):
         return os.path.join(cache_dir, f'{dataset_name}_{split}_sample*.parquet')
 
 
-class SVMBaseModel(NLIModel, ABC):
-    """Base class for SVM models implementing the NLIModel interface."""
+class FeatureExtractor:
+    """Base class for feature extraction"""
 
-    def __init__(self, kernel: str = 'linear', C: float = 1.0):
-        """Initialize SVM model."""
+    def extract(self, data: pd.DataFrame) -> np.ndarray:
+        """Extract features from input data"""
+        raise NotImplementedError("Subclasses must implement extract()")
+
+    def get_feature_columns(self, data: pd.DataFrame) -> List[str]:
+        """Get list of feature column names"""
+        raise NotImplementedError("Subclasses must implement get_feature_columns()")
+
+
+class LexicalFeatureExtractor(FeatureExtractor):
+    """Extracts lexical features from data"""
+
+    def get_feature_columns(self, data: pd.DataFrame) -> List[str]:
+        """Get lexical feature columns"""
+        # Filter to keep only lexical features
+        filtered_data = filter_lexical_features(data)
+        # Get feature columns (all except label/ID columns)
+        return [col for col in filtered_data.columns
+                if col not in ['label', 'gold_label', 'pair_id']]
+
+    def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
+        """Extract lexical features from data"""
+        filtered_data = filter_lexical_features(data)
+        if feature_cols is not None:
+            # Ensure all columns exist in the data
+            missing_cols = set(feature_cols) - set(filtered_data.columns)
+            if missing_cols:
+                logger.warning(f"Adding {len(missing_cols)} missing lexical columns")
+                filtered_data = filtered_data.copy()  # Create explicit copy
+                for col in missing_cols:
+                    filtered_data.loc[:, col] = 0
+            return filtered_data[feature_cols].values
+        else:
+            cols = self.get_feature_columns(data)
+            return filtered_data[cols].values
+
+
+class SyntacticFeatureExtractor(FeatureExtractor):
+    """Extracts syntactic features from data"""
+
+    def get_feature_columns(self, data: pd.DataFrame) -> List[str]:
+        """Get syntactic feature columns"""
+        filtered_data = filter_syntactic_features(data)
+        return [col for col in filtered_data.columns
+                if col not in ['label', 'gold_label', 'pair_id']]
+
+    def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
+        """Extract syntactic features from data"""
+        filtered_data = filter_syntactic_features(data)
+        if feature_cols is not None:
+            # Ensure all columns exist in the data
+            missing_cols = set(feature_cols) - set(filtered_data.columns)
+            if missing_cols:
+                logger.warning(f"Adding {len(missing_cols)} missing syntactic columns")
+                filtered_data = filtered_data.copy()
+                for col in missing_cols:
+                    filtered_data.loc[:, col] = 0
+            return filtered_data[feature_cols].values
+        else:
+            cols = self.get_feature_columns(data)
+            return filtered_data[cols].values
+
+
+class CombinedFeatureExtractor(FeatureExtractor):
+    """Extracts both lexical and syntactic features"""
+
+    def get_feature_columns(self, data: pd.DataFrame) -> List[str]:
+        """Get all relevant feature columns"""
+        return [col for col in data.columns
+                if col not in ['label', 'gold_label', 'pair_id']]
+
+    def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
+        """Extract combined features from data"""
+        if feature_cols is not None:
+            # Ensure all columns exist in the data
+            missing_cols = set(feature_cols) - set(data.columns)
+            if missing_cols:
+                logger.warning(f"Adding {len(missing_cols)} missing columns")
+                data = data.copy()
+                for col in missing_cols:
+                    data.loc[:, col] = 0
+            return data[feature_cols].values
+        else:
+            cols = self.get_feature_columns(data)
+            return data[cols].values
+
+
+class SVMModel(NLIModel):
+    """Base class for all SVM models with common functionality"""
+
+    def __init__(self, feature_extractor: FeatureExtractor, kernel: str = 'linear', C: float = 1.0):
+        """Initialize SVM model with a feature extractor"""
+        self.feature_extractor = feature_extractor
         self.kernel = kernel
         self.C = C
         self.svm = SVC(kernel=kernel, C=C, probability=True)
         self.is_trained = False
+        self.feature_cols = None
+
+    def extract_features(self, data: pd.DataFrame) -> np.ndarray:
+        """Extract features using the feature extractor"""
+        logger.info("Enter extract feature base model")
+        if not self.is_trained:
+            # During training, discover feature columns
+            self.feature_cols = self.feature_extractor.get_feature_columns(data)
+            logger.info(f"Using {len(self.feature_cols)} feature columns for training")
+            return self.feature_extractor.extract(data)
+        # else:
+        #     # During prediction, use stored feature columns
+        #     logger.info(f"Extracting features with {len(self.feature_cols)} columns")
+        #     return self.feature_extractor.extract(data, self.feature_cols)
 
     def train(self, X: np.ndarray, y: np.ndarray) -> None:
-        """Train the SVM model."""
+        """Train the SVM model"""
         logger.info(f"Training SVM with {X.shape[0]} samples and {X.shape[1]} features")
         self.svm.fit(X, y)
         self.is_trained = True
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Make predictions with the SVM model."""
+        """Make predictions with the SVM model"""
         if not self.is_trained:
             raise RuntimeError("Model has not been trained yet")
         return self.svm.predict(X)
+
+    def save(self, filepath: str) -> None:
+        """Save model to disk"""
+        model_data = {
+            'svm': self.svm,
+            'kernel': self.kernel,
+            'C': self.C,
+            'is_trained': self.is_trained,
+            'feature_cols': self.feature_cols
+        }
+        joblib.dump(model_data, filepath)
+        logger.info(f"Saved model to {filepath}")
+
+    @classmethod
+    def load(cls, filepath: str, feature_extractor: FeatureExtractor) -> 'SVMModel':
+        """Load model from disk"""
+        model_data = joblib.load(filepath)
+        instance = cls(feature_extractor, kernel=model_data['kernel'], C=model_data['C'])
+        instance.svm = model_data['svm']
+        instance.is_trained = model_data['is_trained']
+        instance.feature_cols = model_data['feature_cols']
+        logger.info(f"Loaded model from {filepath}")
+        return instance
 
 
 # Feature selection and filtering helpers
@@ -101,16 +229,17 @@ def filter_syntactic_features(df: pd.DataFrame) -> pd.DataFrame:
                                                      'hypothesis_dep_', 'diff_const_', 'deprel_', 'pos_'])]
 
     # Always keep the label column
-    if 'label' in df.columns:
-        syntax_cols.append('label')
-    elif 'gold_label' in df.columns:
-        syntax_cols.append('gold_label')
-
-    if 'pair_id' in df.columns:
-        syntax_cols.append('pair_id')
-
-    logger.info(f"Selected {len(syntax_cols)} syntactic feature columns")
-    return df[syntax_cols]
+    return _feature_return_helper(df, syntax_cols)
+    # if 'label' in df.columns:
+    #     syntax_cols.append('label')
+    # elif 'gold_label' in df.columns:
+    #     syntax_cols.append('gold_label')
+    #
+    # if 'pair_id' in df.columns:
+    #     syntax_cols.append('pair_id')
+    #
+    # logger.info(f"Selected {len(syntax_cols)} syntactic feature columns")
+    # return df[syntax_cols]
 
 
 def filter_lexical_features(df: pd.DataFrame) -> pd.DataFrame:
@@ -122,247 +251,53 @@ def filter_lexical_features(df: pd.DataFrame) -> pd.DataFrame:
                                                       'length_ratio', 'word_overlap'])]
 
     # Always keep the label column
+    return _feature_return_helper(df, lexical_cols)
+
+
+def _feature_return_helper(df: pd.DataFrame, feature_cols: List[str]) -> pd.DataFrame:
     if 'label' in df.columns:
-        lexical_cols.append('label')
+        feature_cols.append('label')
     elif 'gold_label' in df.columns:
-        lexical_cols.append('gold_label')
+        feature_cols.append('gold_label')
 
     if 'pair_id' in df.columns:
-        lexical_cols.append('pair_id')
+        feature_cols.append('pair_id')
 
-    logger.info(f"Selected {len(lexical_cols)} lexical feature columns")
-    return df[lexical_cols]
+    logger.info(f"Selected {len(feature_cols)} lexical feature columns")
+    return df[feature_cols]
 
 
-class SVMWithBagOfWords(NLIModel):
+class SVMWithBagOfWords(SVMModel):
     """SVM model using only bag of words/lexical features."""
 
     def __init__(self, kernel: str = 'linear', C: float = 1.0):
-        """Initialize BoW SVM model."""
-        self.kernel = kernel
-        self.C = C
-        self.svm = SVC(kernel=kernel, C=C, probability=True)
-        self.is_trained = False
-        self.feature_cols = None
-
-    def extract_features(self, data: pd.DataFrame) -> np.ndarray:
-        """Extract lexical features from preprocessed data."""
-        logger.info("Extracting lexical features for SVM model")
-
-        # Filter to keep only lexical features
-        filtered_data = filter_lexical_features(data)
-
-        # Get feature columns (all except label/ID columns)
-        if not self.is_trained:
-            self.feature_cols = [col for col in filtered_data.columns
-                                 if col not in ['label', 'gold_label', 'pair_id']]
-            logger.info(f"Using {len(self.feature_cols)} lexical feature columns")
-
-        # Return features as numpy array
-        return filtered_data[self.feature_cols].values
-
-    def train(self, X: np.ndarray, y: np.ndarray) -> None:
-        """Train the SVM model."""
-        logger.info(f"Training SVM with {X.shape[0]} samples and {X.shape[1]} lexical features")
-        self.svm.fit(X, y)
-        self.is_trained = True
-
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Make predictions with the SVM model."""
-        if not self.is_trained:
-            raise RuntimeError("Model has not been trained yet")
-        return self.svm.predict(X)
-
-    def save(self, filepath: str) -> None:
-        """Save model to disk."""
-        model_data = {
-            'svm': self.svm,
-            'kernel': self.kernel,
-            'C': self.C,
-            'is_trained': self.is_trained,
-            'feature_cols': self.feature_cols
-        }
-        joblib.dump(model_data, filepath)
-        logger.info(f"Saved model to {filepath}")
+        super().__init__(LexicalFeatureExtractor(), kernel, C)
 
     @classmethod
     def load(cls, filepath: str) -> 'SVMWithBagOfWords':
-        """Load model from disk."""
-        model_data = joblib.load(filepath)
-        instance = cls(kernel=model_data['kernel'], C=model_data['C'])
-        instance.svm = model_data['svm']
-        instance.is_trained = model_data['is_trained']
-        instance.feature_cols = model_data['feature_cols']
-        logger.info(f"Loaded model from {filepath}")
-        return instance
+        return super().load(filepath, LexicalFeatureExtractor())
 
 
-class SVMWithSyntax(NLIModel):
+class SVMWithSyntax(SVMModel):
     """SVM model using only syntactic features."""
 
     def __init__(self, kernel: str = 'linear', C: float = 1.0):
-        """Initialize syntax SVM model."""
-        self.kernel = kernel
-        self.C = C
-        self.svm = SVC(kernel=kernel, C=C, probability=True)
-        self.is_trained = False
-        self.feature_cols = None
-
-    def extract_features(self, data: pd.DataFrame) -> np.ndarray:
-        """Extract syntactic features from preprocessed data."""
-        logger.info("Extracting syntactic features for SVM model")
-
-        # Filter to keep only syntactic features
-        filtered_data = filter_syntactic_features(data)
-
-        # Remove label and ID columns from consideration
-        data_cols = [col for col in filtered_data.columns
-                     if col not in ['label', 'gold_label', 'pair_id']]
-
-        if not self.is_trained:
-            # During training, store feature columns
-            self.feature_cols = data_cols
-            logger.info(f"Using {len(self.feature_cols)} syntactic feature columns for training")
-            return filtered_data[self.feature_cols].values
-        else:
-            # During validation/testing, ensure feature consistency
-            logger.info(
-                f"Ensuring consistent feature set with training data ({len(self.feature_cols)} features expected)")
-
-            # In SVMWithSyntax class extract_features method:
-            # Check for missing columns and add them with zeros
-            missing_cols = set(self.feature_cols) - set(data_cols)
-            if missing_cols:
-                logger.warning(f"Adding {len(missing_cols)} missing columns to validation data")
-                # Create an explicit copy before modifying
-                filtered_data = filtered_data.copy()
-                for col in missing_cols:
-                    filtered_data.loc[:, col] = 0
-
-            # Ensure we only use the columns that were present during training
-            # This handles both missing columns (now added) and any extra columns (will be ignored)
-            result = filtered_data[self.feature_cols].values
-            logger.info(f"Final feature matrix shape: {result.shape}")
-            return result
-
-    def train(self, X: np.ndarray, y: np.ndarray) -> None:
-        """Train the SVM model."""
-        logger.info(f"Training SVM with {X.shape[0]} samples and {X.shape[1]} syntactic features")
-        self.svm.fit(X, y)
-        self.is_trained = True
-
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Make predictions with the SVM model."""
-        if not self.is_trained:
-            raise RuntimeError("Model has not been trained yet")
-
-        logger.info(f"Making predictions with SVMWithSyntax model")
-        '''
-        This line is causing problem.
-        '''
-        return self.svm.predict(X)
-
-    def save(self, filepath: str) -> None:
-        """Save model to disk."""
-        model_data = {
-            'svm': self.svm,
-            'kernel': self.kernel,
-            'C': self.C,
-            'is_trained': self.is_trained,
-            'feature_cols': self.feature_cols
-        }
-        joblib.dump(model_data, filepath)
-        logger.info(f"Saved model to {filepath}")
+        super().__init__(SyntacticFeatureExtractor(), kernel, C)
 
     @classmethod
     def load(cls, filepath: str) -> 'SVMWithSyntax':
-        """Load model from disk."""
-        model_data = joblib.load(filepath)
-        instance = cls(kernel=model_data['kernel'], C=model_data['C'])
-        instance.svm = model_data['svm']
-        instance.is_trained = model_data['is_trained']
-        instance.feature_cols = model_data['feature_cols']
-        logger.info(f"Loaded model from {filepath}")
-        return instance
+        return super().load(filepath, SyntacticFeatureExtractor())
 
 
-class SVMWithBothFeatures(NLIModel):
+class SVMWithBothFeatures(SVMModel):
     """SVM model using both lexical and syntactic features."""
 
     def __init__(self, kernel: str = 'linear', C: float = 1.0):
-        """Initialize combined SVM model."""
-        self.kernel = kernel
-        self.C = C
-        self.svm = SVC(kernel=kernel, C=C, probability=True)
-        self.is_trained = False
-        self.feature_cols = None
-
-    def extract_features(self, data: pd.DataFrame) -> np.ndarray:
-        """Extract combined features from preprocessed data."""
-        logger.info("Extracting combined features for SVM model")
-
-        # Get all feature columns (excluding label/ID columns)
-        data_cols = [col for col in data.columns
-                     if col not in ['label', 'gold_label', 'pair_id']]
-
-        if not self.is_trained:
-            # During training, store feature columns
-            self.feature_cols = data_cols
-            logger.info(f"Using {len(self.feature_cols)} total feature columns for training")
-            return data[self.feature_cols].values
-        else:
-            # During validation/testing, ensure feature consistency
-            logger.info(f"Ensuring consistent feature set with training data")
-
-            # Add missing columns with zeros
-            # Similarly in SVMWithBothFeatures class extract_features method:
-            missing_cols = set(self.feature_cols) - set(data_cols)
-            if missing_cols:
-                logger.warning(f"Adding {len(missing_cols)} missing columns to validation data")
-                # Create an explicit copy before modifying
-                data = data.copy()
-                for col in missing_cols:
-                    data.loc[:, col] = 0
-
-            # Use only the training columns in the same order
-            result = data[self.feature_cols].values
-            logger.info(f"Final feature matrix shape: {result.shape}")
-            return result
-
-    def train(self, X: np.ndarray, y: np.ndarray) -> None:
-        """Train the SVM model."""
-        logger.info(f"Training SVM with {X.shape[0]} samples and {X.shape[1]} combined features")
-        self.svm.fit(X, y)
-        self.is_trained = True
-
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """Make predictions with the SVM model."""
-        if not self.is_trained:
-            raise RuntimeError("Model has not been trained yet")
-        return self.svm.predict(X)
-
-    def save(self, filepath: str) -> None:
-        """Save model to disk."""
-        model_data = {
-            'svm': self.svm,
-            'kernel': self.kernel,
-            'C': self.C,
-            'is_trained': self.is_trained,
-            'feature_cols': self.feature_cols
-        }
-        joblib.dump(model_data, filepath)
-        logger.info(f"Saved model to {filepath}")
+        super().__init__(CombinedFeatureExtractor(), kernel, C)
 
     @classmethod
     def load(cls, filepath: str) -> 'SVMWithBothFeatures':
-        """Load model from disk."""
-        model_data = joblib.load(filepath)
-        instance = cls(kernel=model_data['kernel'], C=model_data['C'])
-        instance.svm = model_data['svm']
-        instance.is_trained = model_data['is_trained']
-        instance.feature_cols = model_data['feature_cols']
-        logger.info(f"Loaded model from {filepath}")
-        return instance
+        return super().load(filepath, CombinedFeatureExtractor())
 
 
 def prepare_labels(labels, label_map=None):

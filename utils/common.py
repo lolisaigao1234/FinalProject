@@ -96,6 +96,6 @@ class NLIModel(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, filepath: str) -> 'NLIModel':
+    def load(cls, filepath: str, feature_extractor: FeatureExtractorInterface) -> 'NLIModel':
         """Load model from disk."""
         pass

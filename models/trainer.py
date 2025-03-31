@@ -3,7 +3,6 @@ import os
 import logging
 import time
 import glob
-from abc import ABC
 
 import numpy as np
 import pandas as pd
@@ -95,18 +94,19 @@ class LexicalFeatureExtractor(FeatureExtractor):
     def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
         """Extract lexical features from data"""
         filtered_data = filter_lexical_features(data)
-        if feature_cols is not None:
-            # Ensure all columns exist in the data
-            missing_cols = set(feature_cols) - set(filtered_data.columns)
-            if missing_cols:
-                logger.warning(f"Adding {len(missing_cols)} missing lexical columns")
-                filtered_data = filtered_data.copy()  # Create explicit copy
-                for col in missing_cols:
-                    filtered_data.loc[:, col] = 0
-            return filtered_data[feature_cols].values
-        else:
-            cols = self.get_feature_columns(data)
-            return filtered_data[cols].values
+        return _feature_extractor_helper(self, filtered_data, data, feature_cols)
+        # if feature_cols is not None:
+        #     # Ensure all columns exist in the data
+        #     missing_cols = set(feature_cols) - set(filtered_data.columns)
+        #     if missing_cols:
+        #         logger.warning(f"Adding {len(missing_cols)} missing lexical columns")
+        #         filtered_data = filtered_data.copy()  # Create explicit copy
+        #         for col in missing_cols:
+        #             filtered_data.loc[:, col] = 0
+        #     return filtered_data[feature_cols].values
+        # else:
+        #     cols = self.get_feature_columns(data)
+        #     return filtered_data[cols].values
 
 
 class SyntacticFeatureExtractor(FeatureExtractor):
@@ -121,18 +121,19 @@ class SyntacticFeatureExtractor(FeatureExtractor):
     def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
         """Extract syntactic features from data"""
         filtered_data = filter_syntactic_features(data)
-        if feature_cols is not None:
-            # Ensure all columns exist in the data
-            missing_cols = set(feature_cols) - set(filtered_data.columns)
-            if missing_cols:
-                logger.warning(f"Adding {len(missing_cols)} missing syntactic columns")
-                filtered_data = filtered_data.copy()
-                for col in missing_cols:
-                    filtered_data.loc[:, col] = 0
-            return filtered_data[feature_cols].values
-        else:
-            cols = self.get_feature_columns(data)
-            return filtered_data[cols].values
+        return _feature_extractor_helper(self, filtered_data, data, feature_cols)
+        # if feature_cols is not None:
+        #     # Ensure all columns exist in the data
+        #     missing_cols = set(feature_cols) - set(filtered_data.columns)
+        #     if missing_cols:
+        #         logger.warning(f"Adding {len(missing_cols)} missing syntactic columns")
+        #         filtered_data = filtered_data.copy()
+        #         for col in missing_cols:
+        #             filtered_data.loc[:, col] = 0
+        #     return filtered_data[feature_cols].values
+        # else:
+        #     cols = self.get_feature_columns(data)
+        #     return filtered_data[cols].values
 
 
 class CombinedFeatureExtractor(FeatureExtractor):
@@ -145,18 +146,35 @@ class CombinedFeatureExtractor(FeatureExtractor):
 
     def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
         """Extract combined features from data"""
-        if feature_cols is not None:
-            # Ensure all columns exist in the data
-            missing_cols = set(feature_cols) - set(data.columns)
-            if missing_cols:
-                logger.warning(f"Adding {len(missing_cols)} missing columns")
-                data = data.copy()
-                for col in missing_cols:
-                    data.loc[:, col] = 0
-            return data[feature_cols].values
-        else:
-            cols = self.get_feature_columns(data)
-            return data[cols].values
+        return _feature_extractor_helper(self, data, data, feature_cols)
+        # if feature_cols is not None:
+        #     # Ensure all columns exist in the data
+        #     missing_cols = set(feature_cols) - set(data.columns)
+        #     if missing_cols:
+        #         logger.warning(f"Adding {len(missing_cols)} missing columns")
+        #         data = data.copy()
+        #         for col in missing_cols:
+        #             data.loc[:, col] = 0
+        #     return data[feature_cols].values
+        # else:
+        #     cols = self.get_feature_columns(data)
+        #     return data[cols].values
+
+
+def _feature_extractor_helper(self, filtered_data: pd.DataFrame, data: pd.DataFrame,
+                              feature_cols: List[str]) -> np.ndarray:
+    if feature_cols is not None:
+        # Ensure all columns exist in the data
+        missing_cols = set(feature_cols) - set(filtered_data.columns)
+        if missing_cols:
+            logger.warning(f"Adding {len(missing_cols)} missing syntactic columns")
+            filtered_data = filtered_data.copy()
+            for col in missing_cols:
+                filtered_data.loc[:, col] = 0
+        return filtered_data[feature_cols].values
+    else:
+        cols = self.get_feature_columns(data)
+        return filtered_data[cols].values
 
 
 class SVMModel(NLIModel):
@@ -179,10 +197,12 @@ class SVMModel(NLIModel):
             self.feature_cols = self.feature_extractor.get_feature_columns(data)
             logger.info(f"Using {len(self.feature_cols)} feature columns for training")
             return self.feature_extractor.extract(data)
-        # else:
-        #     # During prediction, use stored feature columns
-        #     logger.info(f"Extracting features with {len(self.feature_cols)} columns")
-        #     return self.feature_extractor.extract(data, self.feature_cols)
+        else:
+            # During prediction, use stored feature columns
+            logger.info(f"Extracting features with {len(self.feature_cols)} columns")
+            logger.info("Not implemented, if entered, should terminate.")
+            return np.ndarray(0)
+            # return self.feature_extractor.extract(data, self.feature_cols)
 
     def train(self, X: np.ndarray, y: np.ndarray) -> None:
         """Train the SVM model"""

@@ -16,13 +16,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# def preprocess_data(dataset_name, sample_size, train_ratio, force_reprocess=False):
-#     logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size}")
-#     db_handler = DatabaseHandler()
-#     preprocessor = TextPreprocessor(db_handler, sample_size)
-#     preprocessor.preprocess_dataset_pipeline(dataset_name, sample_size, train_ratio, force_reprocess)
-#     logger.info("Preprocessing complete")
-
 def preprocess_data(dataset_name, sample_size, train_ratio, force_reprocess=False, model_type="svm"):
     logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size} for {model_type}")
     db_handler = DatabaseHandler()
@@ -140,10 +133,6 @@ def main():
     logger.info(f"Using device: {DEVICE}")
 
     if args.mode == "preprocess":
-    #     model_type = getattr(args, 'model_type', 'svm')
-    #     preprocess_data(args.dataset, args.sample_size, args.train_ratio, args.force_reprocess, model_type)
-    # elif args.mode == "preprocess_neural":
-    #     # Specific command for neural preprocessing
         preprocess_data(args.dataset, args.sample_size, args.train_ratio, args.force_reprocess, args.model_type)
     elif args.mode == "train":
         if hasattr(args, 'model_type') and args.model_type == "svm":

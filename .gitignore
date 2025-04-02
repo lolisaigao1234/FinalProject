@@ -6,3 +6,4 @@ data_files
 saved_models
 /.idea
 *.pyc
+txt

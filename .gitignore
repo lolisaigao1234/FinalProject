@@ -9,3 +9,4 @@ saved_models
 txt
 data/__pycache__
 features/__pycache__
+*.pyc

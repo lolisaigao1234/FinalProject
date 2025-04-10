@@ -113,53 +113,6 @@ class DatabaseHandler:
             logger.error(f"Error loading dataset {dataset_name} from HuggingFace: {str(e)}")
             raise
 
-    # def get_preprocessed_data(self, dataset: str, split: str) -> dict:
-    #     """
-    #     Load preprocessed data from database for neural network training.
-    #
-    #     Args:
-    #         dataset: Name of the dataset (e.g., 'snli', 'mnli')
-    #         split: Data split ('train', 'val', 'test')
-    #
-    #     Returns:
-    #         Dictionary containing preprocessed tensors ready for neural network training
-    #     """
-    #     import torch  # Add this import at the top of the file if not already present
-    #
-    #     logger.info(f"Loading preprocessed data for {dataset}_{split}")
-    #
-    #     # Load the main dataframe
-    #     df_main = self.load_dataframe(dataset, split)
-    #
-    #     # Load BERT features
-    #     df_bert = self.load_dataframe(dataset, split, table="bert_features")
-    #
-    #     # Load syntactic features
-    #     df_syntax = self.load_dataframe(dataset, split, table="syntax_features")
-    #
-    #     # Convert pandas dataframes to PyTorch tensors
-    #     input_ids = torch.tensor(df_bert["input_ids"].tolist(), dtype=torch.long)
-    #     attention_mask = torch.tensor(df_bert["attention_mask"].tolist(), dtype=torch.long)
-    #     token_type_ids = torch.tensor(df_bert["token_type_ids"].tolist(), dtype=torch.long)
-    #
-    #     syntax_features_premise = torch.tensor(df_syntax["premise_features"].tolist(), dtype=torch.float)
-    #     syntax_features_hypothesis = torch.tensor(df_syntax["hypothesis_features"].tolist(), dtype=torch.float)
-    #
-    #     # Convert labels if they exist (not for test set)
-    #     labels = None
-    #     if "label" in df_main.columns:
-    #         labels = torch.tensor(df_main["label"].tolist(), dtype=torch.long)
-    #
-    #     # Return the preprocessed data dictionary
-    #     return {
-    #         "input_ids": input_ids,
-    #         "attention_mask": attention_mask,
-    #         "token_type_ids": token_type_ids,
-    #         "syntax_features_premise": syntax_features_premise,
-    #         "syntax_features_hypothesis": syntax_features_hypothesis,
-    #         "labels": labels
-    #     }
-
     @staticmethod
     def get_preprocessed_data(dataset: str, split: str) -> dict:
         """
@@ -172,8 +125,6 @@ class DatabaseHandler:
         Returns:
             Dictionary containing preprocessed tensors ready for neural network training
         """
-
-
         logger.info(f"Loading preprocessed data for {dataset}_{split}")
 
         # Handle 'val' vs 'validation' naming
@@ -193,69 +144,65 @@ class DatabaseHandler:
         df_features = pd.read_parquet(feature_file)
         logger.info(f"Loaded features from {os.path.basename(feature_file)}")
 
-        # Find pairs files (which contain labels)
-        pairs_pattern = f"{dataset}_{split}_pairs_*.parquet"
-        pairs_files = glob.glob(os.path.join(PARQUET_DIR, pairs_pattern))
-
-        if not pairs_files:
-            # Try sample files if pairs not found
-            pairs_pattern = f"{dataset}_{split}_sample*.parquet"
-            pairs_files = glob.glob(os.path.join(PARQUET_DIR, pairs_pattern))
-
-            if not pairs_files:
-                logger.error(f"No pairs or sample files found for {dataset}_{split}")
-                return {}
-
-        # Load the file with labels
-        pairs_file = pairs_files[0]
-        df_pairs = pd.read_parquet(pairs_file)
-        logger.info(f"Loaded labels from {os.path.basename(pairs_file)}")
-
-        # Check for required columns
-        required_feature_cols = ["input_ids", "attention_mask", "token_type_ids",
-                                 "premise_features", "hypothesis_features"]
-        missing_feature_cols = [col for col in required_feature_cols if col not in df_features.columns]
-
-        if missing_feature_cols:
-            logger.error(f"Missing required columns in features file: {missing_feature_cols}")
+        # Check if label column exists directly in the features file
+        if 'label' not in df_features.columns:
+            logger.error("Missing label column in features file")
             return {}
 
-        if "label" not in df_pairs.columns:
-            logger.error("Missing label column")
+        try:
+            # Extract premise and hypothesis features for syntactic processing
+            premise_cols = [col for col in df_features.columns if
+                            col.startswith('premise_') and not col.startswith('premise_bert_')]
+            hypothesis_cols = [col for col in df_features.columns if
+                               col.startswith('hypothesis_') and not col.startswith('hypothesis_bert_')]
+
+            # Create synthetic input_ids - we need to create integer indices for BERT
+            # Instead of using bert embeddings as input_ids, we'll create sequential token indices
+            batch_size = len(df_features)
+            seq_length = 10  # Assuming a sequence length of 10 based on your column structure
+
+            # Create placeholder tensors that BERT can process
+            # These are dummy values since we're not actually using BERT for encoding
+            input_ids = torch.arange(seq_length).unsqueeze(0).repeat(batch_size, 1)
+            attention_mask = torch.ones((batch_size, seq_length), dtype=torch.long)
+            token_type_ids = torch.zeros((batch_size, seq_length), dtype=torch.long)
+
+            # Now process the actual embeddings as features for your model
+            # Extract BERT embedding columns
+            premise_bert_cols = [col for col in df_features.columns if col.startswith('premise_bert_')]
+            hypothesis_bert_cols = [col for col in df_features.columns if col.startswith('hypothesis_bert_')]
+
+            # Create feature tensors from actual data
+            premise_features = torch.tensor(df_features[premise_cols].values, dtype=torch.float)
+            hypothesis_features = torch.tensor(df_features[hypothesis_cols].values, dtype=torch.float)
+
+            # Create BERT embedding tensors
+            premise_bert_features = torch.tensor(df_features[premise_bert_cols].values, dtype=torch.float)
+            hypothesis_bert_features = torch.tensor(df_features[hypothesis_bert_cols].values, dtype=torch.float)
+
+            # Extract labels
+            labels = torch.tensor(df_features['label'].values, dtype=torch.long)
+
+            return {
+                # Standard BERT inputs (with correct data types)
+                "input_ids": input_ids.long(),  # Must be long for embedding lookup
+                "attention_mask": attention_mask,
+                "token_type_ids": token_type_ids,
+
+                # Linguistic features
+                "syntax_features_premise": premise_features,
+                "syntax_features_hypothesis": hypothesis_features,
+
+                # Pre-computed BERT embeddings
+                "premise_bert_features": premise_bert_features,
+                "hypothesis_bert_features": hypothesis_bert_features,
+
+                "labels": labels
+            }
+
+        except Exception as e:
+            logger.error(f"Error processing features: {str(e)}")
             return {}
-
-        # Convert to tensors
-        input_ids = torch.tensor(df_features["input_ids"].tolist(), dtype=torch.long)
-        attention_mask = torch.tensor(df_features["attention_mask"].tolist(), dtype=torch.long)
-        token_type_ids = torch.tensor(df_features["token_type_ids"].tolist(), dtype=torch.long)
-
-        syntax_features_premise = torch.tensor(df_features["premise_features"].tolist(), dtype=torch.float)
-        syntax_features_hypothesis = torch.tensor(df_features["hypothesis_features"].tolist(), dtype=torch.float)
-
-        labels = torch.tensor(df_pairs["label"].tolist(), dtype=torch.long)
-
-        # Ensure all tensors have compatible dimensions
-        tensor_sizes = {
-            "input_ids": len(input_ids),
-            "attention_mask": len(attention_mask),
-            "token_type_ids": len(token_type_ids),
-            "syntax_features_premise": len(syntax_features_premise),
-            "syntax_features_hypothesis": len(syntax_features_hypothesis),
-            "labels": len(labels)
-        }
-
-        if len(set(tensor_sizes.values())) > 1:
-            logger.error(f"Tensor dimension mismatch: {tensor_sizes}")
-            return {}
-
-        return {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "token_type_ids": token_type_ids,
-            "syntax_features_premise": syntax_features_premise,
-            "syntax_features_hypothesis": syntax_features_hypothesis,
-            "labels": labels
-        }
 
     def clear_cache(self):
         """Clear the dataset cache."""

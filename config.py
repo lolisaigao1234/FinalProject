@@ -50,6 +50,8 @@ NUM_WORKERS = 8       # Match --cpus-per-task=8 in sbatch
 USE_FP16 = True       # Enable mixed precision training
 CUDA_BENCHMARK = True # Enable cuDNN auto-tuner
 PIN_MEMORY = True     # Faster data transfer to GPU
+TORCH_LOGS="+dynamo"
+TORCHDYNAMO_VERBOSE=1
 
 # Stanza settings
 STANZA_PROCESSORS = "tokenize,pos,lemma,depparse,constituency"

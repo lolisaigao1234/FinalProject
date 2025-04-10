@@ -9,6 +9,43 @@ from config import MODEL_NAME, HIDDEN_SIZE, NUM_CLASSES
 class BERTWithSyntacticAttention(nn.Module):
     """BERT model with syntactic attention for NLI tasks."""
 
+    # def __init__(
+    #         self,
+    #         pretrained_model_name: str = MODEL_NAME,
+    #         hidden_size: int = HIDDEN_SIZE,
+    #         num_classes: int = NUM_CLASSES,
+    #         dropout_rate: float = 0.1,
+    #         syntactic_feature_dim: int = 100
+    # ):
+    #     """Initialize the model with syntactic feature integration."""
+    #     super(BERTWithSyntacticAttention, self).__init__()
+    #
+    #     # Load pre-trained BERT model
+    #     self.first_forward = False
+    #     self.bert = AutoModel.from_pretrained(pretrained_model_name)
+    #
+    #     # Syntactic feature processing
+    #     self.syntactic_encoder = nn.Sequential(
+    #         nn.Linear(syntactic_feature_dim, hidden_size),
+    #         nn.LayerNorm(hidden_size),
+    #         nn.ReLU(),
+    #         nn.Dropout(dropout_rate)
+    #     )
+    #
+    #     # Attention mechanism
+    #     self.attention = nn.MultiheadAttention(hidden_size, 8, batch_first=True)
+    #
+    #     # Integration layer
+    #     self.integration = nn.Sequential(
+    #         nn.Linear(hidden_size * 2, hidden_size),
+    #         nn.LayerNorm(hidden_size),
+    #         nn.ReLU(),
+    #         nn.Dropout(dropout_rate)
+    #     )
+    #
+    #     # Classification layer
+    #     self.classifier = nn.Linear(hidden_size, num_classes)
+
     def __init__(
             self,
             pretrained_model_name: str = MODEL_NAME,
@@ -20,7 +57,12 @@ class BERTWithSyntacticAttention(nn.Module):
         """Initialize the model with syntactic feature integration."""
         super(BERTWithSyntacticAttention, self).__init__()
 
+        # Store parameters as instance attributes
+        self.hidden_size = hidden_size
+        self.dropout_rate = dropout_rate
+
         # Load pre-trained BERT model
+        self.first_forward = False
         self.bert = AutoModel.from_pretrained(pretrained_model_name)
 
         # Syntactic feature processing
@@ -53,6 +95,25 @@ class BERTWithSyntacticAttention(nn.Module):
             syntax_features_premise: torch.Tensor,
             syntax_features_hypothesis: torch.Tensor
     ) -> torch.Tensor:
+        """Forward pass through the model."""
+        # Check if this is the first forward pass and we need to adjust dimensions
+        if hasattr(self, 'first_forward') and not self.first_forward:
+            actual_feature_dim = syntax_features_premise.size(1)
+            expected_feature_dim = self.syntactic_encoder[0].in_features
+
+            if actual_feature_dim != expected_feature_dim:
+                # Recreate syntactic encoder with correct dimensions
+                print("checking hidden size and actual dim", self.hidden_size, actual_feature_dim)
+                self.syntactic_encoder = nn.Sequential(
+                    nn.Linear(actual_feature_dim, self.hidden_size),
+                    nn.LayerNorm(self.hidden_size),
+                    nn.ReLU(),
+                    nn.Dropout(self.dropout_rate)
+                ).to(syntax_features_premise.device)
+                self.first_forward = True
+
+        # Rest of the forward method remains the same...}
+
         """Forward pass through the model."""
         # BERT encoding
         bert_outputs = self.bert(

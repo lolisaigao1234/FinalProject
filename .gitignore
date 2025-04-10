@@ -7,3 +7,5 @@ saved_models
 /.idea
 *.pyc
 txt
+data/__pycache__
+features/__pycache__

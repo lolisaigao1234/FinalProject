@@ -543,6 +543,3 @@ class SVMTrainer:
             logger.info(f"{dataset_name} results - {acc_summary}")
 
         return results
-
-
-

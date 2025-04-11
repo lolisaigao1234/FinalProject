@@ -84,12 +84,10 @@ class ModelTrainer:
         torch.backends.cudnn.benchmark = True
 
         # Initialize AMP scaler
-        # self.scaler = torch.amp.GradScaler(device, enabled=use_amp)
-        # self.scaler = torch.amp.GradScaler(device=device if not device else "cpu", enabled=use_amp)
         self.scaler = torch.amp.GradScaler(enabled=use_amp)
         # Model compilation for PyTorch 2.0+
         if enable_compile and hasattr(torch, 'compile'):
-            self.model = torch.compile(model)
+            self.model = torch.compile(model, backend="cudagraphs")
 
         self.model.to(self.device)
 

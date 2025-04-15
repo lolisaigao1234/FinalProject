@@ -3,6 +3,7 @@ from typing import Tuple, Optional
 import pandas as pd
 import stanza
 from tqdm import tqdm
+import os
 
 from config import STANZA_PROCESSORS, STANZA_LANG
 from utils.database import DatabaseHandler
@@ -59,12 +60,14 @@ class TextPreprocessor(NLPBaseComponent, PreprocessorInterface):
         return self._nlp
 
     def _initialize_stanza_pipeline(self):
+        num_threads = int(os.environ.get("OMP_NUM_THREADS", 4))
         try:
             self._nlp = stanza.Pipeline(  # Assign to private field
                 lang=STANZA_LANG,
                 processors=STANZA_PROCESSORS,
-                use_gpu=True,
-                verbose=False
+                use_gpu=False,
+                verbose=False,
+                num_threads = num_threads
             )
             self.logger.info(f"Stanza pipeline initialized with processors: {STANZA_PROCESSORS}")
         except Exception as e:
@@ -75,8 +78,9 @@ class TextPreprocessor(NLPBaseComponent, PreprocessorInterface):
             self.nlp = stanza.Pipeline(
                 lang=STANZA_LANG,
                 processors=STANZA_PROCESSORS,
-                use_gpu=True,
-                verbose=False
+                use_gpu=False,
+                verbose=False,
+                num_threads=num_threads
             )
 
     # ------------------------

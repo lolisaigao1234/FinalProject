@@ -22,7 +22,7 @@ class NeuralPreprocessor(TextPreprocessor):
             logger.info("Initialized FeatureExtractorNN for neural preprocessing")
 
     def preprocess_neural_dataset(self, dataset_name: str, sample_size: int,
-                                  train_ratio: float, force_reprocess: bool) -> None:
+                                  force_reprocess: bool) -> None:
         """Process dataset specifically for neural network training."""
         logger.info(f"Starting neural preprocessing pipeline for {dataset_name}")
 
@@ -30,7 +30,6 @@ class NeuralPreprocessor(TextPreprocessor):
         self.preprocess_dataset_pipeline(
             dataset_name=dataset_name,
             total_sample_size=sample_size,
-            train_ratio=train_ratio,
             force_reprocess=force_reprocess
         )
 

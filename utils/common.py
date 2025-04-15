@@ -52,7 +52,6 @@ class PreprocessorInterface(ABC):
     @abstractmethod
     def preprocess_dataset_pipeline(self, dataset_name: str,
                                     total_sample_size: int,
-                                    train_ratio: float,
                                     force_reprocess: bool) -> None:
         pass
 

@@ -16,17 +16,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def preprocess_data(dataset_name, sample_size, train_ratio, force_reprocess=False, model_type="svm"):
+def preprocess_data(dataset_name, sample_size, force_reprocess=False, model_type="svm"):
     logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size} for {model_type}")
     db_handler = DatabaseHandler()
 
     if model_type == "neural":
         from data.preprocessor_nn import NeuralPreprocessor
         preprocessor = NeuralPreprocessor(db_handler, sample_size)
-        preprocessor.preprocess_neural_dataset(dataset_name, sample_size, train_ratio, force_reprocess)
+        preprocessor.preprocess_neural_dataset(dataset_name, sample_size, force_reprocess)
     elif model_type == "svm":
         preprocessor = TextPreprocessor(db_handler, sample_size)
-        preprocessor.preprocess_dataset_pipeline(dataset_name, sample_size, train_ratio, force_reprocess)
+        preprocessor.preprocess_dataset_pipeline(dataset_name, sample_size, force_reprocess)
     else:
         logger.error(f"Unknown model type: {model_type}")
         return
@@ -133,7 +133,7 @@ def main():
     logger.info(f"Using device: {DEVICE}")
 
     if args.mode == "preprocess":
-        preprocess_data(args.dataset, args.sample_size, args.train_ratio, args.force_reprocess, args.model_type)
+        preprocess_data(args.dataset, args.sample_size, args.force_reprocess, args.model_type)
     elif args.mode == "train":
         if hasattr(args, 'model_type') and args.model_type == "svm":
             svm_trainer = SVMTrainer()

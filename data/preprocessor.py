@@ -51,6 +51,7 @@ class TextPreprocessor(NLPBaseComponent, PreprocessorInterface):
         self._initialize_stanza_pipeline()
         self.suffix = f"sample{sample_size}" if sample_size else "data"
         self._feature_extractor = None
+        self.split_to_size = {}
 
     @property
     def nlp(self) -> stanza.Pipeline:
@@ -160,7 +161,6 @@ class TextPreprocessor(NLPBaseComponent, PreprocessorInterface):
                     sample_size=sample_size
                 )
 
-
     def _initialize_feature_extractor(self) -> None:
         """Lazy initialization of feature extractor."""
         if not hasattr(self, '_feature_extractor') or self._feature_extractor is None:
@@ -241,22 +241,34 @@ class TextPreprocessor(NLPBaseComponent, PreprocessorInterface):
 
     def preprocess_dataset_pipeline(self, dataset_name: str,
                                     total_sample_size: int,
-                                    train_ratio: float,
                                     force_reprocess: bool) -> None:
+        # global split_to_size
         self.logger.info(f"Starting preprocessing pipeline for {dataset_name}")
 
-        # Calculate split sizes
-        train_size = int(total_sample_size * train_ratio)
-        val_size = int(total_sample_size * (1 - train_ratio) / 2)
-        test_size = total_sample_size - train_size - val_size
+        split_names = [
+            "train",
+            "validation",
+            "test"
+        ]
 
-        split_sizes = {
-            "train": train_size,
-            "validation": val_size,
-            "test": test_size
-        }
+        # Calculate split sizes if total_sample_size is provided
+        if total_sample_size is not None:
+            train_ratio = 0.8
+            train_size = int(total_sample_size * train_ratio)
+            val_size = int(total_sample_size * (1 - train_ratio) / 2)
+            test_size = total_sample_size - train_size - val_size
 
-        for split_name, sample_size in split_sizes.items():
+            # Verify the total adds up correctly
+            assert train_size + val_size + test_size == total_sample_size
+
+            # Map splits to their sizes
+            self.split_to_size = {
+                "train": train_size,
+                "validation": val_size,
+                "test": test_size
+            }
+
+        for split_name in split_names:
             self.logger.info(f"Processing {split_name} split")
 
             # Load the full split data
@@ -266,11 +278,27 @@ class TextPreprocessor(NLPBaseComponent, PreprocessorInterface):
                 self.logger.warning(f"No data available for {split_name} split")
                 continue
 
-            # Sample the data
-            sampled_data = full_split_data.sample(n=sample_size, random_state=42)
+            # Determine whether to use full data or a sample
+            if total_sample_size is None:
+                # Use the full dataset
+                sample_size = len(full_split_data)
+                sampled_data = full_split_data
+                new_suffix = "full"
+            else:
+                # Get the sample size for this split
+                sample_size = self.split_to_size[split_name]
 
-            # Create the new suffix
-            new_suffix = f"sample{sample_size}"
+                # Make sure we don't try to sample more than available
+                if sample_size > len(full_split_data):
+                    self.logger.warning(
+                        f"Requested sample size {sample_size} for {split_name} split exceeds available data ({len(full_split_data)}). Using all available data.")
+                    sample_size = len(full_split_data)
+                    sampled_data = full_split_data
+                else:
+                    # Sample the data
+                    sampled_data = full_split_data.sample(n=sample_size, random_state=42)
+
+                new_suffix = f"sample{sample_size}"
 
             self.logger.info(f"Print out new suffix: {new_suffix}")
 

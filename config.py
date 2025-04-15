@@ -100,7 +100,7 @@ def parse_args():
     parser.add_argument("--force_reprocess", action="store_true")
     parser.add_argument("--sample_size", type=int, default=None,
                         help="Sample size for preprocessing")
-    parser.add_argument("--train_ratio", type=float, default=0.8)
+    # parser.add_argument("--train_ratio", type=float, default=0.8)
     parser.add_argument("--model_type", default="svm", choices=["neural", "svm"], help="Model type to use")
     parser.add_argument("--kernel", default="linear", choices=["linear", "rbf", "poly"], help="SVM kernel type")
     parser.add_argument("--C", type=float, default=1.0, help="SVM regularization parameter")

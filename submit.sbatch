@@ -7,7 +7,7 @@
 #SBATCH --gres=gpu:A100:1         # Explicitly request A100
 #SBATCH --cpus-per-task=8         # Add more CPU cores for data loading
 #SBATCH --mem=64G                 # Request sufficient RAM
-#SBATCH --account=your_account
+#SBATCH --account=tohsakarin
 #SBATCH --output=output_%j.log
 
 # Load modules (fix CUDA/Anaconda compatibility)

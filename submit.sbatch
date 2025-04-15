@@ -3,29 +3,27 @@
 #SBATCH --partition=IllinoisComputes-GPU
 #SBATCH --time=48:00:00
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --gres=gpu:A100:1         # Explicitly request A100
-#SBATCH --cpus-per-task=8         # Add more CPU cores for data loading
-#SBATCH --mem=64G                 # Request sufficient RAM
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=128G
 #SBATCH --account=jywu3-ic
 #SBATCH --output=output_%j.log
 
-# Load modules (fix CUDA/Anaconda compatibility)
+# Load environment
 module purge
-module load cuda/12.8             # Confirm CUDA matches your Conda environment!
+module load cuda/12.8
 module load anaconda3/2024.10
 
-# Activate Conda environment
+# Activate Conda
 source activate IS567
 
-# Set environment variables for GPU performance
-export NCCL_DEBUG=INFO            # Optional: Debug GPU comms
-export TF_CPP_MIN_LOG_LEVEL=3     # Reduce TensorFlow logging (if used)
+# Use all CPUs effectively
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
-# Navigate to project
+# Go to project
 cd /u/jywu3/scratch/IS567FP || exit
 
-# Run with optimizations
-python -u main.py --dataset SNLI --mode preprocess              # -u: Unbuffered output for real-time logs
+# Preprocess
+python -u main.py --dataset SNLI --mode preprocess
 python -u main.py --dataset MNLI --mode preprocess
 python -u main.py --dataset ANLI --mode preprocess

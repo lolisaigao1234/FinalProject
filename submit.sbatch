@@ -27,3 +27,5 @@ cd /u/jywu3/scratch/IS567FP || exit
 
 # Run with optimizations
 python -u main.py --dataset SNLI --mode preprocess              # -u: Unbuffered output for real-time logs
+python -u main.py --dataset MNLI --mode preprocess
+python -u main.py --dataset ANLI --mode preprocess

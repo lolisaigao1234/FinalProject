@@ -7,21 +7,14 @@ import glob
 import numpy as np
 import pandas as pd
 import joblib
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader, Dataset
 
-from typing import Dict, Tuple, List, Optional
-from collections import defaultdict
-from tqdm import tqdm
+from typing import Tuple, List, Optional
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from sklearn.model_selection import train_test_split
-from transformers import get_linear_schedule_with_warmup
 
 from utils.common import NLIModel
-from config import MODELS_DIR, LEARNING_RATE, WEIGHT_DECAY, EPOCHS
+from config import MODELS_DIR
 
 logger = logging.getLogger(__name__)
 

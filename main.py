@@ -46,16 +46,16 @@ def preprocess_data(dataset_name, sample_size, force_reprocess=False, model_type
     logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size} for {model_type}")
     db_handler = DatabaseHandler()
 
-    if model_type == "neural":
-        from data.preprocessor_nn import NeuralPreprocessor
-        preprocessor = NeuralPreprocessor(db_handler, sample_size)
-        preprocessor.preprocess_neural_dataset(dataset_name, sample_size, force_reprocess)
-    elif model_type == "svm":
-        preprocessor = TextPreprocessor(db_handler, sample_size)
-        preprocessor.preprocess_dataset_pipeline(dataset_name, sample_size, force_reprocess)
-    else:
-        logger.error(f"Unknown model type: {model_type}")
-        return
+    # if model_type == "neural":
+    #     from data.preprocessor_nn import NeuralPreprocessor
+    #     preprocessor = NeuralPreprocessor(db_handler, sample_size)
+    #     preprocessor.preprocess_neural_dataset(dataset_name, sample_size, force_reprocess)
+    # elif model_type == "svm":
+    preprocessor = TextPreprocessor(db_handler, sample_size)
+    preprocessor.preprocess_dataset_pipeline(dataset_name, sample_size, force_reprocess)
+    # else:
+    #     logger.error(f"Unknown model type: {model_type}")
+    #     return
 
     logger.info("Preprocessing complete")
 

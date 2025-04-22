@@ -15,6 +15,32 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def printing_cuda_info():
+    """
+    Checks and logs CUDA availability, GPU information, and relevant versions.
+    """
+    cuda_available = torch.cuda.is_available()
+    logger.info(f"CUDA Available: {cuda_available}")
+
+    if cuda_available:
+        num_gpus = torch.cuda.device_count()
+        logger.info(f"Number of GPUs Available: {num_gpus}")
+
+        if num_gpus > 0:
+            gpu_name = torch.cuda.get_device_name(0)
+            logger.info(f"Using GPU: {gpu_name}")
+            current_device = torch.cuda.current_device()
+            logger.info(f"Current CUDA Device Index: {current_device}")
+        else:
+            logger.warning("No CUDA-enabled GPUs found.")
+
+        cuda_version = torch.version.cuda
+        cudnn_version = torch.backends.cudnn.version()
+        logger.info(f"torch.version.cuda: {cuda_version}")
+        logger.info(f"torch.backends.cudnn.version(): {cudnn_version}")
+    else:
+        logger.info("CUDA is not available. Using CPU for computations.")
+
 
 def preprocess_data(dataset_name, sample_size, force_reprocess=False, model_type="svm"):
     logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size} for {model_type}")
@@ -123,6 +149,10 @@ def train_neural_model(args):
 
 def main():
     """Main entry point with performance monitoring"""
+
+    # Check CUDA availability and print GPU info
+    printing_cuda_info()
+
     args = parse_args()
 
     # Set deterministic algorithms for reproducibility

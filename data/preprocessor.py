@@ -60,14 +60,15 @@ class TextPreprocessor(NLPBaseComponent, PreprocessorInterface):
         return self._nlp
 
     def _initialize_stanza_pipeline(self):
-        num_threads = int(os.environ.get("OMP_NUM_THREADS", 8))
+        num_threads = int(os.environ.get("OMP_NUM_THREADS", 64))
         try:
-            self._nlp = stanza.Pipeline(  # Assign to private field
+            # In data/preprocessor.py, inside _initialize_stanza_pipeline
+            self._nlp = stanza.Pipeline(
                 lang=STANZA_LANG,
                 processors=STANZA_PROCESSORS,
-                use_gpu=True,
+                use_gpu=True,  # <-- CHANGE THIS TO TRUE
                 verbose=False,
-                num_threads = num_threads
+                num_threads=num_threads  # Keep or adjust num_threads as needed
             )
             self.logger.info(f"Stanza pipeline initialized with processors: {STANZA_PROCESSORS}")
         except Exception as e:

@@ -5,7 +5,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:A100:1         # Explicitly request A100
-#SBATCH --cpus-per-task=8         # Add more CPU cores for data loading
+#SBATCH --cpus-per-task=64         # Add more CPU cores for data loading
 #SBATCH --mem=64G                 # Request sufficient RAM
 #SBATCH --account=jywu3-ic
 #SBATCH --output=output_%j.log

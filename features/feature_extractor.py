@@ -341,7 +341,7 @@ class FeatureExtractor:
 
         return final_features_df
 
-
+    @staticmethod
     def _join_data(self, pairs, sentences, parse_trees):
         """Join pairs, sentences, and parse trees, handling potential missing data."""
         logger.debug(f"Starting join. Pairs: {pairs.shape}, Sentences: {sentences.shape}, Parse Trees: {parse_trees.shape}")

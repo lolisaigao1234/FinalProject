@@ -26,3 +26,7 @@ def main():
     # Print CUDA and cuDNN versions
     print(f"torch.version.cuda : {torch.version.cuda}")
     print(f"torch.backends.cudnn.version() : {torch.backends.cudnn.version()}")
+
+
+if __name__ == "__main__":
+    main()

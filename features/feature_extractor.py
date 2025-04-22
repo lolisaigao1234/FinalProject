@@ -1,6 +1,6 @@
 # features/feature_extractor.py
 import logging
-from typing import List, Dict, Optional
+from typing import Dict
 
 import pandas as pd
 import torch
@@ -245,13 +245,13 @@ class FeatureExtractor:
         if "lexical" in feature_types and 'premise_text' not in pairs.columns:
             # Need to join text if lexical features are needed and not already present
              logger.info("Joining sentence text to pairs dataframe.")
-             pairs_with_text = self._join_data(pairs, sentences, parse_trees if "syntactic" in feature_types else pd.DataFrame())
+             pairs_with_text = self._join_data(self, pairs, sentences, parse_trees if "syntactic" in feature_types else pd.DataFrame())
              if pairs_with_text.empty:
                 logger.warning(f"Failed to join data for {dataset_name} {split}")
                 return pd.DataFrame()
         elif "syntactic" in feature_types and ('premise_constituency' not in pairs.columns or parse_trees.empty):
              logger.info("Joining parse trees to pairs dataframe.")
-             pairs_with_text = self._join_data(pairs, sentences if 'premise_text' not in pairs.columns else pd.DataFrame(), parse_trees)
+             pairs_with_text = self._join_data(self, pairs, sentences if 'premise_text' not in pairs.columns else pd.DataFrame(), parse_trees)
              if pairs_with_text.empty:
                 logger.warning(f"Failed to join data for {dataset_name} {split}")
                 return pd.DataFrame()
@@ -277,7 +277,7 @@ class FeatureExtractor:
                  # Handle error or join data if necessary
                  # Example: Join sentence text if missing
                  temp_sentences = self.db_handler.load_dataframe(dataset_name, split, f"sentences_{self.suffix}")
-                 pairs_with_text = self._join_data(pairs_with_text, temp_sentences, pd.DataFrame()) # Join only sentence text
+                 pairs_with_text = self._join_data(self, pairs_with_text, temp_sentences, pd.DataFrame()) # Join only sentence text
                  if 'premise_text' not in pairs_with_text.columns or 'hypothesis_text' not in pairs_with_text.columns:
                      logger.error("Failed to obtain text columns even after join.")
                      return pd.DataFrame() # Or handle differently
@@ -301,7 +301,7 @@ class FeatureExtractor:
                      parse_trees = self.db_handler.load_dataframe(dataset_name, split, f"parse_trees_{self.suffix}")
 
                  if not parse_trees.empty:
-                      pairs_with_text = self._join_data(pairs_with_text.drop(columns=[col for col in required_syntactic_cols if col in pairs_with_text.columns], errors='ignore'),
+                      pairs_with_text = self._join_data(self, pairs_with_text.drop(columns=[col for col in required_syntactic_cols if col in pairs_with_text.columns], errors='ignore'),
                                                         pd.DataFrame(), # No need to join sentences again
                                                         parse_trees)
                  else:
@@ -457,19 +457,19 @@ class FeatureExtractor:
             return pd.DataFrame()
 
     def _extract_lexical_features_batched(self, pairs_df: pd.DataFrame) -> pd.DataFrame:
-        """Extract lexical features using BERT embeddings and text stats in batches."""
+        """Extract lexical features using BERT embeddings (separate P/H) and text stats in batches."""
         all_features = []
         num_pairs = len(pairs_df)
         batch_size = BATCH_SIZE # Use batch size from config
 
-        logger.info(f"Processing {num_pairs} pairs in batches of {batch_size}")
+        logger.info(f"Processing {num_pairs} pairs in batches of {batch_size} for lexical features (Separate P/H BERT)")
 
         # Ensure text columns are strings and handle potential NaNs -> empty string
         pairs_df['premise_text'] = pairs_df['premise_text'].fillna('').astype(str)
         pairs_df['hypothesis_text'] = pairs_df['hypothesis_text'].fillna('').astype(str)
 
 
-        for i in tqdm(range(0, num_pairs, batch_size), desc="Extracting Lexical Features"):
+        for i in tqdm(range(0, num_pairs, batch_size), desc="Extracting Lexical Features (Separate P/H)"):
             batch_df = pairs_df.iloc[i:min(i + batch_size, num_pairs)]
 
             premises = batch_df["premise_text"].tolist()
@@ -477,66 +477,57 @@ class FeatureExtractor:
 
             batch_features = {'pair_id': batch_df["id"].tolist()} # Store pair IDs
 
-            # --- BERT Embeddings ---
+            # --- BERT Embeddings (Option 2: Separate P/H) ---
             try:
                 with torch.no_grad():
-                    # Tokenize batch - note: tokenizing premise/hypothesis separately might be needed
-                    # if you want distinct CLS tokens before combination. Current approach combines them.
-                    # Tokenizing pairs together is standard for NLI tasks.
-                    inputs = self.tokenizer(
+                    # --- Process Premises ---
+                    premise_inputs = self.tokenizer(
                         premises,
-                        hypotheses,
                         max_length=MAX_SEQ_LENGTH,
-                        padding="max_length", # Pad to max length for consistent tensor shapes
-                        truncation=True,      # Truncate if longer
+                        padding="max_length",
+                        truncation=True,
                         return_tensors="pt"
                     )
+                    premise_inputs = {k: v.to(self.device) for k, v in premise_inputs.items()}
+                    premise_outputs = self.bert_model(**premise_inputs)
+                    premise_cls_embeddings = premise_outputs.last_hidden_state[:, 0, :].cpu().numpy()
 
-                    # Move to device
-                    inputs = {k: v.to(self.device) for k, v in inputs.items()}
+                    # --- Process Hypotheses ---
+                    hypothesis_inputs = self.tokenizer(
+                        hypotheses,
+                        max_length=MAX_SEQ_LENGTH,
+                        padding="max_length",
+                        truncation=True,
+                        return_tensors="pt"
+                    )
+                    hypothesis_inputs = {k: v.to(self.device) for k, v in hypothesis_inputs.items()}
+                    hypothesis_outputs = self.bert_model(**hypothesis_inputs)
+                    hypothesis_cls_embeddings = hypothesis_outputs.last_hidden_state[:, 0, :].cpu().numpy()
 
-                    # Get BERT embeddings
-                    outputs = self.bert_model(**inputs)
+                    # --- Store Features ---
+                    num_bert_dims_to_store = 10 # Or use premise_cls_embeddings.shape[1] for all
+                    hidden_size = premise_cls_embeddings.shape[1] # Get actual hidden size
 
-                    # Use CLS token embeddings ([CLS] is usually the first token)
-                    # Shape: (batch_size, sequence_length, hidden_size) -> (batch_size, hidden_size)
-                    cls_embeddings = outputs.last_hidden_state[:, 0, :].cpu().numpy()
-
-                    # *** Important Decision: How to represent premise & hypothesis? ***
-                    # Option 1 (Current): Use the combined CLS token for the pair. Less direct representation.
-                    # Option 2: Rerun BERT separately for premise and hypothesis to get their individual CLS.
-                    # More compute but cleaner separation.
-                    # Option 3: Average pooling over premise/hypothesis tokens (requires identifying token spans). More complex.
-
-                    # --- Assuming Option 1 (using combined CLS for now) ---
-                    # If you need separate premise/hypothesis embeddings, you need Option 2 or 3.
-                    # Let's adapt the old logic to work with the single CLS embedding per pair.
-                    # This might not be ideal for features requiring separate P/H embeddings.
-
-                    # Placeholder: For now, we'll just use the combined CLS embedding.
-                    # The original code expected *separate* premise/hypothesis embeddings.
-                    # We need to adapt the feature calculation or the embedding extraction method.
-
-                    # --- Adapting Feature Calculation (Example - using combined CLS) ---
-                    # This is conceptually different from the original code.
-                    # If separate P/H features are crucial, implement Option 2 above.
-                    # Example: Store first 10 dims of the combined CLS
-                    for j in range(min(10, cls_embeddings.shape[1])): # Use min in case hidden_size < 10
-                        batch_features[f"pair_cls_bert_{j}"] = cls_embeddings[:, j]
-
-                    # The 'diff' and 'prod' features from the original code don't make sense
-                    # with only a combined CLS token. We'll skip them for now.
-                    # If you implement Option 2, you can calculate diff/prod on separate P/H embeddings.
-
+                    for j in range(min(num_bert_dims_to_store, hidden_size)):
+                        batch_features[f"premise_cls_bert_{j}"] = premise_cls_embeddings[:, j]
+                        batch_features[f"hypothesis_cls_bert_{j}"] = hypothesis_cls_embeddings[:, j]
+                        # Calculate difference and product
+                        batch_features[f"diff_bert_{j}"] = premise_cls_embeddings[:, j] - hypothesis_cls_embeddings[:, j]
+                        batch_features[f"prod_bert_{j}"] = premise_cls_embeddings[:, j] * hypothesis_cls_embeddings[:, j]
 
             except Exception as e:
                 logger.error(f"Error processing BERT batch {i // batch_size}: {str(e)}")
-                # Add NaN or default values for BERT features for this batch
-                for j in range(10):
-                    batch_features[f"pair_cls_bert_{j}"] = [np.nan] * len(batch_df)
+                # Add NaN or default values for ALL BERT features for this batch
+                num_bert_dims_to_store = 10 # Ensure consistency
+                bert_feature_prefixes = ["premise_cls_bert_", "hypothesis_cls_bert_", "diff_bert_", "prod_bert_"]
+                for prefix in bert_feature_prefixes:
+                    for j in range(num_bert_dims_to_store):
+                         # Check if hidden size is known and less than 10, else assume 10
+                         # This part is tricky without knowing hidden_size beforehand, default to 10
+                         batch_features[f"{prefix}{j}"] = [np.nan] * len(batch_df)
 
 
-            # --- Text Statistics (Vectorized) ---
+            # --- Text Statistics (Vectorized) --- (Remains the same)
             try:
                  # Calculate lengths directly on the batch DataFrame columns
                  premise_lengths = batch_df['premise_text'].str.split().str.len()
@@ -580,6 +571,3 @@ class FeatureExtractor:
 
         lexical_features_df = pd.concat(all_features, ignore_index=True)
         return lexical_features_df
-
-    # Note: _extract_lexical_features (original single instance version) is removed
-    # as it's replaced by _extract_lexical_features_batched.

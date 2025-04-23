@@ -612,8 +612,8 @@
 
 # features/feature_extractor.py
 import logging
-from typing import Dict, List, Optional # Added Optional
-import gc # Garbage Collector
+from typing import Dict, List, Optional  # Added Optional
+import gc  # Garbage Collector
 
 import pandas as pd
 import torch
@@ -622,13 +622,14 @@ from transformers import AutoTokenizer, AutoModel
 from tqdm import tqdm
 
 # Ensure config values are imported
-from config import MODEL_NAME, MAX_SEQ_LENGTH, BATCH_SIZE, DEVICE # Use DEVICE from config
+from config import MODEL_NAME, MAX_SEQ_LENGTH, BATCH_SIZE, DEVICE  # Use DEVICE from config
 
 from utils.database import DatabaseHandler
 # Type hint for TextPreprocessor
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
-    from data.preprocessor import TextPreprocessor # Adjust path if needed
+    from data.preprocessor import TextPreprocessor  # Adjust path if needed
 
 logger = logging.getLogger(__name__)
 
@@ -647,7 +648,7 @@ def extract_parse_features(parse_tree_str: str, tree_type: str = "constituency")
     try:
         if tree_type == "constituency":
             # Basic Constituency Features
-            features["tree_depth"] = parse_tree_str.count("(") - parse_tree_str.count(")") # More robust depth
+            features["tree_depth"] = parse_tree_str.count("(") - parse_tree_str.count(")")  # More robust depth
             # Count common phrase types
             phrase_types = ["NP", "VP", "PP", "ADJP", "ADVP", "S", "SBAR", "SBARQ", "SINV", "SQ"]
             for phrase in phrase_types:
@@ -660,11 +661,11 @@ def extract_parse_features(parse_tree_str: str, tree_type: str = "constituency")
         elif tree_type == "dependency":
             # Safely evaluate the string representation of the list of dictionaries
             if parse_tree_str.strip().startswith('[') and parse_tree_str.strip().endswith(']'):
-                 dep_edges = eval(parse_tree_str) # Use eval carefully, assumes trusted input
-                 if not isinstance(dep_edges, list):
-                     dep_edges = [] # Ensure it's a list
+                dep_edges = eval(parse_tree_str)  # Use eval carefully, assumes trusted input
+                if not isinstance(dep_edges, list):
+                    dep_edges = []  # Ensure it's a list
             else:
-                dep_edges = [] # Not a valid list string
+                dep_edges = []  # Not a valid list string
 
             pos_counts: Dict[str, int] = {}
             deprel_counts: Dict[str, int] = {}
@@ -676,10 +677,10 @@ def extract_parse_features(parse_tree_str: str, tree_type: str = "constituency")
 
             for edge in dep_edges:
                 if isinstance(edge, dict):
-                    pos = edge.get("pos", "UNK_POS") # Use specific unknown tags
+                    pos = edge.get("pos", "UNK_POS")  # Use specific unknown tags
                     deprel = edge.get("deprel", "UNK_DEP")
-                    head = edge.get("head", 0) # Head index (0 for root)
-                    word_id = edge.get("id", 0) # Word index
+                    head = edge.get("head", 0)  # Head index (0 for root)
+                    word_id = edge.get("id", 0)  # Word index
 
                     pos_counts[pos] = pos_counts.get(pos, 0) + 1
                     deprel_counts[deprel] = deprel_counts.get(deprel, 0) + 1
@@ -687,14 +688,13 @@ def extract_parse_features(parse_tree_str: str, tree_type: str = "constituency")
                     max_head_id = max(max_head_id, head)
 
                     # Dependency distance (if word_id is available)
-                    if word_id > 0 and head > 0: # Exclude root dependencies for distance calc
-                         dist = abs(word_id - head)
-                         max_dep_dist = max(max_dep_dist, dist)
-                         total_dep_dist += dist
+                    if word_id > 0 and head > 0:  # Exclude root dependencies for distance calc
+                        dist = abs(word_id - head)
+                        max_dep_dist = max(max_dep_dist, dist)
+                        total_dep_dist += dist
 
-                    if head == 0: # Count children of the root
-                         root_children += 1
-
+                    if head == 0:  # Count children of the root
+                        root_children += 1
 
             # Add counts to features
             for pos, count in pos_counts.items():
@@ -705,16 +705,17 @@ def extract_parse_features(parse_tree_str: str, tree_type: str = "constituency")
             # Derived dependency features
             # Use max_head_id as proxy for depth or height, might not be accurate
             features["dep_tree_depth_proxy"] = max_head_id
-            features["avg_dep_dist"] = (total_dep_dist / (total_deps - root_children)) if (total_deps - root_children) > 0 else 0
+            features["avg_dep_dist"] = (total_dep_dist / (total_deps - root_children)) if (
+                                                                                                      total_deps - root_children) > 0 else 0
             features["max_dep_dist"] = max_dep_dist
             features["root_children_count"] = root_children
 
     except SyntaxError:
-         logger.error(f"SyntaxError parsing tree string (type: {tree_type}): '{parse_tree_str[:100]}...'")
-         # Return empty or default features
+        logger.error(f"SyntaxError parsing tree string (type: {tree_type}): '{parse_tree_str[:100]}...'")
+        # Return empty or default features
     except Exception as e:
-         logger.error(f"Unexpected error parsing tree string (type: {tree_type}): {str(e)}", exc_info=False)
-         # Return empty or default features
+        logger.error(f"Unexpected error parsing tree string (type: {tree_type}): {str(e)}", exc_info=False)
+        # Return empty or default features
 
     return features
 
@@ -745,26 +746,27 @@ def _extract_syntactic_features(
     for key in all_const_keys:
         p_val = premise_const_features.get(key, 0)
         h_val = hypothesis_const_features.get(key, 0)
-        features[f"diff_const_{key}"] = abs(p_val - h_val) # Use absolute difference often
+        features[f"diff_const_{key}"] = abs(p_val - h_val)  # Use absolute difference often
 
     all_dep_keys = set(premise_dep_features.keys()) | set(hypothesis_dep_features.keys())
     for key in all_dep_keys:
         p_val = premise_dep_features.get(key, 0)
         h_val = hypothesis_dep_features.get(key, 0)
-        features[f"diff_dep_{key}"] = abs(p_val - h_val) # Absolute difference
+        features[f"diff_dep_{key}"] = abs(p_val - h_val)  # Absolute difference
 
     return features
 
+
 # Helper function for pandas .apply()
 def _extract_syntactic_features_row(row) -> pd.Series:
-     """Applies syntactic feature extraction to a DataFrame row."""
-     syntactic_features = _extract_syntactic_features(
-         row.get("premise_constituency", ""), # Default to empty string if column missing
-         row.get("premise_dependency", ""),
-         row.get("hypothesis_constituency", ""),
-         row.get("hypothesis_dependency", "")
-     )
-     return pd.Series(syntactic_features)
+    """Applies syntactic feature extraction to a DataFrame row."""
+    syntactic_features = _extract_syntactic_features(
+        row.get("premise_constituency", ""),  # Default to empty string if column missing
+        row.get("premise_dependency", ""),
+        row.get("hypothesis_constituency", ""),
+        row.get("hypothesis_dependency", "")
+    )
+    return pd.Series(syntactic_features)
 
 
 def _fill_nan_values(features_df: pd.DataFrame) -> pd.DataFrame:
@@ -780,14 +782,16 @@ def _fill_nan_values(features_df: pd.DataFrame) -> pd.DataFrame:
 
     # --- Define columns by type/prefix ---
     # BERT Embeddings (CLS token features)
-    bert_cls_cols = [col for col in df.columns if col.endswith(tuple(f'_{i}' for i in range(20))) and # Adjust range if needed
-                       any(p in col for p in ["premise_cls_bert_", "hypothesis_cls_bert_", "diff_bert_", "prod_bert_"])]
+    bert_cls_cols = [col for col in df.columns if
+                     col.endswith(tuple(f'_{i}' for i in range(20))) and  # Adjust range if needed
+                     any(p in col for p in ["premise_cls_bert_", "hypothesis_cls_bert_", "diff_bert_", "prod_bert_"])]
 
     # Constituency features
     const_cols = [col for col in df.columns if any(p in col for p in ["_const_count_", "_const_tree_depth"])]
 
     # Dependency features
-    dep_cols = [col for col in df.columns if any(p in col for p in ["_dep_pos_", "_dep_deprel_", "_dep_tree_depth_proxy", "_dep_dist", "_root_children_count"])]
+    dep_cols = [col for col in df.columns if any(
+        p in col for p in ["_dep_pos_", "_dep_deprel_", "_dep_tree_depth_proxy", "_dep_dist", "_root_children_count"])]
 
     # Text statistics
     # text_stat_cols = ['premise_length', 'hypothesis_length', 'length_diff',
@@ -797,7 +801,8 @@ def _fill_nan_values(features_df: pd.DataFrame) -> pd.DataFrame:
     # Fill most numerical features (embeddings, counts, lengths, overlaps) with 0
     fill_zero_cols = bert_cls_cols + const_cols + dep_cols + \
                      ['premise_length', 'hypothesis_length', 'length_diff',
-                      'word_overlap_count', 'word_overlap_ratio', 'avg_dep_dist', 'max_dep_dist'] # Add specific dep stats
+                      'word_overlap_count', 'word_overlap_ratio', 'avg_dep_dist',
+                      'max_dep_dist']  # Add specific dep stats
 
     for col in fill_zero_cols:
         if col in df.columns:
@@ -805,7 +810,8 @@ def _fill_nan_values(features_df: pd.DataFrame) -> pd.DataFrame:
 
     # Fill length ratio NaN with 1 (neutral ratio) or 0 if division by zero occurred
     if 'length_ratio' in df.columns:
-        df['length_ratio'] = df['length_ratio'].fillna(1) # Assuming NaN means undefined ratio (e.g., 0/0), treat as 1 or 0?
+        df['length_ratio'] = df['length_ratio'].fillna(
+            1)  # Assuming NaN means undefined ratio (e.g., 0/0), treat as 1 or 0?
 
     # --- Verification ---
     remaining_nans = df.isna().sum()
@@ -824,7 +830,8 @@ def _fill_nan_values(features_df: pd.DataFrame) -> pd.DataFrame:
 class FeatureExtractor:
     """Extracts lexical and syntactic features for NLI tasks."""
 
-    def __init__(self, db_handler: DatabaseHandler, preprocessor: Optional['TextPreprocessor'] = None): # Made preprocessor optional
+    def __init__(self, db_handler: DatabaseHandler,
+                 preprocessor: Optional['TextPreprocessor'] = None):  # Made preprocessor optional
         """Initializes feature extractor, BERT model, and tokenizer."""
         self.preprocessor = preprocessor
         self.db_handler = db_handler
@@ -840,16 +847,15 @@ class FeatureExtractor:
         self.device = torch.device(DEVICE)
         logger.info(f"Moving BERT model to device: {self.device}")
         self.bert_model.to(self.device)
-        self.bert_model.eval() # Set model to evaluation mode
+        self.bert_model.eval()  # Set model to evaluation mode
         logger.info("FeatureExtractor initialized.")
-
 
     def extract_features(
             self,
             dataset_name: str,
             split: str,
-            suffix: str, # Expect suffix to be passed directly
-            feature_types: Optional[List[str]] = None, # Default to both
+            suffix: str,  # Expect suffix to be passed directly
+            feature_types: Optional[List[str]] = None,  # Default to both
             force_recompute: bool = False
     ) -> pd.DataFrame:
         """
@@ -858,9 +864,9 @@ class FeatureExtractor:
         computes features, and stores the final combined feature set.
         """
         if feature_types is None:
-            feature_types = ["lexical", "syntactic"] # Default features
+            feature_types = ["lexical", "syntactic"]  # Default features
 
-        feature_name_part = "_".join(sorted(feature_types)) # Consistent naming e.g., lexical_syntactic
+        feature_name_part = "_".join(sorted(feature_types))  # Consistent naming e.g., lexical_syntactic
         # Define the FINAL features table/filename using the suffix
         # This file will be stored in the root PARQUET_DIR
         final_feature_table_name = f"features_{feature_name_part}_{suffix}"
@@ -889,77 +895,87 @@ class FeatureExtractor:
         sentences_df = self.db_handler.load_dataframe(dataset_name, split, sentences_table)
 
         # Load parse trees only if syntactic features are needed
-        parse_trees_df = pd.DataFrame() # Initialize empty
+        parse_trees_df = pd.DataFrame()  # Initialize empty
         if "syntactic" in feature_types:
             parse_trees_df = self.db_handler.load_dataframe(dataset_name, split, parse_trees_table)
 
         # --- Validate loaded data ---
         if pairs_df.empty:
-             logger.error(f"Essential intermediate data '{pairs_table}' is empty or failed to load. Cannot proceed.")
-             return pd.DataFrame()
-        if sentences_df.empty and "lexical" in feature_types: # Sentences needed for lexical if text not in pairs
-             logger.warning(f"Intermediate data '{sentences_table}' is empty. Lexical features might be incomplete if text is missing from pairs.")
-             # Proceed, but lexical features might fail later if text is needed and missing
+            logger.error(f"Essential intermediate data '{pairs_table}' is empty or failed to load. Cannot proceed.")
+            return pd.DataFrame()
+        if sentences_df.empty and "lexical" in feature_types:  # Sentences needed for lexical if text not in pairs
+            logger.warning(
+                f"Intermediate data '{sentences_table}' is empty. Lexical features might be incomplete if text is missing from pairs.")
+            # Proceed, but lexical features might fail later if text is needed and missing
         if parse_trees_df.empty and "syntactic" in feature_types:
-             logger.error(f"Intermediate data '{parse_trees_table}' is empty, but syntactic features requested. Cannot proceed with syntactic features.")
-             # Option 1: Proceed without syntactic features
-             # feature_types.remove("syntactic")
-             # logger.warning("Proceeding without syntactic features.")
-             # Option 2: Fail extraction
-             return pd.DataFrame()
-
+            logger.error(
+                f"Intermediate data '{parse_trees_table}' is empty, but syntactic features requested. Cannot proceed with syntactic features.")
+            # Option 1: Proceed without syntactic features
+            # feature_types.remove("syntactic")
+            # logger.warning("Proceeding without syntactic features.")
+            # Option 2: Fail extraction
+            return pd.DataFrame()
 
         # --- Join dataframes to get text and trees alongside pairs ---
         logger.info("Joining intermediate dataframes...")
         # Start with pairs, ensure 'id' and 'label' are preserved
         combined_df = pairs_df[['id', 'premise_id', 'hypothesis_id', 'label']].copy()
-        combined_df.rename(columns={'id': 'pair_id'}, inplace=True) # Use 'pair_id' consistently
+        combined_df.rename(columns={'id': 'pair_id'}, inplace=True)  # Use 'pair_id' consistently
 
         # Join sentence text if needed for lexical features
         if "lexical" in feature_types:
-             if not sentences_df.empty and 'id' in sentences_df.columns and 'text' in sentences_df.columns:
-                   # Merge premise text
-                   combined_df = pd.merge(combined_df, sentences_df[['id', 'text']].rename(columns={'text': 'premise_text'}),
-                                          left_on='premise_id', right_on='id', how='left').drop('id', axis=1)
-                   # Merge hypothesis text
-                   combined_df = pd.merge(combined_df, sentences_df[['id', 'text']].rename(columns={'text': 'hypothesis_text'}),
-                                          left_on='hypothesis_id', right_on='id', how='left').drop('id', axis=1)
-             else:
-                   logger.warning(f"Could not join sentence text from '{sentences_table}'.")
-             # Fill missing text with empty strings AFTER potential joins
-             combined_df['premise_text'] = combined_df.get('premise_text', pd.Series(index=combined_df.index)).fillna('')
-             combined_df['hypothesis_text'] = combined_df.get('hypothesis_text', pd.Series(index=combined_df.index)).fillna('')
-
+            if not sentences_df.empty and 'id' in sentences_df.columns and 'text' in sentences_df.columns:
+                # Merge premise text
+                combined_df = pd.merge(combined_df,
+                                       sentences_df[['id', 'text']].rename(columns={'text': 'premise_text'}),
+                                       left_on='premise_id', right_on='id', how='left').drop('id', axis=1)
+                # Merge hypothesis text
+                combined_df = pd.merge(combined_df,
+                                       sentences_df[['id', 'text']].rename(columns={'text': 'hypothesis_text'}),
+                                       left_on='hypothesis_id', right_on='id', how='left').drop('id', axis=1)
+            else:
+                logger.warning(f"Could not join sentence text from '{sentences_table}'.")
+            # Fill missing text with empty strings AFTER potential joins
+            combined_df['premise_text'] = combined_df.get('premise_text', pd.Series(index=combined_df.index)).fillna('')
+            combined_df['hypothesis_text'] = combined_df.get('hypothesis_text',
+                                                             pd.Series(index=combined_df.index)).fillna('')
 
         # Join parse trees if needed for syntactic features
         if "syntactic" in feature_types:
-             if not parse_trees_df.empty and 'sentence_id' in parse_trees_df.columns:
-                   tree_cols = ['sentence_id', 'constituency_tree', 'dependency_tree']
-                   if all(col in parse_trees_df.columns for col in tree_cols):
-                        # Merge premise trees
-                        combined_df = pd.merge(combined_df, parse_trees_df[tree_cols].rename(columns={'constituency_tree': 'premise_constituency', 'dependency_tree': 'premise_dependency'}),
-                                               left_on='premise_id', right_on='sentence_id', how='left').drop('sentence_id', axis=1)
-                        # Merge hypothesis trees
-                        combined_df = pd.merge(combined_df, parse_trees_df[tree_cols].rename(columns={'constituency_tree': 'hypothesis_constituency', 'dependency_tree': 'hypothesis_dependency'}),
-                                               left_on='hypothesis_id', right_on='sentence_id', how='left').drop('sentence_id', axis=1)
-                   else:
-                       logger.warning(f"Missing required columns in '{parse_trees_table}'. Could not join parse trees.")
-             else:
-                  logger.warning(f"Could not join parse trees from '{parse_trees_table}'.")
+            if not parse_trees_df.empty and 'sentence_id' in parse_trees_df.columns:
+                tree_cols = ['sentence_id', 'constituency_tree', 'dependency_tree']
+                if all(col in parse_trees_df.columns for col in tree_cols):
+                    # Merge premise trees
+                    combined_df = pd.merge(combined_df, parse_trees_df[tree_cols].rename(
+                        columns={'constituency_tree': 'premise_constituency', 'dependency_tree': 'premise_dependency'}),
+                                           left_on='premise_id', right_on='sentence_id', how='left').drop('sentence_id',
+                                                                                                          axis=1)
+                    # Merge hypothesis trees
+                    combined_df = pd.merge(combined_df, parse_trees_df[tree_cols].rename(
+                        columns={'constituency_tree': 'hypothesis_constituency',
+                                 'dependency_tree': 'hypothesis_dependency'}),
+                                           left_on='hypothesis_id', right_on='sentence_id', how='left').drop(
+                        'sentence_id', axis=1)
+                else:
+                    logger.warning(f"Missing required columns in '{parse_trees_table}'. Could not join parse trees.")
+            else:
+                logger.warning(f"Could not join parse trees from '{parse_trees_table}'.")
 
-             # Fill missing trees with empty strings AFTER potential joins
-             combined_df['premise_constituency'] = combined_df.get('premise_constituency', pd.Series(index=combined_df.index)).fillna('')
-             combined_df['premise_dependency'] = combined_df.get('premise_dependency', pd.Series(index=combined_df.index)).fillna('')
-             combined_df['hypothesis_constituency'] = combined_df.get('hypothesis_constituency', pd.Series(index=combined_df.index)).fillna('')
-             combined_df['hypothesis_dependency'] = combined_df.get('hypothesis_dependency', pd.Series(index=combined_df.index)).fillna('')
-
+            # Fill missing trees with empty strings AFTER potential joins
+            combined_df['premise_constituency'] = combined_df.get('premise_constituency',
+                                                                  pd.Series(index=combined_df.index)).fillna('')
+            combined_df['premise_dependency'] = combined_df.get('premise_dependency',
+                                                                pd.Series(index=combined_df.index)).fillna('')
+            combined_df['hypothesis_constituency'] = combined_df.get('hypothesis_constituency',
+                                                                     pd.Series(index=combined_df.index)).fillna('')
+            combined_df['hypothesis_dependency'] = combined_df.get('hypothesis_dependency',
+                                                                   pd.Series(index=combined_df.index)).fillna('')
 
         if combined_df.empty:
             logger.error("Combined DataFrame is empty after joining. Cannot extract features.")
             return pd.DataFrame()
 
         logger.info(f"Successfully joined data. Shape: {combined_df.shape}")
-
 
         # --- Feature Extraction ---
         # Initialize a DataFrame to hold the final features, starting with ID and label
@@ -970,50 +986,52 @@ class FeatureExtractor:
             logger.info(f"Extracting lexical features for {len(combined_df)} pairs...")
             # Ensure text columns exist and are suitable type
             if 'premise_text' not in combined_df.columns or 'hypothesis_text' not in combined_df.columns:
-                 logger.error("Missing text columns ('premise_text', 'hypothesis_text') in combined data. Cannot extract lexical features.")
-                 return pd.DataFrame() # Fail if text is missing
+                logger.error(
+                    "Missing text columns ('premise_text', 'hypothesis_text') in combined data. Cannot extract lexical features.")
+                return pd.DataFrame()  # Fail if text is missing
 
             # Call the batched lexical extraction method
-            lexical_features_df = self._extract_lexical_features_batched(combined_df[['pair_id', 'premise_text', 'hypothesis_text']]) # Pass only needed cols
+            lexical_features_df = self._extract_lexical_features_batched(
+                combined_df[['pair_id', 'premise_text', 'hypothesis_text']])  # Pass only needed cols
 
             # Merge lexical features back using 'pair_id'
             if not lexical_features_df.empty:
-                 final_features_df = pd.merge(final_features_df, lexical_features_df, on="pair_id", how="left")
-                 logger.info(f"Merged lexical features. Shape after merge: {final_features_df.shape}")
+                final_features_df = pd.merge(final_features_df, lexical_features_df, on="pair_id", how="left")
+                logger.info(f"Merged lexical features. Shape after merge: {final_features_df.shape}")
             else:
-                 logger.warning("Lexical feature extraction returned empty results.")
-
+                logger.warning("Lexical feature extraction returned empty results.")
 
         # --- Syntactic Feature Extraction (Vectorized Apply) ---
         if "syntactic" in feature_types:
-             logger.info(f"Extracting syntactic features for {len(combined_df)} pairs...")
-             # Ensure necessary tree columns exist
-             required_syntactic_cols = ["premise_constituency", "premise_dependency", "hypothesis_constituency", "hypothesis_dependency"]
-             if not all(col in combined_df.columns for col in required_syntactic_cols):
-                  logger.error(f"Missing required parse tree columns in combined data. Cannot extract syntactic features.")
-                  # Decide whether to fail or continue without them
-                  return pd.DataFrame() # Fail for now
+            logger.info(f"Extracting syntactic features for {len(combined_df)} pairs...")
+            # Ensure necessary tree columns exist
+            required_syntactic_cols = ["premise_constituency", "premise_dependency", "hypothesis_constituency",
+                                       "hypothesis_dependency"]
+            if not all(col in combined_df.columns for col in required_syntactic_cols):
+                logger.error(
+                    f"Missing required parse tree columns in combined data. Cannot extract syntactic features.")
+                # Decide whether to fail or continue without them
+                return pd.DataFrame()  # Fail for now
 
-             # Apply the row-wise extraction function
-             syntactic_features_series = combined_df.apply(_extract_syntactic_features_row, axis=1)
-             # syntactic_features_df = pd.DataFrame(syntactic_features_series.tolist(), index=combined_df.index) # Convert list of dicts if needed
-             syntactic_features_df = syntactic_features_series # If _extract_syntactic_features_row returns Series
+            # Apply the row-wise extraction function
+            syntactic_features_series = combined_df.apply(_extract_syntactic_features_row, axis=1)
+            # syntactic_features_df = pd.DataFrame(syntactic_features_series.tolist(), index=combined_df.index) # Convert list of dicts if needed
+            syntactic_features_df = syntactic_features_series  # If _extract_syntactic_features_row returns Series
 
-             # Add pair_id for merging (if apply didn't preserve it implicitly via index)
-             syntactic_features_df['pair_id'] = combined_df['pair_id'].values # Ensure pair_id is present
+            # Add pair_id for merging (if apply didn't preserve it implicitly via index)
+            syntactic_features_df['pair_id'] = combined_df['pair_id'].values  # Ensure pair_id is present
 
-             # Merge syntactic features back using 'pair_id'
-             if not syntactic_features_df.empty:
-                 final_features_df = pd.merge(final_features_df, syntactic_features_df, on="pair_id", how="left")
-                 logger.info(f"Merged syntactic features. Shape after merge: {final_features_df.shape}")
-             else:
-                 logger.warning("Syntactic feature extraction returned empty results.")
-
+            # Merge syntactic features back using 'pair_id'
+            if not syntactic_features_df.empty:
+                final_features_df = pd.merge(final_features_df, syntactic_features_df, on="pair_id", how="left")
+                logger.info(f"Merged syntactic features. Shape after merge: {final_features_df.shape}")
+            else:
+                logger.warning("Syntactic feature extraction returned empty results.")
 
         # --- Final Processing & Storage ---
-        if len(final_features_df.columns) <= 2: # Only pair_id and label
-             logger.error("No features were successfully extracted or merged. Aborting.")
-             return pd.DataFrame()
+        if len(final_features_df.columns) <= 2:  # Only pair_id and label
+            logger.error("No features were successfully extracted or merged. Aborting.")
+            return pd.DataFrame()
 
         # Fill NaN values AFTER merging all features
         logger.info("Filling NaN values in the final feature set.")
@@ -1034,9 +1052,7 @@ class FeatureExtractor:
 
         return final_features_df
 
-
     # Removed _join_data static method, join logic moved into extract_features
-
 
     def _get_bert_embeddings(self, texts: List[str]) -> np.ndarray:
         """Gets CLS token embeddings for a list of texts using the initialized BERT model."""
@@ -1049,10 +1065,10 @@ class FeatureExtractor:
 
         # Tokenize
         inputs = self.tokenizer(
-            valid_texts, # Use cleaned texts
+            valid_texts,  # Use cleaned texts
             max_length=MAX_SEQ_LENGTH,
-            padding="max_length", # Pad to max length
-            truncation=True, # Truncate longer sequences
+            padding="max_length",  # Pad to max length
+            truncation=True,  # Truncate longer sequences
             return_tensors="pt",
             # verbose=False # Suppress excessive tokenizer warnings if needed
         )
@@ -1060,7 +1076,7 @@ class FeatureExtractor:
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
         # Get model outputs without gradient calculation
-        cls_embeddings = None # Initialize
+        cls_embeddings = None  # Initialize
         try:
             with torch.no_grad():
                 outputs = self.bert_model(**inputs)
@@ -1078,9 +1094,10 @@ class FeatureExtractor:
 
         return cls_embeddings
 
-
     def _extract_lexical_features_batched(self, text_pairs_df: pd.DataFrame) -> pd.DataFrame:
         """Extracts BERT CLS embeddings and text statistics in batches."""
+        text_pairs_df = text_pairs_df.copy()
+
         all_batch_features_list = []
         num_pairs = len(text_pairs_df)
         # Use BATCH_SIZE from config
@@ -1088,14 +1105,18 @@ class FeatureExtractor:
 
         # Ensure required columns exist
         if not all(col in text_pairs_df.columns for col in ['pair_id', 'premise_text', 'hypothesis_text']):
-             logger.error("Input DataFrame for lexical extraction missing required columns: pair_id, premise_text, hypothesis_text")
-             return pd.DataFrame()
+            logger.error(
+                "Input DataFrame for lexical extraction missing required columns: pair_id, premise_text, hypothesis_text")
+            return pd.DataFrame()
 
         logger.info(f"Processing {num_pairs} pairs in batches of {batch_size} for lexical features...")
 
         # Ensure text columns are strings and handle NAs -> empty string robustly
-        text_pairs_df['premise_text'] = text_pairs_df['premise_text'].fillna('').astype(str)
-        text_pairs_df['hypothesis_text'] = text_pairs_df['hypothesis_text'].fillna('').astype(str)
+        text_pairs_df.loc[:, 'premise_text'] = text_pairs_df['premise_text'].fillna('').astype(str)
+        text_pairs_df.loc[:, 'hypothesis_text'] = text_pairs_df['hypothesis_text'].fillna('').astype(str)
+
+        # text_pairs_df['premise_text'] = text_pairs_df['premise_text'].fillna('').astype(str)
+        # text_pairs_df['hypothesis_text'] = text_pairs_df['hypothesis_text'].fillna('').astype(str)
 
         for i in tqdm(range(0, num_pairs, batch_size), desc="Lexical Features Batch"):
             batch_df = text_pairs_df.iloc[i:min(i + batch_size, num_pairs)]
@@ -1111,21 +1132,22 @@ class FeatureExtractor:
 
             # Check if embeddings were generated successfully (handle potential NaN returns from _get_bert_embeddings)
             if premise_cls_embeddings.size == 0 or hypothesis_cls_embeddings.size == 0 or \
-               np.isnan(premise_cls_embeddings).all() or np.isnan(hypothesis_cls_embeddings).all():
-                logger.warning(f"BERT embedding failed for batch starting at index {i}. Skipping BERT features for this batch.")
+                    np.isnan(premise_cls_embeddings).all() or np.isnan(hypothesis_cls_embeddings).all():
+                logger.warning(
+                    f"BERT embedding failed for batch starting at index {i}. Skipping BERT features for this batch.")
                 # Optionally fill with NaNs/zeros if merging requires consistent columns
-                num_bert_dims_to_store = 10 # Example, match below
+                num_bert_dims_to_store = 10  # Example, match below
                 hidden_size = self.bert_model.config.hidden_size
                 actual_dims = min(num_bert_dims_to_store, hidden_size)
                 nan_array = np.full((len(batch_df), actual_dims), np.nan)
                 for j in range(actual_dims):
-                     batch_features[f"premise_cls_bert_{j}"] = nan_array[:, j]
-                     batch_features[f"hypothesis_cls_bert_{j}"] = nan_array[:, j]
-                     batch_features[f"diff_bert_{j}"] = nan_array[:, j]
-                     batch_features[f"prod_bert_{j}"] = nan_array[:, j]
+                    batch_features[f"premise_cls_bert_{j}"] = nan_array[:, j]
+                    batch_features[f"hypothesis_cls_bert_{j}"] = nan_array[:, j]
+                    batch_features[f"diff_bert_{j}"] = nan_array[:, j]
+                    batch_features[f"prod_bert_{j}"] = nan_array[:, j]
             else:
                 # --- Store selected BERT feature dimensions ---
-                num_bert_dims_to_store = 10 # Store first N dimensions (or use hidden_size)
+                num_bert_dims_to_store = 10  # Store first N dimensions (or use hidden_size)
                 hidden_size = premise_cls_embeddings.shape[1]
                 actual_dims = min(num_bert_dims_to_store, hidden_size)
 
@@ -1141,54 +1163,54 @@ class FeatureExtractor:
 
             # --- Text Statistics (Vectorized within batch) ---
             try:
-                 premise_lengths = batch_df['premise_text'].str.split().str.len().fillna(0).astype(int)
-                 hypothesis_lengths = batch_df['hypothesis_text'].str.split().str.len().fillna(0).astype(int)
+                premise_lengths = batch_df['premise_text'].str.split().str.len().fillna(0).astype(int)
+                hypothesis_lengths = batch_df['hypothesis_text'].str.split().str.len().fillna(0).astype(int)
 
-                 batch_features["premise_length"] = premise_lengths.values
-                 batch_features["hypothesis_length"] = hypothesis_lengths.values
-                 batch_features["length_diff"] = (premise_lengths - hypothesis_lengths).abs().values
-                 # Avoid division by zero, fill resulting NaN/inf with a neutral value (e.g., 1 or 0)
-                 with np.errstate(divide='ignore', invalid='ignore'): # Suppress warnings
-                     length_ratio = premise_lengths.values / hypothesis_lengths.values
-                 # Replace inf/-inf with large/small number or 0/1, replace NaN with 1 (neutral)
-                 length_ratio[np.isinf(length_ratio)] = 0 # Or a large number if ratio matters
-                 batch_features["length_ratio"] = np.nan_to_num(length_ratio, nan=1.0) # Replace NaN with 1
+                batch_features["premise_length"] = premise_lengths.values
+                batch_features["hypothesis_length"] = hypothesis_lengths.values
+                batch_features["length_diff"] = (premise_lengths - hypothesis_lengths).abs().values
+                # Avoid division by zero, fill resulting NaN/inf with a neutral value (e.g., 1 or 0)
+                with np.errstate(divide='ignore', invalid='ignore'):  # Suppress warnings
+                    length_ratio = premise_lengths.values / hypothesis_lengths.values
+                # Replace inf/-inf with large/small number or 0/1, replace NaN with 1 (neutral)
+                length_ratio[np.isinf(length_ratio)] = 0  # Or a large number if ratio matters
+                batch_features["length_ratio"] = np.nan_to_num(length_ratio, nan=1.0)  # Replace NaN with 1
 
+                # Word Overlap (optimized)
+                premise_sets = batch_df['premise_text'].str.lower().str.split().apply(set)
+                hypothesis_sets = batch_df['hypothesis_text'].str.lower().str.split().apply(set)
+                intersections = [len(p & h) for p, h in zip(premise_sets, hypothesis_sets)]
+                unions = [len(p | h) for p, h in zip(premise_sets, hypothesis_sets)]
+                # Avoid division by zero for ratio
+                overlap_ratios = [i / u if u > 0 else 0 for i, u in zip(intersections, unions)]
 
-                 # Word Overlap (optimized)
-                 premise_sets = batch_df['premise_text'].str.lower().str.split().apply(set)
-                 hypothesis_sets = batch_df['hypothesis_text'].str.lower().str.split().apply(set)
-                 intersections = [len(p & h) for p, h in zip(premise_sets, hypothesis_sets)]
-                 unions = [len(p | h) for p, h in zip(premise_sets, hypothesis_sets)]
-                 # Avoid division by zero for ratio
-                 overlap_ratios = [i / u if u > 0 else 0 for i, u in zip(intersections, unions)]
-
-                 batch_features["word_overlap_count"] = intersections
-                 batch_features["word_overlap_ratio"] = overlap_ratios
+                batch_features["word_overlap_count"] = intersections
+                batch_features["word_overlap_ratio"] = overlap_ratios
 
             except Exception as e:
-                 logger.error(f"Error calculating text stats for batch starting at index {i}: {str(e)}")
-                 # Add NaN or default values for stats columns for this batch
-                 stats_cols = ['premise_length', 'hypothesis_length', 'length_diff', 'length_ratio', 'word_overlap_count', 'word_overlap_ratio']
-                 nan_array_stats = [np.nan] * len(batch_df)
-                 for col in stats_cols:
-                      batch_features[col] = nan_array_stats
+                logger.error(f"Error calculating text stats for batch starting at index {i}: {str(e)}")
+                # Add NaN or default values for stats columns for this batch
+                stats_cols = ['premise_length', 'hypothesis_length', 'length_diff', 'length_ratio',
+                              'word_overlap_count', 'word_overlap_ratio']
+                nan_array_stats = [np.nan] * len(batch_df)
+                for col in stats_cols:
+                    batch_features[col] = nan_array_stats
 
             # Append the features for this batch (as a DataFrame) to the list
             all_batch_features_list.append(pd.DataFrame(batch_features))
 
         # --- Concatenate features from all batches ---
         if not all_batch_features_list:
-             logger.warning("No lexical features were generated (list of batch features is empty).")
-             return pd.DataFrame() # Return empty DataFrame with 'pair_id' column if needed downstream?
+            logger.warning("No lexical features were generated (list of batch features is empty).")
+            return pd.DataFrame()  # Return empty DataFrame with 'pair_id' column if needed downstream?
 
         # Concatenate all batch DataFrames
         try:
-             lexical_features_df = pd.concat(all_batch_features_list, ignore_index=True)
-             logger.info(f"Successfully concatenated lexical features from {len(all_batch_features_list)} batches.")
+            lexical_features_df = pd.concat(all_batch_features_list, ignore_index=True)
+            logger.info(f"Successfully concatenated lexical features from {len(all_batch_features_list)} batches.")
         except Exception as e:
-             logger.error(f"Error concatenating batch features: {e}")
-             return pd.DataFrame() # Return empty on concat error
+            logger.error(f"Error concatenating batch features: {e}")
+            return pd.DataFrame()  # Return empty on concat error
 
         # Clean up memory
         del all_batch_features_list, batch_df, premise_cls_embeddings, hypothesis_cls_embeddings

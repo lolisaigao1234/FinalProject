@@ -216,11 +216,12 @@ class FeatureExtractor:
             self,
             dataset_name: str,
             split: str,
-            # sample_size: int,
+            sample_size: int,
             feature_types=None,
             force_recompute: bool = False
     ) -> pd.DataFrame:
         """Extract features from a downsampled dataset using batching and vectorization."""
+        logger.info(f"Extracting features for {dataset_name} {split} with sample size {sample_size}")
         if feature_types is None:
             feature_types = ["lexical", "syntactic"]
         feature_name = "_".join(feature_types)

@@ -867,9 +867,10 @@ class FeatureExtractor:
             feature_types = ["lexical", "syntactic"]  # Default features
 
         feature_name_part = "_".join(sorted(feature_types))  # Consistent naming e.g., lexical_syntactic
-        # Define the FINAL features table/filename using the suffix
-        # This file will be stored in the root PARQUET_DIR
-        final_feature_table_name = f"features_{feature_name_part}_{suffix}"
+        # Define the FINAL features table/filename using dataset, split, and suffix
+        # This filename base will be used for the file stored in the root PARQUET_DIR
+        # final_feature_table_name = f"features_{feature_name_part}_{suffix}"
+        final_feature_table_name = f"{dataset_name}_{split}_features_{feature_name_part}_{suffix}"  # NEW FORMAT
 
         logger.info(f"Starting feature extraction for: {dataset_name}/{split}/{suffix}")
         logger.info(f"Features requested: {feature_types}")

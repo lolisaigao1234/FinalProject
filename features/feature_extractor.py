@@ -1,6 +1,6 @@
 # features/feature_extractor.py
 import logging
-from typing import Dict
+from typing import Dict, List
 
 import pandas as pd
 import torch
@@ -167,8 +167,8 @@ def _fill_nan_values(features_df: pd.DataFrame) -> pd.DataFrame:
                                                        ['premise_const_', 'hypothesis_const_', 'premise_dep_',
                                                         'hypothesis_dep_', 'diff_const_', 'diff_dep_', 'deprel_', 'pos_', 'count_'])]
 
-    text_stat_cols = ['premise_length', 'hypothesis_length', 'length_diff',
-                      'length_ratio', 'word_overlap_count', 'word_overlap_ratio']
+    # text_stat_cols = ['premise_length', 'hypothesis_length', 'length_diff',
+    #                   'length_ratio', 'word_overlap_count', 'word_overlap_ratio']
 
     # Fill NaNs with appropriate strategies
     df[bert_cols] = df[bert_cols].fillna(0)
@@ -216,7 +216,7 @@ class FeatureExtractor:
             self,
             dataset_name: str,
             split: str,
-            sample_size: int,
+            # sample_size: int,
             feature_types=None,
             force_recompute: bool = False
     ) -> pd.DataFrame:
@@ -245,13 +245,13 @@ class FeatureExtractor:
         if "lexical" in feature_types and 'premise_text' not in pairs.columns:
             # Need to join text if lexical features are needed and not already present
              logger.info("Joining sentence text to pairs dataframe.")
-             pairs_with_text = self._join_data(self, pairs, sentences, parse_trees if "syntactic" in feature_types else pd.DataFrame())
+             pairs_with_text = self._join_data(pairs, sentences, parse_trees if "syntactic" in feature_types else pd.DataFrame())
              if pairs_with_text.empty:
                 logger.warning(f"Failed to join data for {dataset_name} {split}")
                 return pd.DataFrame()
         elif "syntactic" in feature_types and ('premise_constituency' not in pairs.columns or parse_trees.empty):
              logger.info("Joining parse trees to pairs dataframe.")
-             pairs_with_text = self._join_data(self, pairs, sentences if 'premise_text' not in pairs.columns else pd.DataFrame(), parse_trees)
+             pairs_with_text = self._join_data(pairs, sentences if 'premise_text' not in pairs.columns else pd.DataFrame(), parse_trees)
              if pairs_with_text.empty:
                 logger.warning(f"Failed to join data for {dataset_name} {split}")
                 return pd.DataFrame()
@@ -264,7 +264,7 @@ class FeatureExtractor:
             logger.warning(f"Input data 'pairs_with_text' is empty for {dataset_name} {split}")
             return pd.DataFrame()
 
-        all_features_list = []
+        # all_features_list = []
         final_features_df = pd.DataFrame()
         final_features_df['pair_id'] = pairs_with_text['id'].values # Preserve original IDs
         final_features_df['label'] = pairs_with_text['label'].values # Preserve labels
@@ -277,7 +277,7 @@ class FeatureExtractor:
                  # Handle error or join data if necessary
                  # Example: Join sentence text if missing
                  temp_sentences = self.db_handler.load_dataframe(dataset_name, split, f"sentences_{self.suffix}")
-                 pairs_with_text = self._join_data(self, pairs_with_text, temp_sentences, pd.DataFrame()) # Join only sentence text
+                 pairs_with_text = self._join_data(pairs_with_text, temp_sentences, pd.DataFrame()) # Join only sentence text
                  if 'premise_text' not in pairs_with_text.columns or 'hypothesis_text' not in pairs_with_text.columns:
                      logger.error("Failed to obtain text columns even after join.")
                      return pd.DataFrame() # Or handle differently
@@ -301,9 +301,10 @@ class FeatureExtractor:
                      parse_trees = self.db_handler.load_dataframe(dataset_name, split, f"parse_trees_{self.suffix}")
 
                  if not parse_trees.empty:
-                      pairs_with_text = self._join_data(self, pairs_with_text.drop(columns=[col for col in required_syntactic_cols if col in pairs_with_text.columns], errors='ignore'),
-                                                        pd.DataFrame(), # No need to join sentences again
-                                                        parse_trees)
+                      pairs_with_text = self._join_data(
+                          pairs_with_text.drop(columns=[col for col in required_syntactic_cols if col in pairs_with_text.columns], errors='ignore'),
+                          pd.DataFrame(),  # No need to join sentences again
+                          parse_trees)
                  else:
                       logger.error("Parse trees are empty and required syntactic columns are missing.")
                       # Decide how to handle: return empty, skip syntactic, etc.
@@ -343,7 +344,7 @@ class FeatureExtractor:
         return final_features_df
 
     @staticmethod
-    def _join_data(self, pairs, sentences, parse_trees):
+    def _join_data(pairs, sentences, parse_trees):
         """Join pairs, sentences, and parse trees, handling potential missing data."""
         logger.debug(f"Starting join. Pairs: {pairs.shape}, Sentences: {sentences.shape}, Parse Trees: {parse_trees.shape}")
         try:
@@ -457,6 +458,37 @@ class FeatureExtractor:
             logger.exception(f"Error during data joining: {str(e)}") # Use logger.exception for stack trace
             return pd.DataFrame()
 
+    def _get_bert_embeddings(self, texts: List[str]) -> np.ndarray:
+        """
+        Tokenizes texts, passes them through the BERT model, and returns CLS embeddings.
+
+        Args:
+            texts: A list of strings to get embeddings for.
+
+        Returns:
+            A numpy array containing the CLS token embeddings for the input texts.
+        """
+        # Tokenize the texts
+        inputs = self.tokenizer(
+            texts,
+            max_length=MAX_SEQ_LENGTH,  # Use the class/global constant
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt"
+        )
+        # Move inputs to the correct device
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+        # Get model outputs without calculating gradients
+        with torch.no_grad():
+            outputs = self.bert_model(**inputs)
+
+        # Extract CLS token embedding ([batch_size, 0, hidden_size])
+        # and move to CPU, convert to numpy
+        cls_embeddings = outputs.last_hidden_state[:, 0, :].cpu().numpy()
+
+        return cls_embeddings
+
     def _extract_lexical_features_batched(self, pairs_df: pd.DataFrame) -> pd.DataFrame:
         """Extract lexical features using BERT embeddings (separate P/H) and text stats in batches."""
         all_features = []
@@ -482,28 +514,31 @@ class FeatureExtractor:
             try:
                 with torch.no_grad():
                     # --- Process Premises ---
-                    premise_inputs = self.tokenizer(
-                        premises,
-                        max_length=MAX_SEQ_LENGTH,
-                        padding="max_length",
-                        truncation=True,
-                        return_tensors="pt"
-                    )
-                    premise_inputs = {k: v.to(self.device) for k, v in premise_inputs.items()}
-                    premise_outputs = self.bert_model(**premise_inputs)
-                    premise_cls_embeddings = premise_outputs.last_hidden_state[:, 0, :].cpu().numpy()
+                    # premise_inputs = self.tokenizer(
+                    #     premises,
+                    #     max_length=MAX_SEQ_LENGTH,
+                    #     padding="max_length",
+                    #     truncation=True,
+                    #     return_tensors="pt"
+                    # )
+                    # premise_inputs = {k: v.to(self.device) for k, v in premise_inputs.items()}
+                    # premise_outputs = self.bert_model(**premise_inputs)
+                    # premise_cls_embeddings = premise_outputs.last_hidden_state[:, 0, :].cpu().numpy()
+                    #
+                    # # --- Process Hypotheses ---
+                    # hypothesis_inputs = self.tokenizer(
+                    #     hypotheses,
+                    #     max_length=MAX_SEQ_LENGTH,
+                    #     padding="max_length",
+                    #     truncation=True,
+                    #     return_tensors="pt"
+                    # )
+                    # hypothesis_inputs = {k: v.to(self.device) for k, v in hypothesis_inputs.items()}
+                    # hypothesis_outputs = self.bert_model(**hypothesis_inputs)
+                    # hypothesis_cls_embeddings = hypothesis_outputs.last_hidden_state[:, 0, :].cpu().numpy()
 
-                    # --- Process Hypotheses ---
-                    hypothesis_inputs = self.tokenizer(
-                        hypotheses,
-                        max_length=MAX_SEQ_LENGTH,
-                        padding="max_length",
-                        truncation=True,
-                        return_tensors="pt"
-                    )
-                    hypothesis_inputs = {k: v.to(self.device) for k, v in hypothesis_inputs.items()}
-                    hypothesis_outputs = self.bert_model(**hypothesis_inputs)
-                    hypothesis_cls_embeddings = hypothesis_outputs.last_hidden_state[:, 0, :].cpu().numpy()
+                    premise_cls_embeddings = self._get_bert_embeddings(premises)
+                    hypothesis_cls_embeddings = self._get_bert_embeddings(hypotheses)
 
                     # --- Store Features ---
                     num_bert_dims_to_store = 10 # Or use premise_cls_embeddings.shape[1] for all

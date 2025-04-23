@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=IS567FP
 #SBATCH --partition=IllinoisComputes-GPU
-#SBATCH --time=48:00:00
+#SBATCH --time=72:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:A100:1         # Explicitly request A100

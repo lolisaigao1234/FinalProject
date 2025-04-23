@@ -317,7 +317,8 @@ class FeatureExtractor:
 
              # Apply the helper function row-wise
              syntactic_features_series = pairs_with_text.apply(_extract_syntactic_features_row, axis=1)
-             syntactic_features_df = pd.DataFrame(syntactic_features_series.tolist(), index=pairs_with_text.index)
+             # syntactic_features_df = pd.DataFrame(syntactic_features_series.tolist(), index=pairs_with_text.index)
+             syntactic_features_df = syntactic_features_series
 
              # Merge syntactic features - ensure indices align or use merge on pair_id
              # Since we used apply on pairs_with_text, indices should align if final_features_df index is preserved

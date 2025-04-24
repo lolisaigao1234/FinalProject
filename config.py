@@ -54,19 +54,33 @@ PIN_MEMORY = True  # Faster data transfer to GPU
 TORCH_LOGS = "+dynamo"
 TORCHDYNAMO_VERBOSE = 1
 
-# Stanza settings
-STANZA_PROCESSORS = "tokenize,pos,lemma,depparse,constituency"
-STANZA_LANG = "en"
+# MODEL IDENTIFICATION
+HF_MODEL_IDENTIFIERS = {
+    "bert-base-uncased": "bert-base-uncased",
+    "roberta-base": "roberta-base",
+    "deberta-base": "microsoft/deberta-base"  # Example identifier for DeBERTa V3 base
+    # Add other models as needed
+}
+
+# You can keep MODEL_NAME for default or specific models
+MODEL_NAME = "bert-base-uncased"
+ROBERTA_NAME = "roberta-base"
+DEBERTA_NAME = "microsoft/deberta-base"
+
+# Ensure NUM_CLASSES is defined (it seems to be 3 already)
+NUM_CLASSES = 3
+HIDDEN_SIZE = 768  # This might vary slightly for different models, but often 768 for base
 
 # Model optimization
-MODEL_NAME = "bert-base-uncased"
-HIDDEN_SIZE = 768
-NUM_CLASSES = 3
 LEARNING_RATE = 3e-5  # Adjusted for larger batch size
 WEIGHT_DECAY = 0.01
 EPOCHS = 5
 # Dimension of syntactic features extracted from Stanza parse trees
 SYNTACTIC_FEATURE_DIM = 200
+
+# Stanza settings
+STANZA_PROCESSORS = "tokenize,pos,lemma,depparse,constituency"
+STANZA_LANG = "en"
 
 # A100-specific settings
 TORCH_COMPILE = True  # Enable PyTorch 2.0 compiler if available
@@ -107,4 +121,8 @@ def parse_args():
     parser.add_argument("--C", type=float, default=1.0, help="SVM regularization parameter")
     parser.add_argument("--max_features", type=int, default=10000, help="Max features for BoW/TF-IDF")
     parser.add_argument("--cross_evaluate", action="store_true", help="Perform cross-dataset evaluation")
+    # Example in main.py or config.py
+    parser.add_argument("--baseline_model_name", type=str, default=None,
+                        choices=list(HF_MODEL_IDENTIFIERS.keys()),  # Use keys from config
+                        help="Specify a baseline model (bert-base, roberta-base, deberta-base)")
     return parser.parse_args()

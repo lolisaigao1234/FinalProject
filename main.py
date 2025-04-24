@@ -4,9 +4,11 @@ from config import parse_args, DEVICE, EPOCHS, SYNTACTIC_FEATURE_DIM, MODEL_NAME
 from data.preprocessor import TextPreprocessor
 from models.NeuroTrainer import ModelTrainer, NLIDataset
 from models.SVMTrainer import SVMTrainer
-from models.transformer_model import BERTWithSyntacticAttention
 from utils.common import logging, torch
 from utils.database import DatabaseHandler
+from models.baseline_transformer import BaselineTransformerNLI
+from models.transformer_model import BERTWithSyntacticAttention  # Your existing model
+from config import HF_MODEL_IDENTIFIERS, NUM_CLASSES
 
 # Configure logging
 logging.basicConfig(
@@ -14,6 +16,7 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
 
 def printing_cuda_info():
     """
@@ -89,6 +92,65 @@ def load_data(db_handler, dataset_name):
     return train_dataset, val_dataset
 
 
+# def train_neural_model(args):
+#     """Train neural network model."""
+#     logger.info("Initializing neural network training")
+#
+#     # Create database handler
+#     db_handler = DatabaseHandler()
+#
+#     # Load preprocessed data
+#     train_dataset, val_dataset = load_data(db_handler, args.dataset)
+#
+#     # Create data loaders
+#     train_dataloader = DataLoader(
+#         train_dataset,
+#         batch_size=args.batch_size,
+#         shuffle=True,
+#         pin_memory=True,
+#         num_workers=4
+#     )
+#
+#     val_dataloader = DataLoader(
+#         val_dataset,
+#         batch_size=args.batch_size,
+#         shuffle=False,
+#         pin_memory=True,
+#         num_workers=4
+#     )
+#
+#     # Initialize model
+#     model = BERTWithSyntacticAttention(
+#         pretrained_model_name=MODEL_NAME,
+#         syntactic_feature_dim=SYNTACTIC_FEATURE_DIM
+#     )
+#
+#     # Initialize trainer
+#     trainer = ModelTrainer(
+#         model=model,
+#         device=DEVICE,
+#         use_amp=args.fp16,
+#         grad_accum_steps=args.grad_accum,
+#         enable_compile=args.compile
+#     )
+#
+#     # Train model
+#     logger.info("Starting neural network training")
+#     history = trainer.train(
+#         train_dataloader=train_dataloader,
+#         val_dataloader=val_dataloader,
+#         epochs=args.epochs if hasattr(args, 'epochs') else EPOCHS,
+#         save_best=True
+#     )
+#
+#     logger.info(f"Training completed. Final train accuracy: {history['train_acc'][-1]:.4f}")
+#     if 'val_acc' in history:
+#         logger.info(f"Final validation accuracy: {history['val_acc'][-1]:.4f}")
+#
+#     return model, history
+
+# In main.py
+
 def train_neural_model(args):
     """Train neural network model."""
     logger.info("Initializing neural network training")
@@ -97,6 +159,8 @@ def train_neural_model(args):
     db_handler = DatabaseHandler()
 
     # Load preprocessed data
+    # Note: load_data currently likely loads syntax features even for baselines.
+    # You might optimize this later if needed.
     train_dataset, val_dataset = load_data(db_handler, args.dataset)
 
     # Create data loaders
@@ -105,7 +169,7 @@ def train_neural_model(args):
         batch_size=args.batch_size,
         shuffle=True,
         pin_memory=True,
-        num_workers=4
+        num_workers=64 # Adjust num_workers based on your system
     )
 
     val_dataloader = DataLoader(
@@ -113,16 +177,38 @@ def train_neural_model(args):
         batch_size=args.batch_size,
         shuffle=False,
         pin_memory=True,
-        num_workers=4
+        num_workers=64 # Adjust num_workers based on your system
     )
 
-    # Initialize model
-    model = BERTWithSyntacticAttention(
-        pretrained_model_name=MODEL_NAME,
-        syntactic_feature_dim=SYNTACTIC_FEATURE_DIM
-    )
+    # --- MODIFICATION START ---
+    # Initialize model based on arguments
+    if args.baseline_model_name:
+        # Get the Hugging Face identifier from the config dictionary
+        hf_identifier = HF_MODEL_IDENTIFIERS.get(args.baseline_model_name)
+        if not hf_identifier:
+            # Handle case where the provided name isn't in the dictionary
+            logger.error(f"Invalid baseline model name specified: {args.baseline_model_name}")
+            raise ValueError(f"Invalid baseline model name: {args.baseline_model_name}. "
+                             f"Choose from {list(HF_MODEL_IDENTIFIERS.keys())}")
+
+        logger.info(f"Initializing Baseline Transformer NLI model using: {hf_identifier}")
+        model = BaselineTransformerNLI(
+            pretrained_model_name=hf_identifier,
+            num_classes=NUM_CLASSES # Pass the number of classes
+        )
+    else:
+        # Default to the syntax-aware model if no baseline is specified
+        # Use MODEL_NAME from config or another arg if you want to make BERT-base vs RoBERTa-base syntax-aware selectable
+        logger.info(f"Initializing BERTWithSyntacticAttention model using: {MODEL_NAME}")
+        model = BERTWithSyntacticAttention(
+            pretrained_model_name=MODEL_NAME, # Default BERT-base or configure as needed
+            syntactic_feature_dim=SYNTACTIC_FEATURE_DIM
+        )
+    # --- MODIFICATION END ---
+
 
     # Initialize trainer
+    # The trainer will receive the selected 'model' instance
     trainer = ModelTrainer(
         model=model,
         device=DEVICE,
@@ -133,16 +219,18 @@ def train_neural_model(args):
 
     # Train model
     logger.info("Starting neural network training")
+    training_epochs = args.epochs if hasattr(args, 'epochs') else EPOCHS # Ensure epochs are correctly accessed
     history = trainer.train(
         train_dataloader=train_dataloader,
         val_dataloader=val_dataloader,
-        epochs=args.epochs if hasattr(args, 'epochs') else EPOCHS,
-        save_best=True
+        epochs=training_epochs,
+        save_best=True # Assuming you want to save the best model checkpoint
     )
 
     logger.info(f"Training completed. Final train accuracy: {history['train_acc'][-1]:.4f}")
-    if 'val_acc' in history:
-        logger.info(f"Final validation accuracy: {history['val_acc'][-1]:.4f}")
+    # Check if validation was performed and results exist
+    if val_dataloader is not None and 'val_acc' in history and history['val_acc']:
+        logger.info(f"Best validation accuracy: {max(history['val_acc']):.4f}") # Log best val acc
 
     return model, history
 

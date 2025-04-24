@@ -188,55 +188,131 @@ class DatasetLoader:
                     logger.warning(f"Error loading {dataset_name}/{standard_split} from DB table {storage_table_name}: {e}. Will attempt loading from HuggingFace.")
 
             # --- Load from HuggingFace ---
+            # IS567FP/data/data_loader.py
+            # --- Load from HuggingFace ---
             try:
                 logger.info(f"Loading from HuggingFace: {hf_dataset_name}, split: {hf_split}")
                 # Special handling for ANLI which requires loading R1, R2, R3
                 if dataset_name == "ANLI":
-                     anli_rounds = ["r1", "r2", "r3"]
-                     anli_hf_splits = [f"{hf_split}_{r}" for r in anli_rounds] # e.g., train_r1, train_r2,...
-                     logger.info(f"ANLI dataset: Loading rounds {anli_rounds} for split {hf_split}")
-                     round_dfs = []
-                     for anli_split in anli_hf_splits:
-                          try:
-                               hf_data_round = load_dataset(hf_dataset_name, split=anli_split, cache_dir=HF_CACHE_DIR)
-                               df_round = _convert_hf_to_dataframe(hf_data_round, dataset_name, standard_split) # Use standard split name
-                               df_round['anli_round'] = anli_split.split('_')[-1] # Add round info
-                               round_dfs.append(df_round)
-                          except ValueError as e:
-                               # Handle if a specific round doesn't exist for a split (e.g., test might only have one round)
-                               logger.warning(f"Could not load ANLI split '{anli_split}': {e}")
-                     if not round_dfs:
-                          logger.error(f"Failed to load any rounds for ANLI split {hf_split}")
-                          continue # Skip this split if no rounds loaded
-                     hf_data = pd.concat(round_dfs, ignore_index=True)
+                    anli_rounds = ["r1", "r2", "r3"]
+                    anli_hf_splits = [f"{hf_split}_{r}" for r in anli_rounds]  # e.g., train_r1, train_r2,...
+                    logger.info(f"ANLI dataset: Loading rounds {anli_rounds} for split {hf_split}")
+                    round_dfs = []
+                    for anli_split in anli_hf_splits:
+                        try:
+                            hf_data_round = load_dataset(hf_dataset_name, split=anli_split,
+                                                         cache_dir=HF_CACHE_DIR)
+                            # Convert THIS round's data
+                            df_round = _convert_hf_to_dataframe(hf_data_round, dataset_name, standard_split)
+                            if df_round.empty:
+                                logger.warning(
+                                    f"Conversion returned empty DataFrame for ANLI split '{anli_split}'")
+                                continue
+                            df_round['anli_round'] = anli_split.split('_')[-1]  # Add round info
+                            round_dfs.append(df_round)
+                        except ValueError as e:
+                            logger.warning(f"Could not load ANLI split '{anli_split}': {e}")
+                        except Exception as e:
+                            logger.error(f"Error processing ANLI split '{anli_split}': {e}", exc_info=True)
+                    if not round_dfs:
+                        logger.error(f"Failed to load any rounds for ANLI split {hf_split}")
+                        df = pd.DataFrame()  # Ensure df is an empty DataFrame if loading fails
+                    else:
+                        # Concatenate rounds and assign directly to df for ANLI
+                        df = pd.concat(round_dfs, ignore_index=True)
+                        logger.debug(
+                            f"Successfully concatenated {len(round_dfs)} ANLI rounds for split {hf_split}. Shape: {df.shape}")
+                        # **** DO NOT call _convert_hf_to_dataframe again for ANLI ****
+
                 else:
-                     # Standard load for other datasets
-                     hf_data = load_dataset(hf_dataset_name, split=hf_split, cache_dir=HF_CACHE_DIR)
+                    # Standard load for other datasets
+                    hf_data = load_dataset(hf_dataset_name, split=hf_split, cache_dir=HF_CACHE_DIR)
+                    # Convert non-ANLI data using the function - Assign to df
+                    df = _convert_hf_to_dataframe(hf_data, dataset_name, standard_split)
 
-                # Convert to standardized DataFrame
-                df = _convert_hf_to_dataframe(hf_data, dataset_name, standard_split) # Pass standard split name
-
+                # --- Code below here now uses 'df', which is correctly populated ---
                 if df.empty:
-                     logger.warning(f"Converted DataFrame is empty for {dataset_name}/{standard_split} (HF split: {hf_split})")
-                     continue # Skip if conversion failed
+                    logger.warning(
+                        f"DataFrame is empty for {dataset_name}/{standard_split} (HF split: {hf_split}) after loading/conversion.")
+                    # If using DB handler, maybe skip storing, otherwise append empty df?
+                    # Decide if you want to skip append or append empty df. Here we skip.
+                    continue
 
                 # --- Store raw data using DatabaseHandler if provided ---
                 if self.db_handler:
                     try:
-                        logger.info(f"Storing raw loaded data to DB: {dataset_name}/{standard_split}/{storage_table_name}")
-                        self.db_handler.store_dataframe(df, dataset_name, standard_split, storage_table_name)
+                        logger.info(
+                            f"Storing raw loaded data to DB: {dataset_name}/{standard_split}/{storage_table_name}")
+                        if isinstance(df, pd.DataFrame):
+                            self.db_handler.store_dataframe(df, dataset_name, standard_split,
+                                                            storage_table_name)
+                        else:
+                            logger.error(
+                                f"Cannot store non-DataFrame object for {dataset_name}/{standard_split}")
                     except Exception as e:
                         logger.error(f"Failed to store raw data for {dataset_name}/{standard_split} in DB: {e}")
 
-                all_split_dfs.append(df)
+                all_split_dfs.append(df)  # Append the processed df
 
             except ValueError as e:
-                 # Specific error if split doesn't exist in HF
-                 logger.warning(f"HuggingFace split '{hf_split}' not found for dataset {hf_dataset_name}: {e}. Skipping this split.")
+                # Specific error if split doesn't exist in HF
+                logger.warning(
+                    f"HuggingFace split '{hf_split}' not found for dataset {hf_dataset_name}: {e}. Skipping this split.")
             except Exception as e:
-                 logger.error(f"Unexpected error loading {hf_dataset_name} split '{hf_split}' from HuggingFace: {e}", exc_info=False)
-                 # Optionally raise the error or continue
-                 # raise e # Or continue to next split
+                logger.error(
+                    f"Unexpected error loading {hf_dataset_name} split '{hf_split}' from HuggingFace: {e}",
+                    exc_info=True)
+
+            # ... rest of the function ...
+            # try:
+            #     logger.info(f"Loading from HuggingFace: {hf_dataset_name}, split: {hf_split}")
+            #     # Special handling for ANLI which requires loading R1, R2, R3
+            #     if dataset_name == "ANLI":
+            #          anli_rounds = ["r1", "r2", "r3"]
+            #          anli_hf_splits = [f"{hf_split}_{r}" for r in anli_rounds] # e.g., train_r1, train_r2,...
+            #          logger.info(f"ANLI dataset: Loading rounds {anli_rounds} for split {hf_split}")
+            #          round_dfs = []
+            #          for anli_split in anli_hf_splits:
+            #               try:
+            #                    hf_data_round = load_dataset(hf_dataset_name, split=anli_split, cache_dir=HF_CACHE_DIR)
+            #                    df_round = _convert_hf_to_dataframe(hf_data_round, dataset_name, standard_split) # Use standard split name
+            #                    df_round['anli_round'] = anli_split.split('_')[-1] # Add round info
+            #                    round_dfs.append(df_round)
+            #               except ValueError as e:
+            #                    # Handle if a specific round doesn't exist for a split (e.g., test might only have one round)
+            #                    logger.warning(f"Could not load ANLI split '{anli_split}': {e}")
+            #          if not round_dfs:
+            #               logger.error(f"Failed to load any rounds for ANLI split {hf_split}")
+            #               continue # Skip this split if no rounds loaded
+            #          hf_data = pd.concat(round_dfs, ignore_index=True)
+            #     else:
+            #          # Standard load for other datasets
+            #          hf_data = load_dataset(hf_dataset_name, split=hf_split, cache_dir=HF_CACHE_DIR)
+            #
+            #     # Convert to standardized DataFrame
+            #     df = _convert_hf_to_dataframe(hf_data, dataset_name, standard_split) # Pass standard split name
+            #
+            #     if df.empty:
+            #          logger.warning(f"Converted DataFrame is empty for {dataset_name}/{standard_split} (HF split: {hf_split})")
+            #          continue # Skip if conversion failed
+            #
+            #     # --- Store raw data using DatabaseHandler if provided ---
+            #     if self.db_handler:
+            #         try:
+            #             logger.info(f"Storing raw loaded data to DB: {dataset_name}/{standard_split}/{storage_table_name}")
+            #             self.db_handler.store_dataframe(df, dataset_name, standard_split, storage_table_name)
+            #         except Exception as e:
+            #             logger.error(f"Failed to store raw data for {dataset_name}/{standard_split} in DB: {e}")
+            #
+            #     all_split_dfs.append(df)
+
+            # except ValueError as e:
+            #      # Specific error if split doesn't exist in HF
+            #      logger.warning(f"HuggingFace split '{hf_split}' not found for dataset {hf_dataset_name}: {e}. Skipping this split.")
+            # except Exception as e:
+            #      logger.error(f"Unexpected error loading {hf_dataset_name} split '{hf_split}' from HuggingFace: {e}", exc_info=False)
+            #      # Optionally raise the error or continue
+            #      # raise e # Or continue to next split
 
         # --- Combine DataFrames from all loaded splits ---
         if not all_split_dfs:

@@ -29,7 +29,7 @@ DATASETS = {
         "splits": {
             "train": "train",
             "dev": "validation_matched",
-            "test": "test_matched"
+            "test": "validation_mismatched"
         }
     },
     "ANLI": {

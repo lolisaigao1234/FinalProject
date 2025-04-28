@@ -57,7 +57,7 @@ DATASETS = {
 MAX_SEQ_LENGTH = 128  # Consider 256 if model supports it
 BATCH_SIZE = 64  # Increased for A100's 40GB VRAM
 GRAD_ACCUM_STEPS = 2  # For larger effective batch sizes
-NUM_WORKERS = 8  # Match --cpus-per-task=8 in sbatch
+NUM_WORKERS = 64  # Number of workers for data loading (adjust based on system)
 USE_FP16 = True  # Enable mixed precision training (relevant for neural models)
 CUDA_BENCHMARK = True  # Enable cuDNN auto-tuner
 PIN_MEMORY = True  # Faster data transfer to GPU (relevant for neural models)

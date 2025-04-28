@@ -12,7 +12,6 @@
 
 # Load modules
 module purge
-# Note: Your script loads CUDA 12.8, but torch detected 12.6. This might be okay, but ensure compatibility.
 module load cuda/12.6
 module load anaconda3/2024.10
 
@@ -23,10 +22,7 @@ source activate IS567
 # Set environment variables for GPU performance
 export NCCL_DEBUG=INFO            # Optional: Debug GPU comms
 export TF_CPP_MIN_LOG_LEVEL=3     # Reduce TensorFlow logging (if used)
-# Set HuggingFace cache directory (if needed, based on config.py)
-# export HF_HOME=/path/to/your/cache/huggingface
-# Enable PyTorch Compile / CUDA Graph options if desired (based on config.py)
-# export TORCH_COMPILE=1 # Or other compile modes
+
 
 # Navigate to project directory
 # <<< Make sure this is your correct project path >>>

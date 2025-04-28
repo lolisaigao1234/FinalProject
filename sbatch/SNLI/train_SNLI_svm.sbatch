@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:A100:1                 # Explicitly request A100
 #SBATCH --cpus-per-task=64                # Adjusted based on NUM_WORKERS=8 in config.py
-#SBATCH --mem=32G                         # Adjusted memory request
+#SBATCH --mem=64G                         # Adjusted memory request
 #SBATCH --account=jywu3-ic                # <<< YOUR ACCOUNT HERE >>>
 #SBATCH --output=slurm_logs/train_SNLI_svm_%j.log # Changed output log name (assuming slurm_logs dir exists)
 

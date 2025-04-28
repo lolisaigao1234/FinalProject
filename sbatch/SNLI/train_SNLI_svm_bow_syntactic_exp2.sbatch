@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=train_SNLI_mnb_bow         # Changed job name
+#SBATCH --job-name=train_SNLI_svm_bow_syntactic_exp2 # Changed job name
 #SBATCH --partition=IllinoisComputes-GPU
 #SBATCH --time=72:00:00                   # 72 hours
 #SBATCH --nodes=1
@@ -8,7 +8,7 @@
 #SBATCH --cpus-per-task=64                # Adjusted based on NUM_WORKERS=8 in config.py
 #SBATCH --mem=64G                         # Adjusted memory request
 #SBATCH --account=jywu3-ic                # <<< YOUR ACCOUNT HERE >>>
-#SBATCH --output=slurm_logs/train_SNLI_mnb_bow_%j.log # Changed output log name
+#SBATCH --output=slurm_logs/train_SNLI_svm_bow_syntactic_exp2_%j.log # Changed output log name
 
 # Load modules
 module purge
@@ -25,8 +25,8 @@ export TF_CPP_MIN_LOG_LEVEL=3
 # Navigate to project directory
 cd /u/jywu3/scratch/IS567FP || exit
 
-echo "Starting SNLI training job for mnb_bow..."
-# Run training for SNLI dataset and mnb_bow model type
-python -u main.py --dataset SNLI --mode train --model_type mnb_bow
+echo "Starting SNLI training job for svm_bow_syntactic_exp2..."
+# Run training for SNLI dataset and svm_bow_syntactic_exp2 model type
+python -u main.py --dataset SNLI --mode train --model_type svm_bow_syntactic_exp2
 
-echo "SNLI mnb_bow training job finished."
+echo "SNLI svm_bow_syntactic_exp2 training job finished."

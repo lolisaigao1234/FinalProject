@@ -8,9 +8,9 @@ from torch.utils.data import DataLoader
 
 from config import parse_args, DEVICE
 from data.preprocessor import TextPreprocessor
-from models.SVMTrainer import SVMTrainer, SVMWithBagOfWords, SVMWithSyntax, SVMWithBothFeatures, _evaluate_model, clean_dataset # Import helpers
+from models.svm_bow_baseline import SVMTrainer, SVMWithBagOfWords, SVMWithSyntax, SVMWithBothFeatures, _evaluate_model, clean_dataset # Import helpers
 from models.logistic_tf_idf_baseline import LogisticTFIDFBaseline, LogisticRegressionTrainer # Import new baseline
-from models.multinomial_naive_bayes_baseline import MultinomialNaiveBayesBaseline, MultinomialNaiveBayesTrainer # Import MNB
+from models.multinomial_naive_bayes_bow_baseline import MultinomialNaiveBayesBaseline, MultinomialNaiveBayesTrainer # Import MNB
 from utils.common import logging, torch
 from utils.database import DatabaseHandler
 

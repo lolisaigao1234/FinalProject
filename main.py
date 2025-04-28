@@ -1,9 +1,13 @@
 # Modify file: IS567FP/main.py
+# Add logic to handle experiment 7
 import logging
 
 from config import parse_args, DEVICE
 from data.preprocessor import TextPreprocessor
 from models.baseline_trainer import BaselineTrainer # Use the unified trainer
+# <<< Import Experiment 7 class >>>
+from models.cross_eval_syntactic_experiment_7 import CrossEvalSyntacticExperiment7
+# ---------------------------------
 from utils.database import DatabaseHandler
 import torch
 
@@ -43,10 +47,8 @@ def preprocess_data(args):
     """Runs the preprocessing pipeline based on arguments."""
     logger.info(f"Preprocessing {args.dataset} dataset. Sample size: {args.sample_size or 'Full'}.")
     db_handler = DatabaseHandler()
-    # Pass sample_size to preprocessor if it uses it internally during pipeline setup
-    # The main logic now uses total_sample_size within preprocess_dataset_pipeline
-    preprocessor = TextPreprocessor(db_handler, sample_size=args.sample_size) # Pass sample_size for potential internal use
-    # Call the pipeline method which now handles sampling internally based on total_sample_size
+    preprocessor = TextPreprocessor(db_handler) # Pass db_handler, sample_size handled inside pipeline now
+    # Call the pipeline method which now handles sampling internally
     preprocessor.preprocess_dataset_pipeline(
         dataset_name=args.dataset,
         total_sample_size=args.sample_size, # Pass the total size argument
@@ -61,7 +63,7 @@ def main():
     args = parse_args()
 
     # Set benchmark/deterministic (optional, adjust based on needs)
-    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.benchmark = False # Default False for baselines unless needed
     torch.backends.cudnn.deterministic = False
 
     logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
@@ -77,10 +79,12 @@ def main():
         preprocess_data(args)
 
     elif args.mode == "train":
-        # Define the list of all baseline/experiment model types handled by BaselineTrainer
-        # <<< ADDED gradient_boosting_tfidf_syntactic_exp6 >>>
-        baseline_model_types = [
-            "svm", # Handles BoW, Syntax, Combined SVM variants internally
+        # <<< ADDED Experiment 7 to list handled by BaselineTrainer >>>
+        # Note: This is a slight simplification. Exp7 orchestrates multiple models.
+        # If BaselineTrainer cannot handle this structure, a separate elif block is needed.
+        # For now, let's assume BaselineTrainer can be adapted or Exp7 handles its internal logic.
+        baseline_model_types_handled_by_trainer = [
+            "svm",
             "logistic_tfidf",
             "mnb_bow",
             "svm_syntactic_exp1",
@@ -88,31 +92,41 @@ def main():
             "logistic_tfidf_syntactic_exp3",
             "mnb_bow_syntactic_exp4",
             "random_forest_bow_syntactic_exp5",
-            "gradient_boosting_tfidf_syntactic_exp6" # Added Exp 6
+            "gradient_boosting_tfidf_syntactic_exp6",
+            # "cross_eval_syntactic_exp7" # Add here IF BaselineTrainer handles it
             ]
         # ----------------------------------------------------
 
-        # Use the unified BaselineTrainer
-        if args.model_type in baseline_model_types:
+        # Use the unified BaselineTrainer for most experiments
+        if args.model_type in baseline_model_types_handled_by_trainer:
             logger.info(f"Initializing BaselineTrainer for model: {args.model_type}, dataset: {args.dataset}")
-            # Pass all arguments to the trainer
             trainer = BaselineTrainer(
                 model_type=args.model_type,
                 dataset_name=args.dataset,
-                args=args # Pass the full args object
+                args=args
             )
             logger.info(f"Starting training process...")
-            # run_training handles the specific logic based on model_type
             results = trainer.run_training()
             if results:
                  logger.info(f"Training finished. Results: {results}")
             else:
                  logger.error("Training run failed or produced no results.")
 
-            # Cross-evaluation logic (remains the same)
-            if hasattr(args, 'cross_evaluate') and args.cross_evaluate:
-                 logger.info("Cross-evaluation requested. Note: Ensure models are trained on the intended source dataset.")
-                 logger.warning("Cross-evaluation logic might need specific implementation/mode.")
+        # <<< Separate handler for Experiment 7 >>>
+        elif args.model_type == "cross_eval_syntactic_exp7":
+             logger.info(f"Initializing CrossEvalSyntacticExperiment7 for dataset: {args.dataset}")
+             # Experiment 7 class takes args and runs its specific comparisons
+             exp7_runner = CrossEvalSyntacticExperiment7(args)
+             logger.info(f"Starting Experiment 7 run...")
+             results = exp7_runner.run_experiment()
+             if results:
+                  logger.info(f"Experiment 7 finished. Overall Results Summary: {results}")
+                  # Log detailed results (assuming 'results' is a dictionary)
+                  for config, metrics in results.items():
+                      logger.info(f"  - Config: {config}, Metrics: {metrics}")
+             else:
+                  logger.error("Experiment 7 run failed or produced no results.")
+        # ----------------------------------------
 
         # Add handling for other potential model types (e.g., neural) if needed
         # elif args.model_type == "neural":
@@ -123,40 +137,62 @@ def main():
 
     elif args.mode == "evaluate":
         logger.info(f"Starting evaluation for model type: {args.model_type} on dataset: {args.dataset}")
-        # Initialize trainer - evaluation logic is handled within BaselineTrainer
-        trainer = BaselineTrainer(
-            model_type=args.model_type,
-            dataset_name=args.dataset,
-            args=args
-        )
 
-        # Load test data - Trainer's run_evaluation method handles data loading strategy
-        # For models like Exp3, Exp4, Exp5, Exp6 eval_data can be None as they load internally
-        # For others, the trainer's _load_data is used by run_evaluation implicitly.
-        # We call run_evaluation, it figures out if data is needed based on model type.
-        # For simplicity, we attempt to load test data here for models that DON'T load internally.
-        # Models that load internally will ignore the passed data if it's not None.
-        test_data = None
-        # <<< ADDED gradient_boosting_tfidf_syntactic_exp6 to list >>>
+        # <<< ADDED Experiment 7 to evaluation list >>>
         models_loading_internally = [
              'logistic_tfidf_syntactic_exp3',
              'mnb_bow_syntactic_exp4',
              'random_forest_bow_syntactic_exp5',
-             'gradient_boosting_tfidf_syntactic_exp6'
+             'gradient_boosting_tfidf_syntactic_exp6',
+             'cross_eval_syntactic_exp7' # Experiment 7 also loads its own data
              ]
         # ----------------------------------------------------------
-        if args.model_type not in models_loading_internally:
-             _, _, test_data = trainer._load_data() # Attempt to load test data
-             if test_data is None or test_data.empty:
-                  logger.warning(f"Failed to load explicit test data for {args.dataset}. Model might load its own if applicable.")
-                  # Do not return yet, let run_evaluation handle internal loading if possible
 
-        # run_evaluation within the trainer handles loading the correct model and evaluating
-        eval_metrics = trainer.run_evaluation(test_data) # Pass loaded test data (or None)
-        if eval_metrics:
-              logger.info(f"Evaluation metrics on test set: {eval_metrics}")
+        if args.model_type in models_loading_internally:
+            logger.info(f"{args.model_type} handles data loading internally for evaluation.")
+            # For Exp7, evaluation might be integrated within its `run_experiment`
+            # Or we might need a separate `evaluate_experiment` method if called separately.
+            # Let's assume for now the `train` mode runs the full Exp7 including eval logging.
+            # If evaluate mode needs to re-run Exp7 eval, need specific logic here.
+            logger.warning(f"Evaluation mode for {args.model_type} might require specific implementation or rely on 'train' mode output.")
+            # Example: Reload and evaluate if needed
+            if args.model_type == 'cross_eval_syntactic_exp7':
+                 logger.info("Evaluate mode for Exp7: Attempting to load and re-evaluate (requires models to be saved).")
+                 try:
+                     exp7_runner = CrossEvalSyntacticExperiment7(args)
+                     # TODO: Add a method to CrossEvalSyntacticExperiment7 like `evaluate_on_test()`
+                     # which loads models and evaluates on the test set.
+                     # For now, just logging a message.
+                     logger.warning("Exp7 evaluation logic in 'evaluate' mode not fully implemented. Run in 'train' mode.")
+                 except Exception as e:
+                     logger.error(f"Failed to set up Exp7 evaluation: {e}")
+            else:
+                 # For Exp 3, 4, 5, 6 - Use BaselineTrainer as before
+                trainer = BaselineTrainer(
+                    model_type=args.model_type,
+                    dataset_name=args.dataset,
+                    args=args
+                )
+                eval_metrics = trainer.run_evaluation(None) # Data loaded internally
+                if eval_metrics: logger.info(f"Evaluation metrics on test set: {eval_metrics}")
+                else: logger.error("Evaluation run failed.")
         else:
-              logger.error("Evaluation run failed or produced no metrics.")
+             # For other models handled by BaselineTrainer (SVM variants, TFIDF, MNB)
+            trainer = BaselineTrainer(
+                model_type=args.model_type,
+                dataset_name=args.dataset,
+                args=args
+            )
+            # Attempt to load explicit test data if needed by the model
+            test_data = None
+            _, _, test_data = trainer._load_data() # Trainer handles loading strategy
+            if test_data is None or test_data.empty:
+                 logger.warning(f"Could not load explicit test data for {args.dataset} for {args.model_type}.")
+
+            # run_evaluation uses loaded data or loads internally if needed
+            eval_metrics = trainer.run_evaluation(test_data)
+            if eval_metrics: logger.info(f"Evaluation metrics on test set: {eval_metrics}")
+            else: logger.error("Evaluation run failed or produced no metrics.")
 
 
     elif args.mode == "predict":

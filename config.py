@@ -126,7 +126,7 @@ def parse_args():
     # --- MODIFIED model_type ---
     parser.add_argument("--model_type", default="svm",
                         choices=[
-                            "svm", # Trains BoW, Syntax, Combined SVM variants
+                            "svm", # Handles BoW, Syntax, Combined SVM variants
                             "logistic_tfidf",
                             "mnb_bow",
                             "svm_syntactic_exp1", # SVM with only syntactic features
@@ -134,7 +134,8 @@ def parse_args():
                             "logistic_tfidf_syntactic_exp3", # Logistic Regression with TFIDF + Syntactic
                             "mnb_bow_syntactic_exp4", # MNB with BoW + Syntactic
                             "random_forest_bow_syntactic_exp5", # Random Forest with BoW + Syntactic
-                            "gradient_boosting_tfidf_syntactic_exp6" # <-- ADDED Experiment 6
+                            "gradient_boosting_tfidf_syntactic_exp6", # Added Experiment 6
+                            "cross_eval_syntactic_exp7" # <<< ADDED Experiment 7 >>>
                             ],
                         help="Model type to train/evaluate.")
     # ---------------------------
@@ -146,6 +147,7 @@ def parse_args():
     # --- Random Forest / Gradient Boosting Hyperparameters ---
     parser.add_argument("--n_estimators", type=int, default=100, help="Number of trees for Random Forest (Exp 5) / Gradient Boosting (Exp 6)")
     parser.add_argument("--max_depth", type=int, default=None, help="Max depth for trees (Exp 5/6, None for no limit)")
+    parser.add_argument("--max_iter", type=int, default=1000, help="Max iterations for Logistic Regression.") # Add max_iter for LR
     # Note: GradientBoostingClassifier has its own learning_rate parameter, which reuses the --learning_rate argument above.
     # ------------------------------------------------------
     # --- Cross-Evaluation ---

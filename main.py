@@ -68,46 +68,47 @@ def main():
     if args.mode == "preprocess":
         preprocess_data(args)
     elif args.mode == "train":
-        # Use the unified BaselineTrainer for all specified baseline types
-        if args.model_type in ["svm", "logistic_tfidf", "mnb_bow"]:
+        # Use the unified BaselineTrainer for specified baseline types
+        # << --- Updated condition --- >>
+        if args.model_type in ["svm", "logistic_tfidf", "mnb_bow", "svm_syntactic_exp1"]:
             logger.info(f"Initializing BaselineTrainer for model: {args.model_type}, dataset: {args.dataset}")
             trainer = BaselineTrainer(
-                model_type=args.model_type,
+                model_type=args.model_type, # Pass the selected model type
                 dataset_name=args.dataset,
-                args=args # Pass all args
+                args=args # Pass all args for hyperparameter access
             )
             logger.info(f"Starting training process...")
-            results = trainer.run_training()
+            results = trainer.run_training() # run_training now handles the logic based on model_type
             if results:
                  logger.info(f"Training finished. Results: {results}")
             else:
                  logger.error("Training run failed.")
 
-            # Cross-evaluation logic (if needed, might be integrated into trainer or called separately)
+            # Cross-evaluation logic (check if needed and how it interacts with specific model types)
+            # The original cross-eval was tied to 'svm' type. Adapt if needed for 'svm_syntactic_exp1'.
             if args.model_type == 'svm' and hasattr(args, 'cross_evaluate') and args.cross_evaluate:
-                 logger.warning("SVM Cross-evaluation logic needs review/re-implementation after trainer refactor.")
-                 # Example: You might need to adapt how cross-evaluation loads models/data now
-                 # cross_eval_results = trainer._run_cross_evaluation(args.dataset) # If method exists
-                 # logger.info(f"Cross-evaluation results: {cross_eval_results}")
+                logger.warning("Cross-evaluation logic might need adjustment for specific SVM experiments.")
+                # trainer._run_cross_evaluation(args.dataset) # Assuming this method exists and handles loading correctly
 
+        # << --- End Update --- >>
         else:
-            logger.warning(f"Neural network training path or unknown model type '{args.model_type}' not handled by BaselineTrainer.")
+            logger.warning(f"Neural network training path or unknown model type '{args.model_type}' not explicitly handled by BaselineTrainer's main training logic.")
             # Add separate logic for neural models if needed
 
     elif args.mode == "evaluate":
         logger.info(f"Starting evaluation for model type: {args.model_type} on dataset: {args.dataset}")
-        # Initialize trainer to load model and run evaluation
+        # Initialize trainer - evaluation logic is now within BaselineTrainer
         trainer = BaselineTrainer(
             model_type=args.model_type,
             dataset_name=args.dataset,
             args=args
         )
         # Load test data - trainer's _load_data can handle this
-        # Or load manually if test data logic is separate
-        _, _, test_data = trainer._load_data() # Assuming trainer can load test data appropriately
+        _, _, test_data = trainer._load_data() # Load data appropriate for the model type
 
         if test_data is not None and not test_data.empty:
-             eval_metrics = trainer.run_evaluation(test_data) # Pass test data to evaluate
+             # run_evaluation within the trainer handles loading the correct model and evaluating
+             eval_metrics = trainer.run_evaluation(test_data) # Pass test data
              if eval_metrics:
                   logger.info(f"Evaluation metrics on test set: {eval_metrics}")
              else:
@@ -118,7 +119,7 @@ def main():
 
     elif args.mode == "predict":
         logger.warning("Prediction mode not fully implemented yet.")
-        # Add prediction logic here - similar to evaluation but without labels
+        # Add prediction logic here
         pass
     else:
         logger.error(f"Unknown mode: {args.mode}")

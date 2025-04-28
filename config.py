@@ -1,5 +1,5 @@
 # Modify file: IS567FP/config.py
-# config.py
+# Add 'cross_validate_syntactic_experiment_8' to model_type choices
 import os
 from pathlib import Path
 import argparse
@@ -126,7 +126,7 @@ def parse_args():
     # --- MODIFIED model_type ---
     parser.add_argument("--model_type", default="svm",
                         choices=[
-                            "svm", # Handles BoW, Syntax, Combined SVM variants
+                            "svm", # Handles BoW, Syntax, Combined SVM variants via BaselineTrainer logic
                             "logistic_tfidf",
                             "mnb_bow",
                             "svm_syntactic_exp1", # SVM with only syntactic features
@@ -135,7 +135,8 @@ def parse_args():
                             "mnb_bow_syntactic_exp4", # MNB with BoW + Syntactic
                             "random_forest_bow_syntactic_exp5", # Random Forest with BoW + Syntactic
                             "gradient_boosting_tfidf_syntactic_exp6", # Added Experiment 6
-                            "cross_eval_syntactic_exp7" # <<< ADDED Experiment 7 >>>
+                            "cross_eval_syntactic_exp7", # Added Experiment 7
+                            "cross_validate_syntactic_experiment_8" # <<< ADDED Experiment 8 >>>
                             ],
                         help="Model type to train/evaluate.")
     # ---------------------------
@@ -151,7 +152,7 @@ def parse_args():
     # Note: GradientBoostingClassifier has its own learning_rate parameter, which reuses the --learning_rate argument above.
     # ------------------------------------------------------
     # --- Cross-Evaluation ---
-    parser.add_argument("--cross_evaluate", action="store_true", help="Perform cross-dataset evaluation (check implementation compatibility)")
+    parser.add_argument("--cross_evaluate", action="store_true", help="Perform cross-dataset evaluation (check implementation compatibility - Exp 7 only)")
     # --- Neural Model Selection (If using neural models not covered here) ---
     parser.add_argument("--baseline_model_name", type=str, default=None,
                         choices=list(HF_MODEL_IDENTIFIERS.keys()) if HF_MODEL_IDENTIFIERS else [],

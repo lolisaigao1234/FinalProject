@@ -1,6 +1,5 @@
 # Modify file: IS567FP/models/__init__.py
-# Add import and __all__ entry for Experiment 7
-# Add the import for the new Experiment 6 model
+# Add import and __all__ entry for Experiment 8
 from .svm_bow_baseline import SVMWithBagOfWords, SVMWithSyntax, SVMWithBothFeatures
 from .logistic_tf_idf_baseline import LogisticTFIDFBaseline
 from .multinomial_naive_bayes_bow_baseline import MultinomialNaiveBayesBaseline
@@ -11,8 +10,10 @@ from .multinomial_naive_bayes_bow_syntactic_experiment_4 import MultinomialNaive
 from .random_forest_bow_syntactic_experiment_5 import RandomForestBowSyntacticExperiment5
 # Import the new Experiment 6 model
 from .gradient_boosting_tfidf_syntactic_experiment_6 import GradientBoostingTFIDFSyntacticExperiment6
-# <<< Import Experiment 7 >>>
+# Import Experiment 7
 from .cross_eval_syntactic_experiment_7 import CrossEvalSyntacticExperiment7
+# <<< Import Experiment 8 >>>
+from .cross_validate_syntactic_experiment_8 import CrossValidateSyntacticExperiment8
 
 
 __all__ = [
@@ -27,5 +28,6 @@ __all__ = [
     'LogisticTFIDFSyntacticExperiment3',
     'RandomForestBowSyntacticExperiment5',
     'GradientBoostingTFIDFSyntacticExperiment6',
-    'CrossEvalSyntacticExperiment7' # <<< Added Experiment 7 >>>
+    'CrossEvalSyntacticExperiment7',
+    'CrossValidateSyntacticExperiment8' # <<< Added Experiment 8 >>>
 ]

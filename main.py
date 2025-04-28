@@ -1,4 +1,4 @@
-# Modify: IS567FP/main.py
+# Modify file: IS567FP/main.py
 import logging
 
 from config import parse_args, DEVICE
@@ -43,7 +43,9 @@ def preprocess_data(args):
     """Runs the preprocessing pipeline based on arguments."""
     logger.info(f"Preprocessing {args.dataset} dataset. Sample size: {args.sample_size or 'Full'}.")
     db_handler = DatabaseHandler()
-    preprocessor = TextPreprocessor(db_handler, sample_size=args.sample_size)
+    # Pass sample_size to preprocessor if it uses it internally during pipeline setup
+    # The main logic now uses total_sample_size within preprocess_dataset_pipeline
+    preprocessor = TextPreprocessor(db_handler, sample_size=args.sample_size) # Pass sample_size for potential internal use
     # Call the pipeline method which now handles sampling internally based on total_sample_size
     preprocessor.preprocess_dataset_pipeline(
         dataset_name=args.dataset,
@@ -76,6 +78,7 @@ def main():
 
     elif args.mode == "train":
         # Define the list of all baseline/experiment model types handled by BaselineTrainer
+        # <<< ADDED gradient_boosting_tfidf_syntactic_exp6 >>>
         baseline_model_types = [
             "svm", # Handles BoW, Syntax, Combined SVM variants internally
             "logistic_tfidf",
@@ -84,8 +87,10 @@ def main():
             "svm_bow_syntactic_exp2",
             "logistic_tfidf_syntactic_exp3",
             "mnb_bow_syntactic_exp4",
-            "random_forest_bow_syntactic_exp5" # <-- Added Experiment 5
+            "random_forest_bow_syntactic_exp5",
+            "gradient_boosting_tfidf_syntactic_exp6" # Added Exp 6
             ]
+        # ----------------------------------------------------
 
         # Use the unified BaselineTrainer
         if args.model_type in baseline_model_types:
@@ -94,7 +99,7 @@ def main():
             trainer = BaselineTrainer(
                 model_type=args.model_type,
                 dataset_name=args.dataset,
-                args=args
+                args=args # Pass the full args object
             )
             logger.info(f"Starting training process...")
             # run_training handles the specific logic based on model_type
@@ -126,13 +131,21 @@ def main():
         )
 
         # Load test data - Trainer's run_evaluation method handles data loading strategy
-        # For models like Exp3, Exp4, Exp5, eval_data can be None as they load internally
+        # For models like Exp3, Exp4, Exp5, Exp6 eval_data can be None as they load internally
         # For others, the trainer's _load_data is used by run_evaluation implicitly.
         # We call run_evaluation, it figures out if data is needed based on model type.
         # For simplicity, we attempt to load test data here for models that DON'T load internally.
         # Models that load internally will ignore the passed data if it's not None.
         test_data = None
-        if args.model_type not in ['logistic_tfidf_syntactic_exp3', 'mnb_bow_syntactic_exp4', 'random_forest_bow_syntactic_exp5']:
+        # <<< ADDED gradient_boosting_tfidf_syntactic_exp6 to list >>>
+        models_loading_internally = [
+             'logistic_tfidf_syntactic_exp3',
+             'mnb_bow_syntactic_exp4',
+             'random_forest_bow_syntactic_exp5',
+             'gradient_boosting_tfidf_syntactic_exp6'
+             ]
+        # ----------------------------------------------------------
+        if args.model_type not in models_loading_internally:
              _, _, test_data = trainer._load_data() # Attempt to load test data
              if test_data is None or test_data.empty:
                   logger.warning(f"Failed to load explicit test data for {args.dataset}. Model might load its own if applicable.")

@@ -1,4 +1,4 @@
-# Modify: IS567FP/config.py
+# Modify file: IS567FP/config.py
 # config.py
 import os
 from pathlib import Path
@@ -119,7 +119,7 @@ def parse_args():
     parser.add_argument("--no_compile", action="store_false", dest="compile", default=not TORCH_COMPILE,
                         help="Disable PyTorch compilation (for neural models)")
     parser.add_argument("--epochs", type=int, default=EPOCHS, help="Epochs for neural models")
-    parser.add_argument("--learning_rate", type=float, default=LEARNING_RATE, help="Learning rate for neural models")
+    parser.add_argument("--learning_rate", type=float, default=LEARNING_RATE, help="Learning rate for neural/GB models") # Updated help text
     parser.add_argument("--force_reprocess", action="store_true", help="Force reprocessing/recomputation of data/features/models")
     parser.add_argument("--sample_size", type=int, default=None,
                         help="Total sample size across splits for preprocessing & training. Processes full dataset if omitted.")
@@ -133,7 +133,8 @@ def parse_args():
                             "svm_bow_syntactic_exp2", # SVM with BoW + syntactic features
                             "logistic_tfidf_syntactic_exp3", # Logistic Regression with TFIDF + Syntactic
                             "mnb_bow_syntactic_exp4", # MNB with BoW + Syntactic
-                            "random_forest_bow_syntactic_exp5" # <-- ADDED Experiment 5
+                            "random_forest_bow_syntactic_exp5", # Random Forest with BoW + Syntactic
+                            "gradient_boosting_tfidf_syntactic_exp6" # <-- ADDED Experiment 6
                             ],
                         help="Model type to train/evaluate.")
     # ---------------------------
@@ -142,9 +143,10 @@ def parse_args():
     parser.add_argument("--C", type=float, default=1.0, help="SVM/Logistic Regression regularization parameter C")
     parser.add_argument("--max_features", type=int, default=10000, help="Max features for TF-IDF/BoW")
     parser.add_argument("--alpha", type=float, default=1.0, help="Smoothing parameter alpha for MNB")
-    # --- Random Forest Hyperparameters (Added for Exp 5) ---
-    parser.add_argument("--n_estimators", type=int, default=100, help="Number of trees for Random Forest (Exp 5)")
-    parser.add_argument("--max_depth", type=int, default=None, help="Max depth for Random Forest trees (Exp 5, None for no limit)")
+    # --- Random Forest / Gradient Boosting Hyperparameters ---
+    parser.add_argument("--n_estimators", type=int, default=100, help="Number of trees for Random Forest (Exp 5) / Gradient Boosting (Exp 6)")
+    parser.add_argument("--max_depth", type=int, default=None, help="Max depth for trees (Exp 5/6, None for no limit)")
+    # Note: GradientBoostingClassifier has its own learning_rate parameter, which reuses the --learning_rate argument above.
     # ------------------------------------------------------
     # --- Cross-Evaluation ---
     parser.add_argument("--cross_evaluate", action="store_true", help="Perform cross-dataset evaluation (check implementation compatibility)")

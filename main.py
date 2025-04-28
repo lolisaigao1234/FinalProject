@@ -6,7 +6,7 @@ from data.preprocessor import TextPreprocessor
 # Import the new unified trainer and base helpers
 from models.baseline_trainer import BaselineTrainer
 from utils.database import DatabaseHandler
-from utils.common import torch # Keep torch if used for CUDA info
+import torch # Keep torch if used for CUDA info
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,25 +30,27 @@ def printing_cuda_info():
             logger.info(f"Current CUDA Device Index: {current_device}")
         else:
             logger.warning("No CUDA-enabled GPUs found.")
-        cuda_version = torch.version.cuda
-        cudnn_version = torch.backends.cudnn.version()
-        logger.info(f"torch.version.cuda: {cuda_version}")
-        logger.info(f"torch.backends.cudnn.version(): {cudnn_version}")
+        try:
+            cuda_version = torch.version.cuda
+            cudnn_version = torch.backends.cudnn.version()
+            logger.info(f"torch.version.cuda: {cuda_version}")
+            logger.info(f"torch.backends.cudnn.version(): {cudnn_version}")
+        except AttributeError:
+            logger.warning("Could not retrieve CUDA/CuDNN versions.") # Handle cases where torch is not built with CUDA
     else:
         logger.info("CUDA is not available. Using CPU for computations.")
 
 
 def preprocess_data(args):
     """Runs the preprocessing pipeline based on arguments."""
-    logger.info(f"Preprocessing {args.dataset} dataset. Target sample size: {args.sample_size or 'Full'}.")
+    logger.info(f"Preprocessing {args.dataset} dataset. Sample size: {args.sample_size or 'Full'}.")
     db_handler = DatabaseHandler()
-    # Pass sample_size=None to TextPreprocessor init, pipeline handles sampling logic
-    preprocessor = TextPreprocessor(db_handler, sample_size=None)
-    # Pass total sample size to the pipeline method
+    preprocessor = TextPreprocessor(db_handler, sample_size=args.sample_size) # Pass sample size to init if needed there
     preprocessor.preprocess_dataset_pipeline(
         dataset_name=args.dataset,
         total_sample_size=args.sample_size, # Pass the arg directly
         force_reprocess=args.force_reprocess
+        # Removed train_ratio as it's not used in the updated preprocessor pipeline
     )
     logger.info("Preprocessing pipeline complete.")
 
@@ -58,19 +60,33 @@ def main():
     printing_cuda_info()
     args = parse_args()
 
-    torch.backends.cudnn.benchmark = True
-    torch.backends.cudnn.deterministic = False
+    # Set benchmark to True ONLY if input sizes do not vary significantly, otherwise False
+    # For NLP, sequence lengths can vary, so False might be safer unless tested.
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = False # Usually False for performance
 
     logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
     logger.info(f"Using device: {DEVICE}") # DEVICE from config
     logger.info(f"Selected model type: {args.model_type}")
+    if args.sample_size:
+        logger.info(f"Using sample size: {args.sample_size}")
 
     if args.mode == "preprocess":
         preprocess_data(args)
     elif args.mode == "train":
+        # Define the list of baseline model types handled by BaselineTrainer
+        baseline_model_types = [
+            "svm", # Trains BoW, Syntax, Combined SVM variants
+            "logistic_tfidf",
+            "mnb_bow",
+            "svm_syntactic_exp1",
+            "svm_bow_syntactic_exp2",
+            "logistic_tfidf_syntactic_exp3" # Added Exp3
+            ]
+
         # Use the unified BaselineTrainer for specified baseline types
-        # << --- Updated condition --- >>
-        if args.model_type in ["svm", "logistic_tfidf", "mnb_bow", "svm_syntactic_exp1"]:
+        # <<< Updated condition >>>
+        if args.model_type in baseline_model_types:
             logger.info(f"Initializing BaselineTrainer for model: {args.model_type}, dataset: {args.dataset}")
             trainer = BaselineTrainer(
                 model_type=args.model_type, # Pass the selected model type
@@ -78,22 +94,31 @@ def main():
                 args=args # Pass all args for hyperparameter access
             )
             logger.info(f"Starting training process...")
-            results = trainer.run_training() # run_training now handles the logic based on model_type
+            results = trainer.run_training() # run_training handles the logic based on model_type
             if results:
                  logger.info(f"Training finished. Results: {results}")
             else:
-                 logger.error("Training run failed.")
+                 logger.error("Training run failed or produced no results.")
 
-            # Cross-evaluation logic (check if needed and how it interacts with specific model types)
-            # The original cross-eval was tied to 'svm' type. Adapt if needed for 'svm_syntactic_exp1'.
-            if args.model_type == 'svm' and hasattr(args, 'cross_evaluate') and args.cross_evaluate:
-                logger.warning("Cross-evaluation logic might need adjustment for specific SVM experiments.")
-                # trainer._run_cross_evaluation(args.dataset) # Assuming this method exists and handles loading correctly
+            # Cross-evaluation logic (conditionally run based on args)
+            if hasattr(args, 'cross_evaluate') and args.cross_evaluate:
+                 logger.info("Cross-evaluation requested. Note: Ensure models are trained on the intended source dataset.")
+                 # The trainer's evaluation method might need adaptation for cross-evaluation
+                 # (e.g., loading models trained on one dataset and evaluating on others).
+                 # For now, assuming run_evaluation is called within run_training if needed,
+                 # or needs a separate call/mode.
+                 # Example: trainer.run_cross_evaluation(target_datasets=['MNLI', 'ANLI']) # Hypothetical
+                 logger.warning("Cross-evaluation logic might need specific implementation/mode.")
 
-        # << --- End Update --- >>
+        # <<< End Update >>>
+        elif args.model_type == "neural": # Example for handling neural models separately
+             logger.warning("Neural network training path not fully implemented.")
+             # Add call to a separate NeuralTrainer class here if needed
+             # neural_trainer = NeuralTrainer(model_name=args.baseline_model_name, ...)
+             # neural_trainer.train(...)
         else:
-            logger.warning(f"Neural network training path or unknown model type '{args.model_type}' not explicitly handled by BaselineTrainer's main training logic.")
-            # Add separate logic for neural models if needed
+            logger.error(f"Unknown or unsupported model type for training: '{args.model_type}'")
+
 
     elif args.mode == "evaluate":
         logger.info(f"Starting evaluation for model type: {args.model_type} on dataset: {args.dataset}")
@@ -103,23 +128,30 @@ def main():
             dataset_name=args.dataset,
             args=args
         )
-        # Load test data - trainer's _load_data can handle this
-        _, _, test_data = trainer._load_data() # Load data appropriate for the model type
 
-        if test_data is not None and not test_data.empty:
-             # run_evaluation within the trainer handles loading the correct model and evaluating
-             eval_metrics = trainer.run_evaluation(test_data) # Pass test data
-             if eval_metrics:
-                  logger.info(f"Evaluation metrics on test set: {eval_metrics}")
-             else:
-                  logger.error("Evaluation run failed or produced no metrics.")
+        # Load test data - trainer's _load_data or model's internal loading handles this now
+        # For most models, trainer loads data; for Exp3, model loads its own.
+        # The run_evaluation method needs to handle these cases.
+        if trainer.model_type != 'logistic_tfidf_syntactic_exp3':
+             _, _, test_data = trainer._load_data() # Load data if trainer is responsible
+             if test_data is None or test_data.empty:
+                  logger.error(f"Failed to load test data for {args.dataset}. Cannot evaluate.")
+                  return # Exit if no test data
         else:
-            logger.error(f"Failed to load test data for {args.dataset} ({trainer.suffix}). Cannot evaluate.")
+             test_data = None # Signal to run_evaluation that Exp3 loads its own test data
+
+        # run_evaluation within the trainer handles loading the correct model and evaluating
+        eval_metrics = trainer.run_evaluation(test_data) # Pass test data (or None for Exp3)
+        if eval_metrics:
+              logger.info(f"Evaluation metrics on test set: {eval_metrics}")
+        else:
+              logger.error("Evaluation run failed or produced no metrics.")
 
 
     elif args.mode == "predict":
         logger.warning("Prediction mode not fully implemented yet.")
         # Add prediction logic here
+        # Similar structure to evaluation: initialize trainer, load model, load data, predict
         pass
     else:
         logger.error(f"Unknown mode: {args.mode}")

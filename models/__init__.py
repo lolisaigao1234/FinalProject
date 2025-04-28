@@ -7,6 +7,8 @@ from .multinomial_naive_bayes_bow_baseline import MultinomialNaiveBayesBaseline
 from .svm_hand_crafted_syntactic_features_experiment_1 import SVMHandcraftedSyntacticExperiment1
 # Import the new Experiment 2 model
 from .svm_bow_hand_crafted_syntactic_features_experiment_2 import SVMBowHandCraftedSyntacticExperiment2
+# Import the new Experiment 3 model
+from .logistic_tfidf_syntactic_experiment_3 import LogisticTFIDFSyntacticExperiment3
 
 
 __all__ = [
@@ -15,9 +17,10 @@ __all__ = [
     'SVMWithSyntax',
     'SVMWithBothFeatures',
     'SVMHandcraftedSyntacticExperiment1',
-    'SVMBowHandCraftedSyntacticExperiment2', # <-- Add new model
+    'SVMBowHandCraftedSyntacticExperiment2',
     'LogisticTFIDFBaseline',
     # 'LogisticRegressionTrainer', # Trainer class removed
     'MultinomialNaiveBayesBaseline',
     # 'MultinomialNaiveBayesTrainer' # Trainer class removed
+    'LogisticTFIDFSyntacticExperiment3' # <-- Add Experiment 3
 ]

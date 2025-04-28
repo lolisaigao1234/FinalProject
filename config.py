@@ -24,7 +24,9 @@ DATASETS = {
             "train": "train",
             "dev": "validation", # standard name 'validation' maps to HF 'validation'
             "test": "test"
-        }
+        },
+         # Example: Define premise/hypothesis column names if they differ
+         "text_cols": {"premise": "premise", "hypothesis": "hypothesis"}
     },
     "MNLI": {
         "hf_name": "nyu-mll/multi_nli",
@@ -33,7 +35,8 @@ DATASETS = {
             "dev": "validation_matched", # standard name 'validation' maps to HF 'validation_matched'
             "test": "validation_mismatched" # standard name 'test' maps to HF 'validation_mismatched'
             # Add validation_mismatched if needed, map to e.g., "dev_mismatched"
-        }
+        },
+        "text_cols": {"premise": "premise", "hypothesis": "hypothesis"}
     },
     "ANLI": {
         "hf_name": "facebook/anli",
@@ -42,11 +45,12 @@ DATASETS = {
             # Example: Combining R1, R2, R3 for train
             # You'll need custom logic in data_loader to handle this if using HF directly
             # Or preprocess ANLI into standard train/dev/test parquet files first
-            "train": "train_r1+train_r2+train_r3", # Example syntax if HF load_dataset supports it
-            "dev": "dev_r1+dev_r2+dev_r3",
-            "test": "test_r1+test_r2+test_r3"
-            # Simpler approach might be needed depending on data_loader implementation
-        }
+            "train": "train_r1", # Example: Using only R1 for simplicity. Adjust as needed.
+            "dev": "dev_r1",
+            "test": "test_r1"
+            # Combine with '+' if HF loader supports it and if desired: "train_r1+train_r2+train_r3"
+        },
+         "text_cols": {"premise": "premise", "hypothesis": "hypothesis"}
     }
 }
 
@@ -55,43 +59,31 @@ MAX_SEQ_LENGTH = 128  # Consider 256 if model supports it
 BATCH_SIZE = 64  # Increased for A100's 40GB VRAM
 GRAD_ACCUM_STEPS = 2  # For larger effective batch sizes
 NUM_WORKERS = 8  # Match --cpus-per-task=8 in sbatch
-USE_FP16 = True  # Enable mixed precision training
+USE_FP16 = True  # Enable mixed precision training (relevant for neural models)
 CUDA_BENCHMARK = True  # Enable cuDNN auto-tuner
-PIN_MEMORY = True  # Faster data transfer to GPU
+PIN_MEMORY = True  # Faster data transfer to GPU (relevant for neural models)
 TORCH_LOGS = "+dynamo"
 TORCHDYNAMO_VERBOSE = 1
 
-# MODEL IDENTIFICATION
-HF_MODEL_IDENTIFIERS = {
-    "bert-base-uncased": "bert-base-uncased",
-    "roberta-base": "roberta-base",
-    "deberta-base": "microsoft/deberta-base"  # Example identifier for DeBERTa V3 base
-    # Add other models as needed
-}
 
-# You can keep MODEL_NAME for default or specific models
-MODEL_NAME = "bert-base-uncased"
-ROBERTA_NAME = "roberta-base"
-DEBERTA_NAME = "microsoft/deberta-base"
-
-# Ensure NUM_CLASSES is defined (it seems to be 3 already)
+# Ensure NUM_CLASSES is defined
 NUM_CLASSES = 3
-HIDDEN_SIZE = 768  # This might vary slightly for different models, but often 768 for base
+HIDDEN_SIZE = 768  # Typical BERT-base hidden size
 
-# Model optimization
-LEARNING_RATE = 3e-5  # Adjusted for larger batch size
+# Baseline Model optimization/parameters
+LEARNING_RATE = 3e-5  # Adjusted for larger batch size (for potential future neural models)
 WEIGHT_DECAY = 0.01
 EPOCHS = 5
 # Dimension of syntactic features extracted from Stanza parse trees
-# Note: This is specific to the syntax-aware models, not TF-IDF
-SYNTACTIC_FEATURE_DIM = 200
+# Note: This is the raw dimension before potential selection/scaling
+SYNTACTIC_FEATURE_DIM = 200 # This seems like a placeholder, the actual number of features generated might be different
 
 # Stanza settings
 STANZA_PROCESSORS = "tokenize,pos,lemma,depparse,constituency"
 STANZA_LANG = "en"
 
-# A100-specific settings
-TORCH_COMPILE = True  # Enable PyTorch 2.0 compiler if available
+# Compute settings
+TORCH_COMPILE = False # Default to False unless explicitly needed/tested for baselines
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # Add environment variables for HuggingFace
@@ -101,7 +93,7 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"  # Disable tokenizer parallelism
 
 # Database settings
 DB_TYPE = "parquet"
-PARQUET_DIR = os.path.join(CACHE_DIR, "parquet")
+PARQUET_DIR = os.path.join(CACHE_DIR, "parquet") # Main directory for Parquet files
 os.makedirs(PARQUET_DIR, exist_ok=True)
 
 
@@ -111,36 +103,40 @@ def parse_args():
     parser.add_argument("--dataset", default="SNLI", choices=["SNLI", "MNLI", "ANLI"])
     parser.add_argument("--mode", default="preprocess", choices=["preprocess", "train", "evaluate", "predict"])
     parser.add_argument("--batch_size", type=int, default=BATCH_SIZE,
-                        help=f"Batch size (default: {BATCH_SIZE})")
+                        help=f"Batch size (default: {BATCH_SIZE}) - primarily for neural models/feature extraction")
     parser.add_argument("--grad_accum", type=int, default=GRAD_ACCUM_STEPS,
-                        help="Gradient accumulation steps")
+                        help="Gradient accumulation steps (for neural models)")
     parser.add_argument("--fp16", action="store_true", default=USE_FP16,
-                        help="Enable mixed precision training")
-    parser.add_argument("--no_compile", action="store_false", dest="compile",
-                        help="Disable PyTorch compilation")
-    parser.add_argument("--epochs", type=int, default=EPOCHS)
-    parser.add_argument("--learning_rate", type=float, default=LEARNING_RATE)
-    parser.add_argument("--force_reprocess", action="store_true")
+                        help="Enable mixed precision training (for neural models)")
+    parser.add_argument("--no_compile", action="store_false", dest="compile", default=not TORCH_COMPILE,
+                        help="Disable PyTorch compilation (for neural models)")
+    parser.add_argument("--epochs", type=int, default=EPOCHS, help="Epochs for neural models")
+    parser.add_argument("--learning_rate", type=float, default=LEARNING_RATE, help="Learning rate for neural models")
+    parser.add_argument("--force_reprocess", action="store_true", help="Force reprocessing/recomputation of data/features/models")
     parser.add_argument("--sample_size", type=int, default=None,
                         help="Total sample size across splits for preprocessing & training. Processes full dataset if omitted.")
     # --- MODIFIED model_type ---
-    parser.add_argument("--model_type", default="svm_bow_syntactic_exp2",  # Changed default for testing
+    parser.add_argument("--model_type", default="svm",
                         choices=[
-                            "svm", "logistic_tfidf", "mnb_bow",
-                            "svm_syntactic_exp1",
-                            "svm_bow_syntactic_exp2" # Added Experiment 2
+                            "svm", # Trains BoW, Syntax, Combined SVM variants
+                            "logistic_tfidf",
+                            "mnb_bow",
+                            "svm_syntactic_exp1", # SVM with only syntactic features
+                            "svm_bow_syntactic_exp2", # SVM with BoW + syntactic features
+                            "logistic_tfidf_syntactic_exp3" # <-- ADDED Experiment 3
                             ],
-                        help="Model type to use: 'svm', 'logistic_tfidf', 'mnb_bow', 'svm_syntactic_exp1', 'svm_bow_syntactic_exp2'")
+                        help="Model type to train/evaluate.")
     # ---------------------------
-    # --- SVM/Logistic/MNB Args ---
+    # --- Baseline Model Hyperparameters ---
     parser.add_argument("--kernel", default="linear", choices=["linear", "rbf", "poly"], help="SVM kernel type")
     parser.add_argument("--C", type=float, default=1.0, help="SVM/Logistic Regression regularization parameter C")
     parser.add_argument("--max_features", type=int, default=10000, help="Max features for TF-IDF/BoW")
-    # Add alpha for Naive Bayes if needed:
     parser.add_argument("--alpha", type=float, default=1.0, help="Smoothing parameter alpha for MNB")
-    # -------------------------
-    parser.add_argument("--cross_evaluate", action="store_true", help="Perform cross-dataset evaluation (SVM/Logistic/MNB only)")
+    # ------------------------------------
+    # --- Cross-Evaluation (Optional, check if needed/implemented for specific models) ---
+    parser.add_argument("--cross_evaluate", action="store_true", help="Perform cross-dataset evaluation (check implementation compatibility)")
+    # --- Neural Model Selection (If mode is neural) ---
     parser.add_argument("--baseline_model_name", type=str, default=None,
-                        choices=list(HF_MODEL_IDENTIFIERS.keys()),  # Use keys from config
-                        help="Specify a baseline transformer model (bert-base, roberta-base, etc.) for --model_type neural")
+                        choices=list(HF_MODEL_IDENTIFIERS.keys()),
+                        help="Specify a baseline transformer model (bert-base, roberta-base, etc.) if using a neural model type")
     return parser.parse_args()

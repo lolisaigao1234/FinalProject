@@ -1,3 +1,4 @@
+# Modify: IS567FP/config.py
 # config.py
 # Add 'mnb_bow' to choices for --model_type
 import os
@@ -123,16 +124,20 @@ def parse_args():
     parser.add_argument("--sample_size", type=int, default=None,
                         help="Total sample size across splits for preprocessing & training. Processes full dataset if omitted.")
     # --- MODIFIED model_type ---
-    parser.add_argument("--model_type", default="svm_syntactic_exp1",  # Changed default for testing
-                        choices=["svm", "logistic_tfidf", "mnb_bow", "svm_syntactic_exp1"],  # Added svm_syntactic_exp1
-                        help="Model type to use: 'svm', 'logistic_tfidf', 'mnb_bow', 'svm_syntactic_exp1'")
+    parser.add_argument("--model_type", default="svm_bow_syntactic_exp2",  # Changed default for testing
+                        choices=[
+                            "svm", "logistic_tfidf", "mnb_bow",
+                            "svm_syntactic_exp1",
+                            "svm_bow_syntactic_exp2" # Added Experiment 2
+                            ],
+                        help="Model type to use: 'svm', 'logistic_tfidf', 'mnb_bow', 'svm_syntactic_exp1', 'svm_bow_syntactic_exp2'")
     # ---------------------------
     # --- SVM/Logistic/MNB Args ---
     parser.add_argument("--kernel", default="linear", choices=["linear", "rbf", "poly"], help="SVM kernel type")
     parser.add_argument("--C", type=float, default=1.0, help="SVM/Logistic Regression regularization parameter C")
     parser.add_argument("--max_features", type=int, default=10000, help="Max features for TF-IDF/BoW")
     # Add alpha for Naive Bayes if needed:
-    # parser.add_argument("--alpha", type=float, default=1.0, help="Smoothing parameter alpha for MNB")
+    parser.add_argument("--alpha", type=float, default=1.0, help="Smoothing parameter alpha for MNB")
     # -------------------------
     parser.add_argument("--cross_evaluate", action="store_true", help="Perform cross-dataset evaluation (SVM/Logistic/MNB only)")
     parser.add_argument("--baseline_model_name", type=str, default=None,

@@ -1,7 +1,6 @@
 # models/__init__.py
 # Add MultinomialNaiveBayesBaseline and its trainer
 from .SVMTrainer import SVMTrainer, SVMWithBagOfWords, SVMWithSyntax, SVMWithBothFeatures # Keep SVM models if needed
-from .baseline_transformer import BaselineTransformerNLI
 from .logistic_tf_idf_baseline import LogisticTFIDFBaseline, LogisticRegressionTrainer
 from .multinomial_naive_bayes_baseline import MultinomialNaiveBayesBaseline, MultinomialNaiveBayesTrainer # <-- Add this line
 
@@ -10,7 +9,6 @@ __all__ = [
     'SVMWithBagOfWords',
     'SVMWithSyntax',
     'SVMWithBothFeatures',
-    'BaselineTransformerNLI',
     'LogisticTFIDFBaseline',
     'LogisticRegressionTrainer',
     'MultinomialNaiveBayesBaseline', # <-- Add this line

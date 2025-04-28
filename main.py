@@ -1,5 +1,9 @@
 # IS567FP/main.py
+# Add handling for 'mnb_bow' model type
+import glob
 import os # Added import
+
+import pandas as pd
 from torch.utils.data import DataLoader
 
 from config import parse_args, DEVICE, EPOCHS, SYNTACTIC_FEATURE_DIM, MODEL_NAME, MODELS_DIR # Added MODELS_DIR
@@ -8,6 +12,7 @@ from data.data_loader import DatasetLoader # Added import
 from models.NeuroTrainer import ModelTrainer, NLIDataset
 from models.SVMTrainer import SVMTrainer, SVMWithBagOfWords, SVMWithSyntax, SVMWithBothFeatures, _evaluate_model, clean_dataset # Import helpers
 from models.logistic_tf_idf_baseline import LogisticTFIDFBaseline, LogisticRegressionTrainer # Import new baseline
+from models.multinomial_naive_bayes_baseline import MultinomialNaiveBayesBaseline, MultinomialNaiveBayesTrainer # Import MNB
 from utils.common import logging, torch
 from utils.database import DatabaseHandler
 from models.baseline_transformer import BaselineTransformerNLI
@@ -53,14 +58,16 @@ def preprocess_data(args):
     """Runs the preprocessing pipeline based on arguments."""
     logger.info(f"Preprocessing {args.dataset} dataset with total sample size {args.sample_size}")
     db_handler = DatabaseHandler()
-    # TextPreprocessor handles both SVM/Logistic features (lexical/syntactic) and intermediate steps
+    # TextPreprocessor handles both SVM/Logistic/MNB features (lexical/syntactic) and intermediate steps
     # The FeatureExtractor called by the preprocessor pipeline creates the features needed by SVMs.
-    # TF-IDF baseline does *not* need these specific features, but it *does* need the intermediate
+    # TF-IDF/BoW baselines do *not* need these specific features, but they *do* need the intermediate
     # 'pairs' and 'sentences' files which TextPreprocessor creates.
-    preprocessor = TextPreprocessor(db_handler) # Pass sample size to pipeline method instead
+    # Pass the total sample size, TextPreprocessor will calculate per-split sizes
+    preprocessor = TextPreprocessor(db_handler)
     preprocessor.preprocess_dataset_pipeline(
         dataset_name=args.dataset,
         total_sample_size=args.sample_size, # Pass the total size
+        # train_ratio=0.8, # Default ratio if not needed elsewhere, preprocessor uses internal defaults
         force_reprocess=args.force_reprocess
     )
     logger.info("Preprocessing pipeline complete (intermediate data created)")
@@ -98,67 +105,130 @@ def main():
             logistic_trainer = LogisticRegressionTrainer()
             logistic_trainer.run_training(args)
             # -----------------------------------------
-        else:
-            logger.error(f"Unknown model type for training: {args.model_type}")
+        elif args.model_type == "mnb_bow": # <<< ADDED MNB BoW Training >>>
+            # --- Multinomial Naive Bayes + BoW Training ---
+            logger.info(f"Starting MNB + BoW training with Max Features: {args.max_features}")
+            # This trainer also needs raw text data (handled internally)
+            mnb_trainer = MultinomialNaiveBayesTrainer()
+            mnb_trainer.run_training(args)
+            # --------------------------------------------
+        else: # Assuming 'neural' or unknown
+            logger.warning(f"Neural network training path not fully implemented in this version of main.py.")
+            # Add your neural network training call here if applicable
+            # Example:
+            # logger.info("Starting Neural Network training...")
+            # neural_trainer = ModelTrainer(...) # Initialize appropriately
+            # neural_trainer.train(...)
+            if args.model_type != "neural": # Error only if not 'neural'
+                 logger.error(f"Unknown model type for training: {args.model_type}")
             return
 
     elif args.mode == "evaluate":
-        logger.warning("Evaluation mode not fully implemented yet.")
-        # Add evaluation logic here - needs to load a trained model and test data
+        logger.info(f"Starting evaluation for model type: {args.model_type} on dataset: {args.dataset}")
+        suffix = f"sample{args.sample_size}" if args.sample_size else "full"
+
         if args.model_type == "svm":
-             # Load SVM models and evaluate on test set (similar to cross_evaluate logic in SVMTrainer)
              logger.info("Evaluating SVM models...")
              svm_trainer = SVMTrainer()
-             # Need to load test data (lexical/syntactic features)
-             test_data = svm_trainer._load_datasets(args.dataset, split='test') # Adapt internal method or reimplement
-             if test_data is not None:
-                  # Assuming test_data is a tuple (test_df, None) if validation split is not used in _load_datasets
-                  test_df, _ = test_data if isinstance(test_data, tuple) else (test_data, None)
+             svm_save_dir = svm_trainer.save_dir # Get the save directory
+             # Load test data (lexical/syntactic features)
+             # The loading function needs the correct pattern now
+             try:
+                 test_feature_pattern = DatabaseHandler._get_final_features_pattern(args.dataset, 'test') # Get pattern
+                 test_files = glob.glob(test_feature_pattern)
+                 if not test_files:
+                     logger.error(f"No final SVM feature files found for {args.dataset}/test matching pattern: {test_feature_pattern}")
+                     return
+                 # Load the first file found (assuming one file per dataset/split/suffix)
+                 test_data_df = pd.read_parquet(test_files[0])
+                 logger.info(f"Loaded test features from {test_files[0]}")
 
-                  if test_df is not None and not test_df.empty:
-                       svm_results = {}
-                       for model_cls, name in [(SVMWithBagOfWords, "SVMWithBagOfWords"),
-                                            (SVMWithSyntax, "SVMWithSyntax"),
-                                            (SVMWithBothFeatures, "SVMWithBothFeatures")]:
-                            model_path = os.path.join(svm_trainer.save_dir, f"{name}.joblib")
-                            if os.path.exists(model_path):
-                                 logger.info(f"Loading {name} from {model_path}")
-                                 model = model_cls.load(model_path) # Use appropriate FeatureExtractor in load if needed
-                                 test_df_clean, y_test = clean_dataset(test_df.copy()) # Clean copy
-                                 X_test = model.extract_features(test_df_clean)
-                                 eval_time, metrics = _evaluate_model(model, X_test, y_test)
-                                 logger.info(f"{name} Test Results - Accuracy: {metrics['accuracy']:.4f}, F1: {metrics['f1']:.4f}")
-                                 svm_results[name] = metrics
-                            else:
-                                 logger.warning(f"Model file not found, cannot evaluate: {model_path}")
-                  else:
-                       logger.error(f"Could not load test feature data for {args.dataset} evaluation.")
-             else:
-                  logger.error(f"Could not load test feature data for {args.dataset} evaluation.")
+                 if test_data_df is not None and not test_data_df.empty:
+                      test_df_clean, y_test = clean_dataset(test_data_df.copy()) # Clean copy
+                      if test_df_clean is not None and y_test is not None and len(y_test) > 0:
+                           svm_results = {}
+                           for model_cls, name in [(SVMWithBagOfWords, "SVMWithBagOfWords"),
+                                                (SVMWithSyntax, "SVMWithSyntax"),
+                                                (SVMWithBothFeatures, "SVMWithBothFeatures")]:
+                                model_path = os.path.join(svm_save_dir, f"{name}.joblib")
+                                if os.path.exists(model_path):
+                                     logger.info(f"Loading {name} from {model_path}")
+                                     # Pass the appropriate extractor when loading
+                                     if name == "SVMWithBagOfWords": extractor = LexicalFeatureExtractor()
+                                     elif name == "SVMWithSyntax": extractor = SyntacticFeatureExtractor()
+                                     else: extractor = CombinedFeatureExtractor()
+                                     model = model_cls.load(model_path, feature_extractor=extractor) # Pass extractor
+                                     X_test = model.extract_features(test_df_clean) # Use loaded model's extractor logic
+                                     eval_time, metrics = _evaluate_model(model, X_test, y_test)
+                                     logger.info(f"{name} Test Results - Accuracy: {metrics['accuracy']:.4f}, F1: {metrics['f1']:.4f}")
+                                     svm_results[name] = metrics
+                                else:
+                                     logger.warning(f"Model file not found, cannot evaluate: {model_path}")
+                      else:
+                           logger.error("SVM Test data became invalid after cleaning.")
+                 else:
+                      logger.error(f"Could not load valid test feature data for {args.dataset} SVM evaluation.")
+             except FileNotFoundError:
+                 logger.error(f"Could not find test feature files for {args.dataset} SVM evaluation.")
+             except Exception as e:
+                 logger.error(f"Error during SVM evaluation: {e}", exc_info=True)
 
         elif args.model_type == "logistic_tfidf":
             logger.info("Evaluating Logistic Regression TF-IDF model...")
             logistic_trainer = LogisticRegressionTrainer()
             model_dir = logistic_trainer.save_dir
             try:
+                # Load model (implicitly loads vectorizer via LogisticTFIDFBaseline.load)
                 model = LogisticTFIDFBaseline.load(model_dir)
                 # Load RAW test text data
-                suffix = f"sample{args.sample_size}" if args.sample_size else "full"
-                test_data = LogisticTFIDFBaseline.load_raw_text_data(args.dataset, 'test', suffix, logistic_trainer.db_handler)
-                if test_data is not None and not test_data.empty:
-                     test_data_clean, y_test = clean_dataset(test_data)
-                     X_test = model.extract_features(test_data_clean) # Use loaded vectorizer
-                     eval_time, metrics = _evaluate_model(model, X_test, y_test)
-                     logger.info(f"Logistic TF-IDF Test Results - Accuracy: {metrics['accuracy']:.4f}, F1: {metrics['f1']:.4f}")
+                test_data_df = LogisticTFIDFBaseline.load_raw_text_data(args.dataset, 'test', suffix, logistic_trainer.db_handler)
+                if test_data_df is not None and not test_data_df.empty:
+                     test_data_clean, y_test = clean_dataset(test_data_df)
+                     if test_data_clean is not None and y_test is not None and len(y_test) > 0:
+                         # The model's extract_features method uses the loaded vectorizer
+                         X_test = model.extract_features(test_data_clean)
+                         eval_time, metrics = _evaluate_model(model, X_test, y_test)
+                         logger.info(f"Logistic TF-IDF Test Results - Accuracy: {metrics['accuracy']:.4f}, F1: {metrics['f1']:.4f}")
+                     else:
+                         logger.error("Logistic TF-IDF Test data became invalid after cleaning.")
                 else:
-                     logger.error(f"Could not load test raw text data for {args.dataset} evaluation.")
+                     logger.error(f"Could not load test raw text data for {args.dataset} Logistic TF-IDF evaluation.")
             except FileNotFoundError:
                 logger.error(f"Could not find saved Logistic Regression model/vectorizer in {model_dir}")
             except Exception as e:
-                 logger.error(f"Error during Logistic Regression evaluation: {e}")
+                 logger.error(f"Error during Logistic Regression evaluation: {e}", exc_info=True)
 
-        else:
-            logger.error(f"Unknown model type for evaluation: {args.model_type}")
+        elif args.model_type == "mnb_bow": # <<< ADDED MNB BoW Evaluation >>>
+            logger.info("Evaluating Multinomial Naive Bayes (BoW) model...")
+            mnb_trainer = MultinomialNaiveBayesTrainer()
+            model_dir = mnb_trainer.save_dir
+            try:
+                # Load model (implicitly loads vectorizer via load method)
+                model = MultinomialNaiveBayesBaseline.load(model_dir)
+                # Load RAW test text data (re-use logic from logistic)
+                test_data_df = LogisticTFIDFBaseline.load_raw_text_data(args.dataset, 'test', suffix, mnb_trainer.db_handler)
+                if test_data_df is not None and not test_data_df.empty:
+                     test_data_clean, y_test = clean_dataset(test_data_df)
+                     if test_data_clean is not None and y_test is not None and len(y_test) > 0:
+                         # The model's extract_features uses the loaded BoW vectorizer
+                         X_test = model.extract_features(test_data_clean)
+                         eval_time, metrics = _evaluate_model(model, X_test, y_test)
+                         logger.info(f"MNB BoW Test Results - Accuracy: {metrics['accuracy']:.4f}, F1: {metrics['f1']:.4f}")
+                     else:
+                          logger.error("MNB BoW Test data became invalid after cleaning.")
+                else:
+                     logger.error(f"Could not load test raw text data for {args.dataset} MNB BoW evaluation.")
+            except FileNotFoundError:
+                logger.error(f"Could not find saved MNB model/vectorizer in {model_dir}")
+            except Exception as e:
+                 logger.error(f"Error during MNB BoW evaluation: {e}", exc_info=True)
+            # --------------------------------------------------------------------
+
+        else: # Assuming 'neural' or unknown
+             logger.warning("Neural network evaluation path not fully implemented in this version of main.py.")
+             # Add evaluation logic for neural models here
+             if args.model_type != "neural":
+                  logger.error(f"Unknown model type for evaluation: {args.model_type}")
 
     elif args.mode == "predict":
         logger.warning("Prediction mode not implemented yet.")

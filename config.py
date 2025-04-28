@@ -1,4 +1,5 @@
 # config.py
+# Add 'mnb_bow' to choices for --model_type
 import os
 from pathlib import Path
 import argparse
@@ -123,15 +124,17 @@ def parse_args():
                         help="Total sample size across splits for preprocessing & training. Processes full dataset if omitted.")
     # --- MODIFIED model_type ---
     parser.add_argument("--model_type", default="svm",
-                        choices=["neural", "svm", "logistic_tfidf"], # Added logistic_tfidf
-                        help="Model type to use: 'neural' (Transformer), 'svm', 'logistic_tfidf'")
+                        choices=["svm", "logistic_tfidf", "mnb_bow"], # Added mnb_bow
+                        help="Model type to use: 'svm', 'logistic_tfidf', 'mnb_bow'")
     # ---------------------------
-    # --- SVM/Logistic Args ---
+    # --- SVM/Logistic/MNB Args ---
     parser.add_argument("--kernel", default="linear", choices=["linear", "rbf", "poly"], help="SVM kernel type")
     parser.add_argument("--C", type=float, default=1.0, help="SVM/Logistic Regression regularization parameter C")
-    parser.add_argument("--max_features", type=int, default=10000, help="Max features for TF-IDF")
+    parser.add_argument("--max_features", type=int, default=10000, help="Max features for TF-IDF/BoW")
+    # Add alpha for Naive Bayes if needed:
+    # parser.add_argument("--alpha", type=float, default=1.0, help="Smoothing parameter alpha for MNB")
     # -------------------------
-    parser.add_argument("--cross_evaluate", action="store_true", help="Perform cross-dataset evaluation (SVM/Logistic only)")
+    parser.add_argument("--cross_evaluate", action="store_true", help="Perform cross-dataset evaluation (SVM/Logistic/MNB only)")
     parser.add_argument("--baseline_model_name", type=str, default=None,
                         choices=list(HF_MODEL_IDENTIFIERS.keys()),  # Use keys from config
                         help="Specify a baseline transformer model (bert-base, roberta-base, etc.) for --model_type neural")

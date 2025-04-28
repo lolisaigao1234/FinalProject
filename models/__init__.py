@@ -1,13 +1,12 @@
 # models/__init__.py
-from .transformer_model import BERTWithSyntacticAttention
+# Add MultinomialNaiveBayesBaseline and its trainer
 from .SVMTrainer import SVMTrainer, SVMWithBagOfWords, SVMWithSyntax, SVMWithBothFeatures # Keep SVM models if needed
 from .NeuroTrainer import ModelTrainer, NLIDataset # Make NLIDataset available if used elsewhere
 from .baseline_transformer import BaselineTransformerNLI
-from .gcn_transformer import TransformerWithGCN
-from .logistic_tf_idf_baseline import LogisticTFIDFBaseline, LogisticRegressionTrainer # <-- Add this line
+from .logistic_tf_idf_baseline import LogisticTFIDFBaseline, LogisticRegressionTrainer
+from .multinomial_naive_bayes_baseline import MultinomialNaiveBayesBaseline, MultinomialNaiveBayesTrainer # <-- Add this line
 
 __all__ = [
-    'BERTWithSyntacticAttention',
     'SVMTrainer',
     'SVMWithBagOfWords',
     'SVMWithSyntax',
@@ -15,7 +14,8 @@ __all__ = [
     'ModelTrainer',
     'NLIDataset',
     'BaselineTransformerNLI',
-    'TransformerWithGCN',
-    'LogisticTFIDFBaseline', # <-- Add this line
-    'LogisticRegressionTrainer' # <-- Add this line
+    'LogisticTFIDFBaseline',
+    'LogisticRegressionTrainer',
+    'MultinomialNaiveBayesBaseline', # <-- Add this line
+    'MultinomialNaiveBayesTrainer' # <-- Add this line
 ]

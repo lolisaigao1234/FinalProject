@@ -9,14 +9,12 @@ from torch.utils.data import DataLoader
 from config import parse_args, DEVICE, EPOCHS, SYNTACTIC_FEATURE_DIM, MODEL_NAME, MODELS_DIR # Added MODELS_DIR
 from data.preprocessor import TextPreprocessor
 from data.data_loader import DatasetLoader # Added import
-from models.NeuroTrainer import ModelTrainer, NLIDataset
 from models.SVMTrainer import SVMTrainer, SVMWithBagOfWords, SVMWithSyntax, SVMWithBothFeatures, _evaluate_model, clean_dataset # Import helpers
 from models.logistic_tf_idf_baseline import LogisticTFIDFBaseline, LogisticRegressionTrainer # Import new baseline
 from models.multinomial_naive_bayes_baseline import MultinomialNaiveBayesBaseline, MultinomialNaiveBayesTrainer # Import MNB
 from utils.common import logging, torch
 from utils.database import DatabaseHandler
 from models.baseline_transformer import BaselineTransformerNLI
-from models.transformer_model import BERTWithSyntacticAttention  # Your existing model
 from config import HF_MODEL_IDENTIFIERS, NUM_CLASSES
 
 # Configure logging

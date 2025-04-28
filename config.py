@@ -20,7 +20,7 @@ DATASETS = {
         "hf_name": "stanfordnlp/snli",
         "splits": {
             "train": "train",
-            "dev": "validation",
+            "dev": "validation", # standard name 'validation' maps to HF 'validation'
             "test": "test"
         }
     },
@@ -28,17 +28,22 @@ DATASETS = {
         "hf_name": "nyu-mll/multi_nli",
         "splits": {
             "train": "train",
-            "dev": "validation_matched",
-            "test": "validation_mismatched"
+            "dev": "validation_matched", # standard name 'validation' maps to HF 'validation_matched'
+            "test": "validation_mismatched" # standard name 'test' maps to HF 'validation_mismatched'
+            # Add validation_mismatched if needed, map to e.g., "dev_mismatched"
         }
     },
     "ANLI": {
         "hf_name": "facebook/anli",
         "splits": {
-            "train": "train",
-            # Change 'validation' to 'dev' here
-            "dev": "dev",
-            "test": "test"
+            # Combine rounds for standard splits or handle rounds separately
+            # Example: Combining R1, R2, R3 for train
+            # You'll need custom logic in data_loader to handle this if using HF directly
+            # Or preprocess ANLI into standard train/dev/test parquet files first
+            "train": "train_r1+train_r2+train_r3", # Example syntax if HF load_dataset supports it
+            "dev": "dev_r1+dev_r2+dev_r3",
+            "test": "test_r1+test_r2+test_r3"
+            # Simpler approach might be needed depending on data_loader implementation
         }
     }
 }
@@ -76,6 +81,7 @@ LEARNING_RATE = 3e-5  # Adjusted for larger batch size
 WEIGHT_DECAY = 0.01
 EPOCHS = 5
 # Dimension of syntactic features extracted from Stanza parse trees
+# Note: This is specific to the syntax-aware models, not TF-IDF
 SYNTACTIC_FEATURE_DIM = 200
 
 # Stanza settings
@@ -114,15 +120,19 @@ def parse_args():
     parser.add_argument("--learning_rate", type=float, default=LEARNING_RATE)
     parser.add_argument("--force_reprocess", action="store_true")
     parser.add_argument("--sample_size", type=int, default=None,
-                        help="Sample size for preprocessing")
-    # parser.add_argument("--train_ratio", type=float, default=0.8)
-    parser.add_argument("--model_type", default="svm", choices=["neural", "svm"], help="Model type to use")
+                        help="Total sample size across splits for preprocessing & training. Processes full dataset if omitted.")
+    # --- MODIFIED model_type ---
+    parser.add_argument("--model_type", default="svm",
+                        choices=["neural", "svm", "logistic_tfidf"], # Added logistic_tfidf
+                        help="Model type to use: 'neural' (Transformer), 'svm', 'logistic_tfidf'")
+    # ---------------------------
+    # --- SVM/Logistic Args ---
     parser.add_argument("--kernel", default="linear", choices=["linear", "rbf", "poly"], help="SVM kernel type")
-    parser.add_argument("--C", type=float, default=1.0, help="SVM regularization parameter")
-    parser.add_argument("--max_features", type=int, default=10000, help="Max features for BoW/TF-IDF")
-    parser.add_argument("--cross_evaluate", action="store_true", help="Perform cross-dataset evaluation")
-    # Example in main.py or config.py
+    parser.add_argument("--C", type=float, default=1.0, help="SVM/Logistic Regression regularization parameter C")
+    parser.add_argument("--max_features", type=int, default=10000, help="Max features for TF-IDF")
+    # -------------------------
+    parser.add_argument("--cross_evaluate", action="store_true", help="Perform cross-dataset evaluation (SVM/Logistic only)")
     parser.add_argument("--baseline_model_name", type=str, default=None,
                         choices=list(HF_MODEL_IDENTIFIERS.keys()),  # Use keys from config
-                        help="Specify a baseline model (bert-base, roberta-base, deberta-base)")
+                        help="Specify a baseline transformer model (bert-base, roberta-base, etc.) for --model_type neural")
     return parser.parse_args()

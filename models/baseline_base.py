@@ -1,4 +1,4 @@
-# models/baseline_base.py
+# Modify: IS567FP/models/baseline_base.py
 import logging
 import os
 from abc import abstractmethod
@@ -6,7 +6,7 @@ from abc import abstractmethod
 import joblib
 import pandas as pd
 import numpy as np
-from typing import Tuple, Optional, Dict, Any # Added Dict, Any
+from typing import Tuple, Optional, Dict, Any, List # Added Dict, Any, List
 import time
 
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
@@ -20,27 +20,80 @@ logger = logging.getLogger(__name__)
 
 # Common Helper Functions (Moved from various trainers/model files)
 
+# <<< ADDED _handle_nan_values function >>>
+def _handle_nan_values(df: pd.DataFrame, context: str = "processing") -> pd.DataFrame:
+    """
+    Checks for and handles NaN values in numeric columns of a DataFrame, typically by filling with 0.
+
+    Args:
+        df (pd.DataFrame): The input DataFrame.
+        context (str): A string describing the context (e.g., 'training', 'features') for logging.
+
+    Returns:
+        pd.DataFrame: The DataFrame with NaNs handled in numeric columns.
+    """
+    if df is None or df.empty:
+        logger.warning(f"DataFrame is None or empty in _handle_nan_values ({context}).")
+        return df # Return as is if empty or None
+
+    # Select only numeric columns for NaN check/fill
+    numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
+
+    if not numeric_cols:
+        logger.debug(f"No numeric columns found to check for NaNs ({context}).")
+        return df # Return original if no numeric columns
+
+    nan_check = df[numeric_cols].isnull().sum()
+    total_nans = nan_check.sum()
+
+    if total_nans > 0:
+        logger.warning(f"Found {total_nans} NaN values in numeric columns during {context}. Filling with 0.")
+        logger.debug(f"NaN counts per numeric column:\n{nan_check[nan_check > 0]}")
+        # Fill NaNs only in numeric columns
+        df[numeric_cols] = df[numeric_cols].fillna(0)
+        # Verify NaNs are filled
+        if df[numeric_cols].isnull().sum().sum() > 0:
+            logger.error(f"NaN values still present after attempting fillna(0) during {context}!")
+    else:
+        logger.debug(f"No NaN values found in numeric columns during {context}.")
+
+    return df
+# <<< END of added function >>>
+
+
 def prepare_labels(labels, label_map=None):
     """Convert string labels to integers with a consistent mapping"""
     if label_map is None:
         label_map = {'entailment': 0, 'contradiction': 1, 'neutral': 2}
+
+    # Ensure labels is a pandas Series for consistent handling
+    if not isinstance(labels, pd.Series):
+        labels = pd.Series(labels)
+
 
     if labels.dtype == object:
         # Handle potential NaNs introduced before conversion
         labels = labels.fillna('unknown') # Or dropna() depending on desired behavior
         return np.array([label_map.get(label, -1) for label in labels])
     elif pd.api.types.is_numeric_dtype(labels):
-         # Ensure numeric labels are integers and handle potential floats/NaNs
-         return pd.to_numeric(labels, errors='coerce').fillna(-1).astype(int).values
-    return labels # Assume it's already in the correct numeric format
+        # Ensure numeric labels are integers and handle potential floats/NaNs
+        # Use pd.to_numeric which handles various numeric types and converts to float first
+        # Then fillna and convert to int
+        return pd.to_numeric(labels, errors='coerce').fillna(-1).astype(int).values
+    # Fallback if it's already numeric but not float/int (e.g., bool)
+    try:
+        return labels.astype(int).values
+    except Exception as e:
+        logger.error(f"Could not convert labels to integer array: {e}. Returning original.")
+        return labels # Return original array if conversion fails
 
 
-def get_label_column(df: pd.DataFrame) -> Tuple[str, np.ndarray]:
+def get_label_column(df: pd.DataFrame) -> Tuple[str, pd.Series]: # Return Series for consistency
     """Extract label column name and values from dataframe"""
     if 'gold_label' in df.columns:
-        return 'gold_label', df['gold_label'].values
+        return 'gold_label', df['gold_label']
     elif 'label' in df.columns:
-        return 'label', df['label'].values
+        return 'label', df['label']
     else:
         raise ValueError("No label column (gold_label or label) found in data")
 
@@ -52,13 +105,13 @@ def clean_dataset(df: pd.DataFrame) -> Optional[Tuple[pd.DataFrame, np.ndarray]]
         return None
 
     try:
-        label_col, labels = get_label_column(df)
+        label_col, labels_series = get_label_column(df)
     except ValueError as e:
         logger.error(f"Error getting label column: {e}")
         return None # Cannot proceed without labels
 
     # Convert labels to integers and handle unknowns (-1)
-    int_labels = prepare_labels(labels)
+    int_labels = prepare_labels(labels_series) # Pass the Series
 
     # Filter out invalid labels BEFORE trying to index the DataFrame
     valid_mask = int_labels != -1
@@ -68,7 +121,13 @@ def clean_dataset(df: pd.DataFrame) -> Optional[Tuple[pd.DataFrame, np.ndarray]]
         logger.info(f"Removing {num_invalid} rows with invalid/missing labels.")
         # Apply mask to both DataFrame and labels *if* filtering is needed
         if not np.all(valid_mask):
-            df_cleaned = df.loc[valid_mask].reset_index(drop=True)
+            # Ensure mask aligns with DataFrame index if it's non-standard
+            if not df.index.equals(pd.RangeIndex(start=0, stop=len(df), step=1)):
+                logger.debug("DataFrame index is non-standard. Aligning mask.")
+                valid_mask_aligned = pd.Series(valid_mask, index=df.index)
+                df_cleaned = df.loc[valid_mask_aligned] # Use boolean Series on original index
+            else:
+                df_cleaned = df[valid_mask].reset_index(drop=True) # Direct boolean mask ok
             int_labels_cleaned = int_labels[valid_mask]
         else: # Should not happen if num_invalid > 0, but safe check
              df_cleaned = df
@@ -79,8 +138,8 @@ def clean_dataset(df: pd.DataFrame) -> Optional[Tuple[pd.DataFrame, np.ndarray]]
         int_labels_cleaned = int_labels
 
     if df_cleaned.empty:
-         logger.warning("DataFrame is empty after cleaning labels.")
-         return None
+        logger.warning("DataFrame is empty after cleaning labels.")
+        return None
 
     return df_cleaned, int_labels_cleaned
 
@@ -91,6 +150,15 @@ def _evaluate_model_performance(model: NLIModel, X_val: np.ndarray, y_val: np.nd
     if y_val is None or len(y_val) == 0:
         logger.warning("Cannot evaluate model: y_val is empty or None.")
         return 0.0, {'accuracy': 0.0, 'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
+    # Check if X_val has samples
+    if X_val is None or X_val.shape[0] == 0:
+        logger.warning("Cannot evaluate model: X_val is empty or None.")
+        return 0.0, {'accuracy': 0.0, 'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
+    # Check for consistent number of samples
+    if X_val.shape[0] != len(y_val):
+         logger.error(f"Feature/Label mismatch for evaluation: X_val has {X_val.shape[0]} samples, y_val has {len(y_val)} labels.")
+         return 0.0, {'accuracy': 0.0, 'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
+
 
     logger.info(f"Evaluating model on {X_val.shape[0]} samples...")
     start_time = time.time()
@@ -104,9 +172,10 @@ def _evaluate_model_performance(model: NLIModel, X_val: np.ndarray, y_val: np.nd
     logger.info(f"Prediction finished in {eval_time:.2f} seconds.")
 
     # Ensure y_pred has the same length as y_val
-    if len(y_pred) != len(y_val):
-         logger.error(f"Prediction length mismatch: y_pred ({len(y_pred)}) vs y_val ({len(y_val)})")
-         return eval_time, {'accuracy': 0.0, 'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
+    if y_pred is None or len(y_pred) != len(y_val):
+        pred_len = len(y_pred) if y_pred is not None else 'None'
+        logger.error(f"Prediction length mismatch: y_pred ({pred_len}) vs y_val ({len(y_val)})")
+        return eval_time, {'accuracy': 0.0, 'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
 
 
     accuracy = accuracy_score(y_val, y_pred)
@@ -205,9 +274,11 @@ class TextBaselineModel(NLIModel):
         extractor_path = os.path.join(directory, f"{model_name}_extractor.joblib") # Save extractor
 
         joblib.dump(self.model, model_path)
-        joblib.dump(self.extractor, extractor_path) # Save the extractor object
+        # Save the extractor instance, not just the vectorizer
+        joblib.dump(self.extractor, extractor_path)
         logger.info(f"{self.model.__class__.__name__} model saved to {model_path}")
-        logger.info(f"{self.extractor.vectorizer.__class__.__name__} extractor saved to {extractor_path}")
+        logger.info(f"Feature extractor ({self.extractor.__class__.__name__}) saved to {extractor_path}")
+
 
     @classmethod
     def load(cls, directory: str, model_name: str) -> 'TextBaselineModel':
@@ -216,31 +287,26 @@ class TextBaselineModel(NLIModel):
         extractor_path = os.path.join(directory, f"{model_name}_extractor.joblib")
 
         if not os.path.exists(model_path) or not os.path.exists(extractor_path):
-            raise FileNotFoundError(f"Model or extractor file not found in directory: {directory}")
+            raise FileNotFoundError(f"Model or extractor file not found in directory: {directory} for base name {model_name}")
 
         loaded_model = joblib.load(model_path)
         loaded_extractor = joblib.load(extractor_path) # Load the extractor object
 
-        # Create instance - requires knowing the specific subclass,
-        # or modifying load to be instance method, or passing subclass type
-        # This static method approach is problematic for varying subclasses.
-        # We might need to move load logic to the trainer or specific model files.
-        # For now, let's assume this is called from the specific subclass context
-        # or the trainer handles instantiation based on model_name.
-        instance = cls.__new__(cls) # Create instance without calling __init__
-        instance.model = loaded_model
-        instance.extractor = loaded_extractor
-        instance.is_trained = True
-        logger.info(f"{cls.__name__} loaded from {directory}")
+        # Create instance using the loaded components
+        # Assumes the subclass calling load() passes the correct extractor and model
+        # This is typically handled by the BaselineTrainer which knows the class type
+        instance = cls(extractor=loaded_extractor, model_instance=loaded_model)
+        instance.is_trained = True # Assume loaded model is trained
+        logger.info(f"{cls.__name__} loaded from {directory} using base name {model_name}")
         return instance
 
     @staticmethod
     def load_raw_text_data(dataset_name: str, split: str, suffix: str, db_handler: DatabaseHandler) -> Optional[pd.DataFrame]:
         """
         Loads raw text data by merging intermediate 'pairs' and 'sentences' files.
-        (Copied from logistic_tf_idf_baseline.py - needs import)
+        Falls back to original data loader if intermediates are not found.
         """
-        from data.data_loader import DatasetLoader # [cite: 1] - Import locally if needed
+        from data.data_loader import DatasetLoader # Import locally if needed
         logger.info(f"Attempting to load intermediate raw text data: {dataset_name}/{split}/{suffix}")
         pairs_table = f"pairs_{suffix}"
         sentences_table = f"sentences_{suffix}"
@@ -252,46 +318,84 @@ class TextBaselineModel(NLIModel):
 
             if not pairs_df.empty and not sentences_df.empty:
                 logger.info("Merging intermediate pairs and sentences data...")
+                # Ensure IDs are suitable for merging (e.g., string or int)
+                # If they were saved as objects, convert them back
+                pairs_df['id'] = pairs_df['id'].astype(str)
+                pairs_df['premise_id'] = pairs_df['premise_id'].astype(str)
+                pairs_df['hypothesis_id'] = pairs_df['hypothesis_id'].astype(str)
+                sentences_df['id'] = sentences_df['id'].astype(str)
+
+
                 sentences_premise = sentences_df[['id', 'text']].rename(columns={'text': 'premise_text', 'id': 'p_id'})
                 sentences_hypothesis = sentences_df[['id', 'text']].rename(columns={'text': 'hypothesis_text', 'id': 'h_id'})
                 pairs_essential = pairs_df[['id', 'premise_id', 'hypothesis_id', 'label']].rename(columns={'id': 'pair_id'})
 
-                merged_df = pd.merge(pairs_essential, sentences_premise, left_on='premise_id', right_on='p_id', how='left')
-                merged_df = pd.merge(merged_df, sentences_hypothesis, left_on='hypothesis_id', right_on='h_id', how='left')
+                # Perform merges
+                merged_df_temp1 = pd.merge(pairs_essential, sentences_premise, left_on='premise_id', right_on='p_id', how='left')
+                merged_df = pd.merge(merged_df_temp1, sentences_hypothesis, left_on='hypothesis_id', right_on='h_id', how='left')
 
+
+                # Select and rename final columns, handle potential missing text after merge
                 final_cols = ['pair_id', 'premise_text', 'hypothesis_text', 'label']
-                if not all(col in merged_df.columns for col in final_cols):
-                    missing = [col for col in final_cols if col not in merged_df.columns]
-                    logger.error(f"Columns missing after merge: {missing}.")
+                missing_cols = [col for col in final_cols if col not in merged_df.columns]
+                if missing_cols:
+                    logger.error(f"Columns missing after merge: {missing_cols}. Merge failed.")
                     merged_df = None
                 else:
-                    merged_df = merged_df[final_cols].fillna('') # Fill NaNs
-                    logger.info(f"Successfully loaded and merged intermediate data. Shape: {merged_df.shape}")
+                    merged_df = merged_df[final_cols]
+                    # Check for NaNs specifically in text columns after merge (important!)
+                    premise_nan_count = merged_df['premise_text'].isnull().sum()
+                    hyp_nan_count = merged_df['hypothesis_text'].isnull().sum()
+                    if premise_nan_count > 0 or hyp_nan_count > 0:
+                         logger.warning(f"Found {premise_nan_count} NaN premises and {hyp_nan_count} NaN hypotheses after merge. Filling with empty string.")
+                         merged_df['premise_text'] = merged_df['premise_text'].fillna('')
+                         merged_df['hypothesis_text'] = merged_df['hypothesis_text'].fillna('')
+
+                    # Drop rows where label is still NaN (should be handled by clean_dataset later, but good check)
+                    label_nan_count = merged_df['label'].isnull().sum()
+                    if label_nan_count > 0:
+                         logger.warning(f"Found {label_nan_count} NaN labels after merge. Dropping these rows.")
+                         merged_df.dropna(subset=['label'], inplace=True)
+
+                    logger.info(f"Successfully loaded and merged intermediate data. Shape after merge: {merged_df.shape}")
+
             else:
-                 logger.warning(f"Intermediate data ({pairs_table} or {sentences_table}) not found or empty. Falling back.")
-                 merged_df = None
+                logger.warning(f"Intermediate data ({pairs_table} or {sentences_table}) not found or empty. Falling back to original data loader.")
+                merged_df = None
 
         except Exception as e:
-            logger.error(f"Error loading/merging intermediate data: {e}. Falling back.")
+            logger.error(f"Error loading/merging intermediate data: {e}. Falling back.", exc_info=True)
             merged_df = None
 
-        if merged_df is None:
+        # Fallback mechanism
+        if merged_df is None or merged_df.empty:
             logger.warning("Executing fallback: Loading original raw data using DatasetLoader.")
             try:
                 loader = DatasetLoader(db_handler)
-                raw_df = loader.load_dataset(dataset_name, split=split)
-                if raw_df.empty: return None
+                # Request raw text columns explicitly
+                raw_df = loader.load_dataset(dataset_name, split=split, columns=['premise', 'hypothesis', 'label'])
+                if raw_df.empty:
+                    logger.error("Fallback data loading returned empty DataFrame.")
+                    return None
 
-                # Standardize columns (assuming loader does basic conversion)
-                raw_df = raw_df.rename(columns={'id': 'pair_id'}, errors='ignore')
+                # Rename standard columns expected by TextBaseline models
+                raw_df = raw_df.rename(columns={'premise': 'premise_text', 'hypothesis': 'hypothesis_text'}, errors='ignore')
+                # Add a pair_id if missing (using index)
+                if 'pair_id' not in raw_df.columns:
+                     raw_df.reset_index(inplace=True)
+                     raw_df = raw_df.rename(columns={'index': 'pair_id'}, errors='ignore') # Rename index if it becomes a column
+
+                # Final check for required columns after fallback
                 required_cols = ['pair_id', 'premise_text', 'hypothesis_text', 'label']
                 if all(col in raw_df.columns for col in required_cols):
-                     raw_df['premise_text'] = raw_df['premise_text'].fillna('')
-                     raw_df['hypothesis_text'] = raw_df['hypothesis_text'].fillna('')
-                     return raw_df[required_cols]
+                    raw_df['premise_text'] = raw_df['premise_text'].fillna('')
+                    raw_df['hypothesis_text'] = raw_df['hypothesis_text'].fillna('')
+                    logger.info(f"Fallback data loaded successfully. Shape: {raw_df.shape}")
+                    return raw_df[required_cols]
                 else:
-                     logger.error(f"Fallback raw data missing required columns: {[c for c in required_cols if c not in raw_df.columns]}")
-                     return None
+                    missing = [c for c in required_cols if c not in raw_df.columns]
+                    logger.error(f"Fallback raw data missing required columns after processing: {missing}")
+                    return None
             except Exception as e:
                 logger.error(f"Error during fallback data loading: {e}", exc_info=True)
                 return None

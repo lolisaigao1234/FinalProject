@@ -2,19 +2,19 @@
 # --- models/random_forest_bow_syntactic_experiment_5.py ---
 import logging
 import os
-import numpy as np
-import pandas as pd
-import joblib
 from typing import List, Optional, Any
 
+import joblib
+import numpy as np
+import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.utils.validation import check_is_fitted
 
 # Import base class and feature loading/filtering utilities
 from utils.common import NLIModel
-from .baseline_base import _handle_nan_values, _evaluate_model_performance, clean_dataset # Basic helpers
 # Need CombinedFeatureExtractor logic or similar to select correct columns
-from .svm_bow_baseline import FeatureExtractor, filter_lexical_features, filter_syntactic_features # Reuse filtering logic
+from .svm_bow_baseline import FeatureExtractor, filter_lexical_features, \
+    filter_syntactic_features  # Reuse filtering logic
 
 logger = logging.getLogger(__name__)
 

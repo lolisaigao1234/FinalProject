@@ -123,9 +123,9 @@ def parse_args():
     parser.add_argument("--sample_size", type=int, default=None,
                         help="Total sample size across splits for preprocessing & training. Processes full dataset if omitted.")
     # --- MODIFIED model_type ---
-    parser.add_argument("--model_type", default="svm",
-                        choices=["svm", "logistic_tfidf", "mnb_bow"], # Added mnb_bow
-                        help="Model type to use: 'svm', 'logistic_tfidf', 'mnb_bow'")
+    parser.add_argument("--model_type", default="svm_syntactic_exp1",  # Changed default for testing
+                        choices=["svm", "logistic_tfidf", "mnb_bow", "svm_syntactic_exp1"],  # Added svm_syntactic_exp1
+                        help="Model type to use: 'svm', 'logistic_tfidf', 'mnb_bow', 'svm_syntactic_exp1'")
     # ---------------------------
     # --- SVM/Logistic/MNB Args ---
     parser.add_argument("--kernel", default="linear", choices=["linear", "rbf", "poly"], help="SVM kernel type")

@@ -1,6 +1,5 @@
 # Modify: IS567FP/config.py
 # config.py
-# Add 'mnb_bow' to choices for --model_type
 import os
 from pathlib import Path
 import argparse
@@ -97,6 +96,15 @@ PARQUET_DIR = os.path.join(CACHE_DIR, "parquet") # Main directory for Parquet fi
 os.makedirs(PARQUET_DIR, exist_ok=True)
 
 
+# <<< HF_MODEL_IDENTIFIERS Placeholder (Replace or remove if not used for baselines) >>>
+# Example: Define if you plan to load HuggingFace models directly by name
+HF_MODEL_IDENTIFIERS = {
+    "bert-base-uncased": "bert-base-uncased",
+    # "roberta-base": "roberta-base",
+    # Add other identifiers if needed
+}
+# If only using baseline models defined in this project, you might not need this dict.
+
 def parse_args():
     """Parse command line arguments with performance-related options"""
     parser = argparse.ArgumentParser(description="NLI Pipeline")
@@ -123,7 +131,9 @@ def parse_args():
                             "mnb_bow",
                             "svm_syntactic_exp1", # SVM with only syntactic features
                             "svm_bow_syntactic_exp2", # SVM with BoW + syntactic features
-                            "logistic_tfidf_syntactic_exp3" # <-- ADDED Experiment 3
+                            "logistic_tfidf_syntactic_exp3", # Logistic Regression with TFIDF + Syntactic
+                            "mnb_bow_syntactic_exp4", # MNB with BoW + Syntactic
+                            "random_forest_bow_syntactic_exp5" # <-- ADDED Experiment 5
                             ],
                         help="Model type to train/evaluate.")
     # ---------------------------
@@ -132,11 +142,14 @@ def parse_args():
     parser.add_argument("--C", type=float, default=1.0, help="SVM/Logistic Regression regularization parameter C")
     parser.add_argument("--max_features", type=int, default=10000, help="Max features for TF-IDF/BoW")
     parser.add_argument("--alpha", type=float, default=1.0, help="Smoothing parameter alpha for MNB")
-    # ------------------------------------
-    # --- Cross-Evaluation (Optional, check if needed/implemented for specific models) ---
+    # --- Random Forest Hyperparameters (Added for Exp 5) ---
+    parser.add_argument("--n_estimators", type=int, default=100, help="Number of trees for Random Forest (Exp 5)")
+    parser.add_argument("--max_depth", type=int, default=None, help="Max depth for Random Forest trees (Exp 5, None for no limit)")
+    # ------------------------------------------------------
+    # --- Cross-Evaluation ---
     parser.add_argument("--cross_evaluate", action="store_true", help="Perform cross-dataset evaluation (check implementation compatibility)")
-    # --- Neural Model Selection (If mode is neural) ---
+    # --- Neural Model Selection (If using neural models not covered here) ---
     parser.add_argument("--baseline_model_name", type=str, default=None,
-                        choices=list(HF_MODEL_IDENTIFIERS.keys()),
-                        help="Specify a baseline transformer model (bert-base, roberta-base, etc.) if using a neural model type")
+                        choices=list(HF_MODEL_IDENTIFIERS.keys()) if HF_MODEL_IDENTIFIERS else [],
+                        help="Specify a baseline transformer model if using a neural model type")
     return parser.parse_args()

@@ -1,9 +1,13 @@
+# IS567FP/main.py
+import os # Added import
 from torch.utils.data import DataLoader
 
-from config import parse_args, DEVICE, EPOCHS, SYNTACTIC_FEATURE_DIM, MODEL_NAME
+from config import parse_args, DEVICE, EPOCHS, SYNTACTIC_FEATURE_DIM, MODEL_NAME, MODELS_DIR # Added MODELS_DIR
 from data.preprocessor import TextPreprocessor
+from data.data_loader import DatasetLoader # Added import
 from models.NeuroTrainer import ModelTrainer, NLIDataset
-from models.SVMTrainer import SVMTrainer
+from models.SVMTrainer import SVMTrainer, SVMWithBagOfWords, SVMWithSyntax, SVMWithBothFeatures, _evaluate_model, clean_dataset # Import helpers
+from models.logistic_tf_idf_baseline import LogisticTFIDFBaseline, LogisticRegressionTrainer # Import new baseline
 from utils.common import logging, torch
 from utils.database import DatabaseHandler
 from models.baseline_transformer import BaselineTransformerNLI
@@ -45,231 +49,120 @@ def printing_cuda_info():
         logger.info("CUDA is not available. Using CPU for computations.")
 
 
-def preprocess_data(dataset_name, sample_size, force_reprocess=False, model_type="svm"):
-    logger.info(f"Preprocessing {dataset_name} dataset with sample size {sample_size} for {model_type}")
+def preprocess_data(args):
+    """Runs the preprocessing pipeline based on arguments."""
+    logger.info(f"Preprocessing {args.dataset} dataset with total sample size {args.sample_size}")
     db_handler = DatabaseHandler()
-
-    # if model_type == "neural":
-    #     from data.preprocessor_nn import NeuralPreprocessor
-    #     preprocessor = NeuralPreprocessor(db_handler, sample_size)
-    #     preprocessor.preprocess_neural_dataset(dataset_name, sample_size, force_reprocess)
-    # elif model_type == "svm":
-    preprocessor = TextPreprocessor(db_handler, sample_size)
-    preprocessor.preprocess_dataset_pipeline(dataset_name, sample_size, force_reprocess)
-    # else:
-    #     logger.error(f"Unknown model type: {model_type}")
-    #     return
-
-    logger.info("Preprocessing complete")
-
-
-def load_data(db_handler, dataset_name):
-    """Load preprocessed data from database."""
-    logger.info(f"Loading preprocessed data for {dataset_name}")
-    # Get preprocessed data from database
-    train_data = db_handler.get_preprocessed_data(dataset_name, "train")
-    val_data = db_handler.get_preprocessed_data(dataset_name, "val")
-
-    # Create datasets
-    train_dataset = NLIDataset(
-        input_ids=train_data["input_ids"],
-        attention_mask=train_data["attention_mask"],
-        token_type_ids=train_data["token_type_ids"],
-        syntax_features_premise=train_data["syntax_features_premise"],
-        syntax_features_hypothesis=train_data["syntax_features_hypothesis"],
-        labels=train_data["labels"]
+    # TextPreprocessor handles both SVM/Logistic features (lexical/syntactic) and intermediate steps
+    # The FeatureExtractor called by the preprocessor pipeline creates the features needed by SVMs.
+    # TF-IDF baseline does *not* need these specific features, but it *does* need the intermediate
+    # 'pairs' and 'sentences' files which TextPreprocessor creates.
+    preprocessor = TextPreprocessor(db_handler) # Pass sample size to pipeline method instead
+    preprocessor.preprocess_dataset_pipeline(
+        dataset_name=args.dataset,
+        total_sample_size=args.sample_size, # Pass the total size
+        force_reprocess=args.force_reprocess
     )
-
-    val_dataset = NLIDataset(
-        input_ids=val_data["input_ids"],
-        attention_mask=val_data["attention_mask"],
-        token_type_ids=val_data["token_type_ids"],
-        syntax_features_premise=val_data["syntax_features_premise"],
-        syntax_features_hypothesis=val_data["syntax_features_hypothesis"],
-        labels=val_data["labels"]
-    )
-
-    return train_dataset, val_dataset
-
-
-# def train_neural_model(args):
-#     """Train neural network model."""
-#     logger.info("Initializing neural network training")
-#
-#     # Create database handler
-#     db_handler = DatabaseHandler()
-#
-#     # Load preprocessed data
-#     train_dataset, val_dataset = load_data(db_handler, args.dataset)
-#
-#     # Create data loaders
-#     train_dataloader = DataLoader(
-#         train_dataset,
-#         batch_size=args.batch_size,
-#         shuffle=True,
-#         pin_memory=True,
-#         num_workers=4
-#     )
-#
-#     val_dataloader = DataLoader(
-#         val_dataset,
-#         batch_size=args.batch_size,
-#         shuffle=False,
-#         pin_memory=True,
-#         num_workers=4
-#     )
-#
-#     # Initialize model
-#     model = BERTWithSyntacticAttention(
-#         pretrained_model_name=MODEL_NAME,
-#         syntactic_feature_dim=SYNTACTIC_FEATURE_DIM
-#     )
-#
-#     # Initialize trainer
-#     trainer = ModelTrainer(
-#         model=model,
-#         device=DEVICE,
-#         use_amp=args.fp16,
-#         grad_accum_steps=args.grad_accum,
-#         enable_compile=args.compile
-#     )
-#
-#     # Train model
-#     logger.info("Starting neural network training")
-#     history = trainer.train(
-#         train_dataloader=train_dataloader,
-#         val_dataloader=val_dataloader,
-#         epochs=args.epochs if hasattr(args, 'epochs') else EPOCHS,
-#         save_best=True
-#     )
-#
-#     logger.info(f"Training completed. Final train accuracy: {history['train_acc'][-1]:.4f}")
-#     if 'val_acc' in history:
-#         logger.info(f"Final validation accuracy: {history['val_acc'][-1]:.4f}")
-#
-#     return model, history
-
-# In main.py
-
-def train_neural_model(args):
-    """Train neural network model."""
-    logger.info("Initializing neural network training")
-
-    # Create database handler
-    db_handler = DatabaseHandler()
-
-    # Load preprocessed data
-    # Note: load_data currently likely loads syntax features even for baselines.
-    # You might optimize this later if needed.
-    train_dataset, val_dataset = load_data(db_handler, args.dataset)
-
-    # Create data loaders
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        pin_memory=True,
-        num_workers=64 # Adjust num_workers based on your system
-    )
-
-    val_dataloader = DataLoader(
-        val_dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
-        pin_memory=True,
-        num_workers=64 # Adjust num_workers based on your system
-    )
-
-    # --- MODIFICATION START ---
-    # Initialize model based on arguments
-    if args.baseline_model_name:
-        # Get the Hugging Face identifier from the config dictionary
-        hf_identifier = HF_MODEL_IDENTIFIERS.get(args.baseline_model_name)
-        if not hf_identifier:
-            # Handle case where the provided name isn't in the dictionary
-            logger.error(f"Invalid baseline model name specified: {args.baseline_model_name}")
-            raise ValueError(f"Invalid baseline model name: {args.baseline_model_name}. "
-                             f"Choose from {list(HF_MODEL_IDENTIFIERS.keys())}")
-
-        logger.info(f"Initializing Baseline Transformer NLI model using: {hf_identifier}")
-        model = BaselineTransformerNLI(
-            pretrained_model_name=hf_identifier,
-            num_classes=NUM_CLASSES # Pass the number of classes
-        )
-    else:
-        # Default to the syntax-aware model if no baseline is specified
-        # Use MODEL_NAME from config or another arg if you want to make BERT-base vs RoBERTa-base syntax-aware selectable
-        logger.info(f"Initializing BERTWithSyntacticAttention model using: {MODEL_NAME}")
-        model = BERTWithSyntacticAttention(
-            pretrained_model_name=MODEL_NAME, # Default BERT-base or configure as needed
-            syntactic_feature_dim=SYNTACTIC_FEATURE_DIM
-        )
-    # --- MODIFICATION END ---
-
-
-    # Initialize trainer
-    # The trainer will receive the selected 'model' instance
-    trainer = ModelTrainer(
-        model=model,
-        device=DEVICE,
-        use_amp=args.fp16,
-        grad_accum_steps=args.grad_accum,
-        enable_compile=args.compile
-    )
-
-    # Train model
-    logger.info("Starting neural network training")
-    training_epochs = args.epochs if hasattr(args, 'epochs') else EPOCHS # Ensure epochs are correctly accessed
-    history = trainer.train(
-        train_dataloader=train_dataloader,
-        val_dataloader=val_dataloader,
-        epochs=training_epochs,
-        save_best=True # Assuming you want to save the best model checkpoint
-    )
-
-    logger.info(f"Training completed. Final train accuracy: {history['train_acc'][-1]:.4f}")
-    # Check if validation was performed and results exist
-    if val_dataloader is not None and 'val_acc' in history and history['val_acc']:
-        logger.info(f"Best validation accuracy: {max(history['val_acc']):.4f}") # Log best val acc
-
-    return model, history
+    logger.info("Preprocessing pipeline complete (intermediate data created)")
 
 
 def main():
     """Main entry point with performance monitoring"""
 
-    # Check CUDA availability and print GPU info
     printing_cuda_info()
-
     args = parse_args()
 
-    # Set deterministic algorithms for reproducibility
-    torch.backends.cudnn.benchmark = True
+    # Set deterministic algorithms for reproducibility if needed (can slow down training)
+    # torch.backends.cudnn.benchmark = not args.deterministic # Set benchmark based on deterministic flag
+    # torch.backends.cudnn.deterministic = args.deterministic # Add a --deterministic flag to args?
+    torch.backends.cudnn.benchmark = True # Keep benchmark enabled for speed
     torch.backends.cudnn.deterministic = False
 
     logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
     logger.info(f"Using device: {DEVICE}")
+    logger.info(f"Selected model type: {args.model_type}")
 
     if args.mode == "preprocess":
-        preprocess_data(args.dataset, args.sample_size, args.force_reprocess, args.model_type)
+        preprocess_data(args) # Pass args to preprocessor
     elif args.mode == "train":
-        if hasattr(args, 'model_type') and args.model_type == "svm":
-            svm_trainer = SVMTrainer()
+        if args.model_type == "svm":
+            # --- SVM Training ---
+            logger.info(f"Starting SVM training with Kernel: {args.kernel}, C: {args.C}")
+            svm_trainer = SVMTrainer() # Uses precomputed lexical/syntactic features
             svm_trainer.run_training(args)
-        elif hasattr(args, 'model_type') and args.model_type == "neural":
-            logger.info(f"Batch size: {args.batch_size}, Grad accum: {args.grad_accum}")
-            logger.info(f"Mixed precision: {args.fp16}, Torch compile: {args.compile}")
-            # Train neural network model
-            train_neural_model(args)
+            # --------------------
+        elif args.model_type == "logistic_tfidf":
+            # --- Logistic Regression + TF-IDF Training ---
+            logger.info(f"Starting Logistic Regression + TF-IDF training with C: {args.C}, Max Features: {args.max_features}")
+            # This trainer needs access to intermediate 'pairs' and 'sentences' data
+            logistic_trainer = LogisticRegressionTrainer()
+            logistic_trainer.run_training(args)
+            # -----------------------------------------
         else:
-            logger.error(f"Unknown model type: {args.model_type}")
+            logger.error(f"Unknown model type for training: {args.model_type}")
             return
-    # ... rest of the function ...
+
     elif args.mode == "evaluate":
-        # evaluate_model(args.dataset)
-        pass
+        logger.warning("Evaluation mode not fully implemented yet.")
+        # Add evaluation logic here - needs to load a trained model and test data
+        if args.model_type == "svm":
+             # Load SVM models and evaluate on test set (similar to cross_evaluate logic in SVMTrainer)
+             logger.info("Evaluating SVM models...")
+             svm_trainer = SVMTrainer()
+             # Need to load test data (lexical/syntactic features)
+             test_data = svm_trainer._load_datasets(args.dataset, split='test') # Adapt internal method or reimplement
+             if test_data is not None:
+                  # Assuming test_data is a tuple (test_df, None) if validation split is not used in _load_datasets
+                  test_df, _ = test_data if isinstance(test_data, tuple) else (test_data, None)
+
+                  if test_df is not None and not test_df.empty:
+                       svm_results = {}
+                       for model_cls, name in [(SVMWithBagOfWords, "SVMWithBagOfWords"),
+                                            (SVMWithSyntax, "SVMWithSyntax"),
+                                            (SVMWithBothFeatures, "SVMWithBothFeatures")]:
+                            model_path = os.path.join(svm_trainer.save_dir, f"{name}.joblib")
+                            if os.path.exists(model_path):
+                                 logger.info(f"Loading {name} from {model_path}")
+                                 model = model_cls.load(model_path) # Use appropriate FeatureExtractor in load if needed
+                                 test_df_clean, y_test = clean_dataset(test_df.copy()) # Clean copy
+                                 X_test = model.extract_features(test_df_clean)
+                                 eval_time, metrics = _evaluate_model(model, X_test, y_test)
+                                 logger.info(f"{name} Test Results - Accuracy: {metrics['accuracy']:.4f}, F1: {metrics['f1']:.4f}")
+                                 svm_results[name] = metrics
+                            else:
+                                 logger.warning(f"Model file not found, cannot evaluate: {model_path}")
+                  else:
+                       logger.error(f"Could not load test feature data for {args.dataset} evaluation.")
+             else:
+                  logger.error(f"Could not load test feature data for {args.dataset} evaluation.")
+
+        elif args.model_type == "logistic_tfidf":
+            logger.info("Evaluating Logistic Regression TF-IDF model...")
+            logistic_trainer = LogisticRegressionTrainer()
+            model_dir = logistic_trainer.save_dir
+            try:
+                model = LogisticTFIDFBaseline.load(model_dir)
+                # Load RAW test text data
+                suffix = f"sample{args.sample_size}" if args.sample_size else "full"
+                test_data = LogisticTFIDFBaseline.load_raw_text_data(args.dataset, 'test', suffix, logistic_trainer.db_handler)
+                if test_data is not None and not test_data.empty:
+                     test_data_clean, y_test = clean_dataset(test_data)
+                     X_test = model.extract_features(test_data_clean) # Use loaded vectorizer
+                     eval_time, metrics = _evaluate_model(model, X_test, y_test)
+                     logger.info(f"Logistic TF-IDF Test Results - Accuracy: {metrics['accuracy']:.4f}, F1: {metrics['f1']:.4f}")
+                else:
+                     logger.error(f"Could not load test raw text data for {args.dataset} evaluation.")
+            except FileNotFoundError:
+                logger.error(f"Could not find saved Logistic Regression model/vectorizer in {model_dir}")
+            except Exception as e:
+                 logger.error(f"Error during Logistic Regression evaluation: {e}")
+
+        else:
+            logger.error(f"Unknown model type for evaluation: {args.model_type}")
+
     elif args.mode == "predict":
-        # predict(args.dataset)
+        logger.warning("Prediction mode not implemented yet.")
+        # Add prediction logic here - needs loading model, data, and running predict
         pass
     else:
         logger.error(f"Unknown mode: {args.mode}")

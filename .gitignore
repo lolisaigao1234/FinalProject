@@ -141,5 +141,3 @@ cython_debug/
 txt
 data_files
 saved_models
-
-models/temp.py

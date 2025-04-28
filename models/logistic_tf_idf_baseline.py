@@ -7,21 +7,13 @@ import numpy as np
 from typing import Tuple, Optional, Dict # Added Dict
 import time # Added time
 
-# --- Added DatasetLoader import here for the fallback ---
-# Note: It's generally better practice to have imports at the top,
-# but placing it here limits the dependency scope if the fallback isn't used.
-# If DatasetLoader might be used elsewhere in this file, move it to the top.
-# from data.data_loader import DatasetLoader # <-- Can be placed here or inside the fallback try block
-
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-# Removed unused Pipeline import
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support # Added metrics
-from sklearn.model_selection import train_test_split
 
 from utils.common import NLIModel
-from models.SVMTrainer import prepare_labels, get_label_column, clean_dataset, _handle_nan_values # Re-use helper functions
-from config import MODELS_DIR, DATASETS # Import necessary configs
+from models.SVMTrainer import clean_dataset # Re-use helper functions
+from config import MODELS_DIR # Import necessary configs
 from utils.database import DatabaseHandler # To load intermediate pairs/sentences data
 
 logger = logging.getLogger(__name__)
@@ -310,11 +302,11 @@ class LogisticRegressionTrainer:
         # Fit TF-IDF Extractor and Transform Train Data
         logger.info("Fitting TF-IDF on training data and transforming...")
         model.tfidf_extractor.fit(train_data)
-        X_train = model.tfidf_extractor.transform(train_data)
+        x_train = model.tfidf_extractor.transform(train_data)
 
         # Train Model
         start_time = time.time()
-        model.train(X_train, y_train)
+        model.train(x_train, y_train)
         train_time = time.time() - start_time
         logger.info(f"Training completed in {train_time:.2f} seconds.")
 
@@ -322,8 +314,8 @@ class LogisticRegressionTrainer:
         eval_results = {}
         if val_data is not None and y_val is not None:
             logger.info("Evaluating on validation data...")
-            X_val = model.extract_features(val_data) # Use extract_features method
-            eval_time, metrics = _evaluate_model(model, X_val, y_val)
+            x_val = model.extract_features(val_data) # Use extract_features method
+            eval_time, metrics = _evaluate_model(model, x_val, y_val)
             eval_results = {**metrics, 'eval_time': eval_time}
             logger.info(f"Validation Results - Accuracy: {metrics['accuracy']:.4f}, F1: {metrics['f1']:.4f}, Eval Time: {eval_time:.2f}s")
         else:
@@ -338,8 +330,8 @@ class LogisticRegressionTrainer:
              logger.info("Evaluating on test data...")
              test_data, y_test = clean_dataset(test_data)
              if test_data is not None and y_test is not None: # Check after cleaning
-                 X_test = model.extract_features(test_data) # Use extract_features method
-                 test_eval_time, test_metrics = _evaluate_model(model, X_test, y_test)
+                 x_test = model.extract_features(test_data) # Use extract_features method
+                 test_eval_time, test_metrics = _evaluate_model(model, x_test, y_test)
                  logger.info(f"Test Results - Accuracy: {test_metrics['accuracy']:.4f}, F1: {test_metrics['f1']:.4f}, Eval Time: {test_eval_time:.2f}s")
              else:
                   logger.warning("Test data became invalid after cleaning, skipping test evaluation.")

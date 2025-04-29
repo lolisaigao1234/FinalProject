@@ -172,18 +172,57 @@ class CrossEvalSyntacticExperiment7:
              train_df, val_df, y_train, y_val = train_test_split(train_df, y_train, test_size=0.2, random_state=self.random_state, stratify=y_train)
              logger.info(f"Train size: {len(train_df)}, Validation size: {len(val_df)}")
 
-        # 2. Identify feature columns
+        # Inside run_experiment method of CrossEvalSyntacticExperiment7
+
+        # ... (previous code loading train_df, val_df, y_train, y_val) ...
+
+        # 2. Identify feature columns BASED ON TRAINING DATA
         dep_cols = filter_dependency_features(train_df)
         const_cols = filter_constituency_features(train_df)
 
-        if not dep_cols: logger.warning("No dependency feature columns found!")
-        if not const_cols: logger.warning("No constituency feature columns found!")
+        if not dep_cols: logger.warning("No dependency feature columns found in training data!")
+        if not const_cols: logger.warning("No constituency feature columns found in training data!")
 
         # Prepare feature matrices
+        # Training Data (assume columns exist as they were derived from train_df)
         X_train_dep = train_df[dep_cols].values if dep_cols else np.array([]).reshape(len(train_df), 0)
         X_train_const = train_df[const_cols].values if const_cols else np.array([]).reshape(len(train_df), 0)
-        X_val_dep = val_df[dep_cols].values if val_df is not None and dep_cols else None
-        X_val_const = val_df[const_cols].values if val_df is not None and const_cols else None
+
+        # --- START FIX ---
+        # Validation Data - Ensure columns match training columns before selection
+        X_val_dep = None
+        X_val_const = None
+
+        if val_df is not None and y_val is not None:  # Check if validation data is loaded and valid
+            val_df_processed = val_df.copy()  # Work on a copy
+
+            # Dependency Features for Validation
+            if dep_cols:
+                missing_dep_in_val = set(dep_cols) - set(val_df_processed.columns)
+                if missing_dep_in_val:
+                    logger.warning(
+                        f"Adding {len(missing_dep_in_val)} missing dependency columns to val_df: {missing_dep_in_val}")
+                    for col in missing_dep_in_val:
+                        val_df_processed[col] = 0  # Add missing columns with 0
+                # Now select using the definitive list from training data
+                X_val_dep = val_df_processed[dep_cols].values
+            else:
+                X_val_dep = np.array([]).reshape(len(val_df_processed), 0)
+
+            # Constituency Features for Validation
+            if const_cols:
+                missing_const_in_val = set(const_cols) - set(val_df_processed.columns)
+                if missing_const_in_val:
+                    logger.warning(
+                        f"Adding {len(missing_const_in_val)} missing constituency columns to val_df: {missing_const_in_val}")
+                    for col in missing_const_in_val:
+                        val_df_processed[col] = 0  # Add missing columns with 0
+                # Select using the definitive list from training data
+                X_val_const = val_df_processed[const_cols].values
+            else:
+                X_val_const = np.array([]).reshape(len(val_df_processed), 0)
+
+        # --- END FIX ---
 
         # 3. Train and Evaluate Classifiers
 

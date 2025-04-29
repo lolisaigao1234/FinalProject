@@ -2,13 +2,11 @@
 import logging
 import os
 from abc import abstractmethod
-
 import joblib
 import pandas as pd
 import numpy as np
 from typing import Tuple, Optional, Dict, Any, List # Added Dict, Any, List
 import time
-
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
 # Use the existing NLIModel ABC from common.py as the ultimate base
@@ -18,9 +16,8 @@ from config import MODELS_DIR
 
 logger = logging.getLogger(__name__)
 
-# Common Helper Functions (Moved from various trainers/model files)
+# --- Helper Functions (Keep existing _handle_nan_values, prepare_labels, etc.) ---
 
-# <<< ADDED _handle_nan_values function >>>
 def _handle_nan_values(df: pd.DataFrame, context: str = "processing") -> pd.DataFrame:
     """
     Checks for and handles NaN values in numeric columns of a DataFrame, typically by filling with 0.
@@ -50,7 +47,8 @@ def _handle_nan_values(df: pd.DataFrame, context: str = "processing") -> pd.Data
         logger.warning(f"Found {total_nans} NaN values in numeric columns during {context}. Filling with 0.")
         logger.debug(f"NaN counts per numeric column:\n{nan_check[nan_check > 0]}")
         # Fill NaNs only in numeric columns
-        df[numeric_cols] = df[numeric_cols].fillna(0)
+        # Use .loc to ensure modification happens on the original DataFrame slice
+        df.loc[:, numeric_cols] = df[numeric_cols].fillna(0)
         # Verify NaNs are filled
         if df[numeric_cols].isnull().sum().sum() > 0:
             logger.error(f"NaN values still present after attempting fillna(0) during {context}!")
@@ -58,7 +56,6 @@ def _handle_nan_values(df: pd.DataFrame, context: str = "processing") -> pd.Data
         logger.debug(f"No NaN values found in numeric columns during {context}.")
 
     return df
-# <<< END of added function >>>
 
 
 def prepare_labels(labels, label_map=None):
@@ -74,7 +71,10 @@ def prepare_labels(labels, label_map=None):
     if labels.dtype == object:
         # Handle potential NaNs introduced before conversion
         labels = labels.fillna('unknown') # Or dropna() depending on desired behavior
-        return np.array([label_map.get(label, -1) for label in labels])
+        # Use numpy's vectorize for potentially faster mapping on large arrays
+        vectorized_map = np.vectorize(lambda label: label_map.get(label, -1))
+        return vectorized_map(labels.astype(str)) # Ensure string type before mapping
+        # return np.array([label_map.get(label, -1) for label in labels]) # Original list comprehension
     elif pd.api.types.is_numeric_dtype(labels):
         # Ensure numeric labels are integers and handle potential floats/NaNs
         # Use pd.to_numeric which handles various numeric types and converts to float first
@@ -213,7 +213,7 @@ class TextFeatureExtractorBase:
         vocab_size = len(self.vectorizer.vocabulary_) if hasattr(self.vectorizer, 'vocabulary_') else 'N/A'
         logger.info(f"{self.vectorizer.__class__.__name__} fitted. Vocabulary size: {vocab_size}")
 
-    def transform(self, data: pd.DataFrame, text_col1: str = 'premise_text', text_col2: str = 'hypothesis_text') -> np.ndarray:
+    def transform(self, data: pd.DataFrame, text_col1: str = 'premise_text', text_col2: str = 'hypothesis_text') -> Any:
         """Transforms text into features (implementation specific to subclass)."""
         raise NotImplementedError
 
@@ -292,11 +292,23 @@ class TextBaselineModel(NLIModel):
         loaded_model = joblib.load(model_path)
         loaded_extractor = joblib.load(extractor_path) # Load the extractor object
 
-        # Create instance using the loaded components
-        # Assumes the subclass calling load() passes the correct extractor and model
-        # This is typically handled by the BaselineTrainer which knows the class type
-        instance = cls(extractor=loaded_extractor, model_instance=loaded_model)
+        # --- MODIFICATION START ---
+        # Instantiate the class (using defaults or loaded metadata if available later)
+        # For now, assume default constructor works for subclasses like MultinomialNaiveBayesBaseline
+        # TODO: Enhance this by saving/loading hyperparameters (e.g., alpha, max_features)
+        #       and passing them to cls() here.
+        try:
+             instance = cls() # Instantiate the specific class (e.g., MultinomialNaiveBayesBaseline)
+        except Exception as e:
+             logger.error(f"Failed to instantiate {cls.__name__} with default arguments during load: {e}. Check its __init__ method.", exc_info=True)
+             raise TypeError(f"Cannot auto-instantiate {cls.__name__} during load. Requires specific hyperparameters.") from e
+
+        # Assign the loaded components
+        instance.model = loaded_model
+        instance.extractor = loaded_extractor
         instance.is_trained = True # Assume loaded model is trained
+        # --- MODIFICATION END ---
+
         logger.info(f"{cls.__name__} loaded from {directory} using base name {model_name}")
         return instance
 
@@ -320,10 +332,11 @@ class TextBaselineModel(NLIModel):
                 logger.info("Merging intermediate pairs and sentences data...")
                 # Ensure IDs are suitable for merging (e.g., string or int)
                 # If they were saved as objects, convert them back
-                pairs_df['id'] = pairs_df['id'].astype(str)
-                pairs_df['premise_id'] = pairs_df['premise_id'].astype(str)
-                pairs_df['hypothesis_id'] = pairs_df['hypothesis_id'].astype(str)
-                sentences_df['id'] = sentences_df['id'].astype(str)
+                # Check if columns exist before trying to convert type
+                if 'id' in pairs_df.columns: pairs_df['id'] = pairs_df['id'].astype(str)
+                if 'premise_id' in pairs_df.columns: pairs_df['premise_id'] = pairs_df['premise_id'].astype(str)
+                if 'hypothesis_id' in pairs_df.columns: pairs_df['hypothesis_id'] = pairs_df['hypothesis_id'].astype(str)
+                if 'id' in sentences_df.columns: sentences_df['id'] = sentences_df['id'].astype(str)
 
 
                 sentences_premise = sentences_df[['id', 'text']].rename(columns={'text': 'premise_text', 'id': 'p_id'})
@@ -337,9 +350,11 @@ class TextBaselineModel(NLIModel):
 
                 # Select and rename final columns, handle potential missing text after merge
                 final_cols = ['pair_id', 'premise_text', 'hypothesis_text', 'label']
-                missing_cols = [col for col in final_cols if col not in merged_df.columns]
-                if missing_cols:
-                    logger.error(f"Columns missing after merge: {missing_cols}. Merge failed.")
+                # Check if all required columns exist after potential merges
+                required_cols_check = ['pair_id', 'premise_text', 'hypothesis_text', 'label']
+                if not all(col in merged_df.columns for col in required_cols_check):
+                    missing = [col for col in required_cols_check if col not in merged_df.columns]
+                    logger.error(f"Columns missing after merge: {missing}. Merge failed.")
                     merged_df = None
                 else:
                     merged_df = merged_df[final_cols]
@@ -372,18 +387,26 @@ class TextBaselineModel(NLIModel):
             logger.warning("Executing fallback: Loading original raw data using DatasetLoader.")
             try:
                 loader = DatasetLoader(db_handler)
-                # Request raw text columns explicitly
-                raw_df = loader.load_dataset(dataset_name, split=split, columns=['premise', 'hypothesis', 'label'])
+                # Assume load_dataset returns the required columns directly or adapt here
+                raw_df = loader.load_dataset(dataset_name, split=split) # Load specific split
                 if raw_df.empty:
                     logger.error("Fallback data loading returned empty DataFrame.")
                     return None
 
-                # Rename standard columns expected by TextBaseline models
-                raw_df = raw_df.rename(columns={'premise': 'premise_text', 'hypothesis': 'hypothesis_text'}, errors='ignore')
-                # Add a pair_id if missing (using index)
+                # Ensure standard column names expected by TextBaseline models
+                rename_map = {}
+                if "premise" in raw_df.columns: rename_map["premise"] = "premise_text"
+                if "hypothesis" in raw_df.columns: rename_map["hypothesis"] = "hypothesis_text"
+                if rename_map:
+                    raw_df = raw_df.rename(columns=rename_map, errors='ignore')
+
+                # Add a pair_id if missing (using index, ensure it's unique)
                 if 'pair_id' not in raw_df.columns:
-                     raw_df.reset_index(inplace=True)
-                     raw_df = raw_df.rename(columns={'index': 'pair_id'}, errors='ignore') # Rename index if it becomes a column
+                     if 'id' in raw_df.columns: # Use existing 'id' if available
+                          raw_df = raw_df.rename(columns={'id':'pair_id'}, errors='ignore')
+                     else: # Create from index
+                          raw_df.reset_index(inplace=True)
+                          raw_df = raw_df.rename(columns={'index': 'pair_id'}, errors='ignore') # Rename index if it becomes a column
 
                 # Final check for required columns after fallback
                 required_cols = ['pair_id', 'premise_text', 'hypothesis_text', 'label']

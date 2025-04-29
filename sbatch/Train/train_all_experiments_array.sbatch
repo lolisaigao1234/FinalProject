@@ -4,8 +4,8 @@
 #SBATCH --time=72:00:00                # Max time per task (adjust as needed)
 #SBATCH --nodes=1                      # Run each task on a single node
 #SBATCH --ntasks-per-node=1            # Run one Python process per node
-#SBATCH --cpus-per-task=128            # Request all available CPUs on the node (adjust if nodes have different core counts)
-#SBATCH --mem=128G                     # Memory per task (Monitor usage and adjust if needed)
+#SBATCH --cpus-per-task=64            # Request all available CPUs on the node (adjust if nodes have different core counts)
+#SBATCH --mem=80G                     # Memory per task (Monitor usage and adjust if needed)
 #SBATCH --account=jywu3-ic             # <<< YOUR ACCOUNT HERE >>>
 #SBATCH --array=1-33                   # Submit 33 tasks (11 experiments * 3 datasets)
 #SBATCH --output=slurm_logs/train_nli_sklearn_%A_%a.log # Output log (%A=jobID, %a=taskID)

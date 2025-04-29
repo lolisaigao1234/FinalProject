@@ -1,11 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=train_nli_sklearn_parallel # Updated job name
-#SBATCH --partition=IllinoisComputes-GPU          # Correct partition
-#SBATCH --time=72:00:00                     # Max time (3 days) - Adjust based on expected task runtime if shorter
+#SBATCH --partition=IllinoisComputes         # Correct partition
+#SBATCH --time=24:00:00                     # Max time (3 days) - Adjust based on expected task runtime if shorter
 #SBATCH --nodes=1                           # Each array task runs on a single node
 #SBATCH --ntasks-per-node=1                 # One Python process per task/node
 #SBATCH --cpus-per-task=128                 # *** Request all available CPUs on the node ***
-#SBATCH --mem=480G                          # *** Request most memory (approx. 480GB) - Monitor actual usage and adjust if needed ***
 #SBATCH --account=jywu3-ic                  # <<< YOUR ACCOUNT HERE >>>
 #SBATCH --array=1-33                        # Submit 33 independent tasks. SLURM runs them in parallel on available nodes.
 #SBATCH --output=slurm_logs/train_nli_sklearn_%A_%a.log # Output log (%A=jobID, %a=taskID)

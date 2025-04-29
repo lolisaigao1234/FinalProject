@@ -93,7 +93,8 @@ echo "Starting Python script for $CURRENT_DATASET / $CURRENT_EXPERIMENT (Task ID
 python -u main.py \
   --dataset "$CURRENT_DATASET" \
   --mode train \
-  --model_type "$CURRENT_EXPERIMENT"
+  --model_type "$CURRENT_EXPERIMENT" \
+  --sample_size 100 # Adjust sample size as needed
   # Add other args like --force_reprocess or --sample_size if needed for specific runs
   # e.g., --sample_size 10000
 

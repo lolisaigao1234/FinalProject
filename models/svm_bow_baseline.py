@@ -155,7 +155,7 @@ class SVMModel(NLIModel):
         self.feature_extractor = feature_extractor
         self.kernel = kernel
         self.C = C
-        self.svm = SVC(kernel=kernel, C=C, probability=True, random_state=42)
+        self.svm = SVC(kernel=kernel, C=C, probability=True, random_state=42, verbose=False)
         self.is_trained = False
         self.feature_cols = None # Stores the names of columns used for training
 

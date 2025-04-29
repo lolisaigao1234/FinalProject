@@ -1,15 +1,16 @@
 #!/bin/bash
-#SBATCH --job-name=train_nli_exps       # General job name for the array
-#SBATCH --partition=IllinoisComputes-GPU
-#SBATCH --time=72:00:00                   # Max time per task
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --gres=gpu:A100:1                 # Request 1 GPU per task
-#SBATCH --cpus-per-task=64                 # CPUs per task (adjust if needed)
-#SBATCH --mem=128G                         # Memory per task (adjust if needed)
-#SBATCH --account=jywu3-ic                # <<< YOUR ACCOUNT HERE >>>
-#SBATCH --array=1-33                      # Submit 33 tasks (11 experiments * 3 datasets)
-#SBATCH --output=slurm_logs/train_nli_array_%A_%a.log # Output log (%A=jobID, %a=taskID)
+#SBATCH --job-name=train_nli_sklearn   # Job name reflecting sklearn focus
+#SBATCH --partition=IllinoisComputes   # CPU-focused partition
+#SBATCH --time=72:00:00                # Max time per task (adjust as needed)
+#SBATCH --nodes=1                      # Run each task on a single node
+#SBATCH --ntasks-per-node=1            # Run one Python process per node
+#SBATCH --cpus-per-task=128            # Request all available CPUs on the node (adjust if nodes have different core counts)
+#SBATCH --mem=128G                     # Memory per task (Monitor usage and adjust if needed)
+#SBATCH --account=jywu3-ic             # <<< YOUR ACCOUNT HERE >>>
+#SBATCH --array=1-33                   # Submit 33 tasks (11 experiments * 3 datasets)
+#SBATCH --output=slurm_logs/train_nli_sklearn_%A_%a.log # Output log (%A=jobID, %a=taskID)
+#SBATCH --mail-type=END,FAIL           # Optional: Get email notifications
+#SBATCH --mail-user=your_email@example.com # Optional: <<< YOUR EMAIL HERE >>>
 
 # --- Define Task Parameters ---
 # Order matters: datasets first, then experiments cycle through for each dataset
@@ -41,47 +42,66 @@ CURRENT_DATASET=${DATASETS[$dataset_index]}
 CURRENT_EXPERIMENT=${EXPERIMENTS[$experiment_index]}
 
 # --- Environment Setup ---
-echo "Job Array ID: $SLURM_ARRAY_JOB_ID"
-echo "Task ID: $SLURM_ARRAY_TASK_ID"
+echo "------------------------------------------------"
+echo "SLURM Job ID: $SLURM_JOB_ID"
+echo "SLURM Array Job ID: $SLURM_ARRAY_JOB_ID"
+echo "SLURM Array Task ID: $SLURM_ARRAY_TASK_ID"
 echo "Running on host: $(hostname)"
-echo "Selected Dataset: $CURRENT_DATASET"
-echo "Selected Experiment: $CURRENT_EXPERIMENT"
+echo "Requested CPUs: $SLURM_CPUS_PER_TASK"
+echo "Requested Memory: $SLURM_MEM_PER_NODE MB"
+echo "Running Dataset: $CURRENT_DATASET"
+echo "Running Experiment: $CURRENT_EXPERIMENT"
+echo "------------------------------------------------"
+START_TIME=$(date +%s)
 
-# Load modules
+# Load modules - Removed CUDA as it's not needed for sklearn
 module purge
-module load cuda/12.6 # Keeping cuda version from template
-module load anaconda3/2024.10
+module load anaconda3/2024.10 # Or your specific Anaconda/Python module
+echo "Modules loaded."
 
 # Activate Conda environment
 # <<< Make sure 'IS567' is your correct conda environment name >>>
 source activate IS567
-echo "Python environment activated"
+echo "Python environment 'IS567' activated."
 
-# Set environment variables
-export NCCL_DEBUG=INFO           # Optional: Debug GPU comms
-export TF_CPP_MIN_LOG_LEVEL=3    # Reduce TensorFlow logging (if used)
-# export HF_HOME=/path/to/your/cache/huggingface # Set if needed
+# Set environment variables for CPU parallelism
+# OMP_NUM_THREADS often controls threading in underlying libraries (NumPy/SciPy with MKL/OpenBLAS)
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+echo "OMP_NUM_THREADS set to $OMP_NUM_THREADS"
+
+# Optional: Set MKL threads explicitly if using Intel MKL
+# export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
+# echo "MKL_NUM_THREADS set to $MKL_NUM_THREADS"
+
+export TF_CPP_MIN_LOG_LEVEL=3    # Reduce TensorFlow logging (if used by dependencies)
+# export HF_HOME=/path/to/your/cache/huggingface # Set if needed and not default
 
 # Navigate to project directory
 # <<< Make sure this is your correct project path >>>
-cd /u/jywu3/scratch/IS567FP || exit
+PROJECT_DIR="/u/jywu3/scratch/IS567FP" # Define project directory variable
+cd "$PROJECT_DIR" || { echo "Error changing directory to $PROJECT_DIR"; exit 1; }
 echo "Changed directory to $(pwd)"
 
 # --- Execute the training command ---
-echo "Starting training for $CURRENT_DATASET / $CURRENT_EXPERIMENT..."
+echo "Starting Python script for $CURRENT_DATASET / $CURRENT_EXPERIMENT..."
 
-# Use the determined dataset and experiment type
-# Relies on config.py for other hyperparameters unless you add overrides here
+# Ensure the Python code uses n_jobs=-1 in relevant sklearn functions/models
+# (e.g., RandomForest, GradientBoosting, cross_validate) to utilize the allocated CPUs.
 python -u main.py \
   --dataset "$CURRENT_DATASET" \
   --mode train \
   --model_type "$CURRENT_EXPERIMENT"
-  # Add specific hyperparameter overrides here if needed, e.g.
-  # --C 1.0 --kernel linear (though these usually come from config)
+  # Add other args like --force_reprocess or --sample_size if needed for specific runs
+  # e.g., --sample_size 10000
 
 EXIT_CODE=$?
 echo "Python script finished with exit code $EXIT_CODE for Task ID $SLURM_ARRAY_TASK_ID"
 
-echo "Job task finished."
+END_TIME=$(date +%s)
+RUNTIME=$((END_TIME - START_TIME))
+echo "------------------------------------------------"
+echo "Job Task $SLURM_ARRAY_TASK_ID finished."
+echo "Total Runtime: $RUNTIME seconds"
+echo "------------------------------------------------"
 
 exit $EXIT_CODE

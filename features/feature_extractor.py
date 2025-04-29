@@ -249,15 +249,13 @@ class FeatureExtractor:
         """
         Extracts specified features (lexical, syntactic) for a given dataset, split, and suffix.
         Loads intermediate data (pairs, sentences, parse_trees) based on the suffix,
-        computes features, and stores the final combined feature set.
+        computes features, ensures column consistency for syntactic features,
+        and stores the final combined feature set.
         """
         if feature_types is None:
             feature_types = ["lexical", "syntactic"]  # Default features
 
         feature_name_part = "_".join(sorted(feature_types))  # Consistent naming e.g., lexical_syntactic
-        # Define the FINAL features table/filename using dataset, split, and suffix
-        # This filename base will be used for the file stored in the root PARQUET_DIR
-        # final_feature_table_name = f"features_{feature_name_part}_{suffix}"
         final_feature_table_name = f"{dataset_name}_{split}_features_{feature_name_part}_{suffix}"  # NEW FORMAT
 
         logger.info(f"Starting feature extraction for: {dataset_name}/{split}/{suffix}")
@@ -265,92 +263,69 @@ class FeatureExtractor:
         logger.info(f"Final output table: {final_feature_table_name}")
         logger.info(f"Force recompute: {force_recompute}")
 
-        # --- Check if final features already exist ---
-        # Use check_exists with the final table name
         if not force_recompute and self.db_handler.check_exists(dataset_name, split, final_feature_table_name):
             logger.info(f"Loading existing final features from database: {final_feature_table_name}")
-            # Load the final features (DatabaseHandler knows it's in the root dir)
             return self.db_handler.load_dataframe(dataset_name, split, final_feature_table_name)
 
-        # --- Load required intermediate data ---
         logger.info(f"Loading intermediate data for suffix: {suffix}")
-        # Define intermediate table names
         pairs_table = f"pairs_{suffix}"
         sentences_table = f"sentences_{suffix}"
         parse_trees_table = f"parse_trees_{suffix}"
 
-        # Load dataframes using the correct table names
         pairs_df = self.db_handler.load_dataframe(dataset_name, split, pairs_table)
         sentences_df = self.db_handler.load_dataframe(dataset_name, split, sentences_table)
-
-        # Load parse trees only if syntactic features are needed
-        parse_trees_df = pd.DataFrame()  # Initialize empty
+        parse_trees_df = pd.DataFrame()
         if "syntactic" in feature_types:
             parse_trees_df = self.db_handler.load_dataframe(dataset_name, split, parse_trees_table)
 
-        # --- Validate loaded data ---
         if pairs_df.empty:
             logger.error(f"Essential intermediate data '{pairs_table}' is empty or failed to load. Cannot proceed.")
             return pd.DataFrame()
-        if sentences_df.empty and "lexical" in feature_types:  # Sentences needed for lexical if text not in pairs
-            logger.warning(
-                f"Intermediate data '{sentences_table}' is empty. Lexical features might be incomplete if text is missing from pairs.")
-            # Proceed, but lexical features might fail later if text is needed and missing
+        if sentences_df.empty and "lexical" in feature_types:
+            logger.warning(f"Intermediate data '{sentences_table}' is empty. Lexical features might be incomplete.")
         if parse_trees_df.empty and "syntactic" in feature_types:
             logger.error(
-                f"Intermediate data '{parse_trees_table}' is empty, but syntactic features requested. Cannot proceed with syntactic features.")
-            # Option 1: Proceed without syntactic features
-            # feature_types.remove("syntactic")
-            # logger.warning("Proceeding without syntactic features.")
-            # Option 2: Fail extraction
+                f"Intermediate data '{parse_trees_table}' is empty, but syntactic features requested. Cannot proceed.")
             return pd.DataFrame()
 
-        # --- Join dataframes to get text and trees alongside pairs ---
         logger.info("Joining intermediate dataframes...")
-        # Start with pairs, ensure 'id' and 'label' are preserved
         combined_df = pairs_df[['id', 'premise_id', 'hypothesis_id', 'label']].copy()
-        combined_df.rename(columns={'id': 'pair_id'}, inplace=True)  # Use 'pair_id' consistently
+        combined_df.rename(columns={'id': 'pair_id'}, inplace=True)
 
-        # Join sentence text if needed for lexical features
         if "lexical" in feature_types:
             if not sentences_df.empty and 'id' in sentences_df.columns and 'text' in sentences_df.columns:
-                # Merge premise text
                 combined_df = pd.merge(combined_df,
                                        sentences_df[['id', 'text']].rename(columns={'text': 'premise_text'}),
-                                       left_on='premise_id', right_on='id', how='left').drop('id', axis=1)
-                # Merge hypothesis text
+                                       left_on='premise_id', right_on='id', how='left').drop('id', axis=1,
+                                                                                             errors='ignore')
                 combined_df = pd.merge(combined_df,
                                        sentences_df[['id', 'text']].rename(columns={'text': 'hypothesis_text'}),
-                                       left_on='hypothesis_id', right_on='id', how='left').drop('id', axis=1)
+                                       left_on='hypothesis_id', right_on='id', how='left').drop('id', axis=1,
+                                                                                                errors='ignore')
             else:
                 logger.warning(f"Could not join sentence text from '{sentences_table}'.")
-            # Fill missing text with empty strings AFTER potential joins
             combined_df['premise_text'] = combined_df.get('premise_text', pd.Series(index=combined_df.index)).fillna('')
             combined_df['hypothesis_text'] = combined_df.get('hypothesis_text',
                                                              pd.Series(index=combined_df.index)).fillna('')
 
-        # Join parse trees if needed for syntactic features
         if "syntactic" in feature_types:
             if not parse_trees_df.empty and 'sentence_id' in parse_trees_df.columns:
                 tree_cols = ['sentence_id', 'constituency_tree', 'dependency_tree']
                 if all(col in parse_trees_df.columns for col in tree_cols):
-                    # Merge premise trees
                     combined_df = pd.merge(combined_df, parse_trees_df[tree_cols].rename(
                         columns={'constituency_tree': 'premise_constituency', 'dependency_tree': 'premise_dependency'}),
                                            left_on='premise_id', right_on='sentence_id', how='left').drop('sentence_id',
-                                                                                                          axis=1)
-                    # Merge hypothesis trees
+                                                                                                          axis=1,
+                                                                                                          errors='ignore')
                     combined_df = pd.merge(combined_df, parse_trees_df[tree_cols].rename(
                         columns={'constituency_tree': 'hypothesis_constituency',
-                                 'dependency_tree': 'hypothesis_dependency'}),
-                                           left_on='hypothesis_id', right_on='sentence_id', how='left').drop(
-                        'sentence_id', axis=1)
+                                 'dependency_tree': 'hypothesis_dependency'}), left_on='hypothesis_id',
+                                           right_on='sentence_id', how='left').drop('sentence_id', axis=1,
+                                                                                    errors='ignore')
                 else:
                     logger.warning(f"Missing required columns in '{parse_trees_table}'. Could not join parse trees.")
             else:
                 logger.warning(f"Could not join parse trees from '{parse_trees_table}'.")
-
-            # Fill missing trees with empty strings AFTER potential joins
             combined_df['premise_constituency'] = combined_df.get('premise_constituency',
                                                                   pd.Series(index=combined_df.index)).fillna('')
             combined_df['premise_dependency'] = combined_df.get('premise_dependency',
@@ -363,83 +338,321 @@ class FeatureExtractor:
         if combined_df.empty:
             logger.error("Combined DataFrame is empty after joining. Cannot extract features.")
             return pd.DataFrame()
-
         logger.info(f"Successfully joined data. Shape: {combined_df.shape}")
 
-        # --- Feature Extraction ---
-        # Initialize a DataFrame to hold the final features, starting with ID and label
         final_features_df = combined_df[['pair_id', 'label']].copy()
+        lexical_features_df = pd.DataFrame()  # Initialize empty
+        syntactic_features_df = pd.DataFrame()  # Initialize empty
 
-        # --- Lexical Feature Extraction (Batched) ---
         if "lexical" in feature_types:
             logger.info(f"Extracting lexical features for {len(combined_df)} pairs...")
-            # Ensure text columns exist and are suitable type
             if 'premise_text' not in combined_df.columns or 'hypothesis_text' not in combined_df.columns:
-                logger.error(
-                    "Missing text columns ('premise_text', 'hypothesis_text') in combined data. Cannot extract lexical features.")
-                return pd.DataFrame()  # Fail if text is missing
-
-            # Call the batched lexical extraction method
+                logger.error("Missing text columns. Cannot extract lexical features.")
+                return pd.DataFrame()
             lexical_features_df = self._extract_lexical_features_batched(
-                combined_df[['pair_id', 'premise_text', 'hypothesis_text']])  # Pass only needed cols
-
-            # Merge lexical features back using 'pair_id'
+                combined_df[['pair_id', 'premise_text', 'hypothesis_text']])
             if not lexical_features_df.empty:
                 final_features_df = pd.merge(final_features_df, lexical_features_df, on="pair_id", how="left")
                 logger.info(f"Merged lexical features. Shape after merge: {final_features_df.shape}")
             else:
                 logger.warning("Lexical feature extraction returned empty results.")
 
-        # --- Syntactic Feature Extraction (Vectorized Apply) ---
         if "syntactic" in feature_types:
             logger.info(f"Extracting syntactic features for {len(combined_df)} pairs...")
-            # Ensure necessary tree columns exist
             required_syntactic_cols = ["premise_constituency", "premise_dependency", "hypothesis_constituency",
                                        "hypothesis_dependency"]
             if not all(col in combined_df.columns for col in required_syntactic_cols):
-                logger.error(
-                    f"Missing required parse tree columns in combined data. Cannot extract syntactic features.")
-                # Decide whether to fail or continue without them
-                return pd.DataFrame()  # Fail for now
-
-            # Apply the row-wise extraction function
+                logger.error(f"Missing required parse tree columns. Cannot extract syntactic features.")
+                return pd.DataFrame()
             syntactic_features_series = combined_df.apply(_extract_syntactic_features_row, axis=1)
-            # syntactic_features_df = pd.DataFrame(syntactic_features_series.tolist(), index=combined_df.index) # Convert list of dicts if needed
-            syntactic_features_df = syntactic_features_series  # If _extract_syntactic_features_row returns Series
-
-            # Add pair_id for merging (if apply didn't preserve it implicitly via index)
-            syntactic_features_df['pair_id'] = combined_df['pair_id'].values  # Ensure pair_id is present
-
-            # Merge syntactic features back using 'pair_id'
+            syntactic_features_df = syntactic_features_series
+            syntactic_features_df['pair_id'] = combined_df['pair_id'].values
             if not syntactic_features_df.empty:
                 final_features_df = pd.merge(final_features_df, syntactic_features_df, on="pair_id", how="left")
                 logger.info(f"Merged syntactic features. Shape after merge: {final_features_df.shape}")
             else:
                 logger.warning("Syntactic feature extraction returned empty results.")
 
-        # --- Final Processing & Storage ---
-        if len(final_features_df.columns) <= 2:  # Only pair_id and label
+        if len(final_features_df.columns) <= 2:
             logger.error("No features were successfully extracted or merged. Aborting.")
             return pd.DataFrame()
 
-        # Fill NaN values AFTER merging all features
+        # --- START ADDITION: Ensure consistent syntactic columns ---
+        if "syntactic" in feature_types:
+            # !!! IMPORTANT: Define this list comprehensively based on Stanza's outputs !!!
+            # This list should contain *all* potential syntactic columns that could be generated.
+            # The columns from the user's warnings are included as examples.
+            expected_syntactic_columns = [
+                # Basic Constituency Example
+                'premise_const_tree_depth', 'hypothesis_const_tree_depth', 'diff_const_tree_depth',
+                'premise_const_count_NP', 'hypothesis_const_count_NP', 'diff_const_count_NP',
+                'premise_const_count_VP', 'hypothesis_const_count_VP', 'diff_const_count_VP',
+                # ... other const features ...
+
+                # Basic Dependency Examples (Expand based on all POS tags and Deprels)
+                'premise_dep_pos_NOUN', 'hypothesis_dep_pos_NOUN', 'diff_dep_pos_NOUN',
+                'premise_dep_pos_VERB', 'hypothesis_dep_pos_VERB', 'diff_dep_pos_VERB',
+                'premise_dep_pos_ADJ', 'hypothesis_dep_pos_ADJ', 'diff_dep_pos_ADJ',
+                # ... all other POS tags ...
+                'premise_dep_pos_X', 'hypothesis_dep_pos_X', 'diff_dep_pos_X',  # Explicitly add problematic ones
+                'premise_dep_pos_SYM', 'hypothesis_dep_pos_SYM', 'diff_dep_pos_SYM',
+
+                'premise_dep_deprel_nsubj', 'hypothesis_dep_deprel_nsubj', 'diff_dep_deprel_nsubj',
+                'premise_dep_deprel_obj', 'hypothesis_dep_deprel_obj', 'diff_dep_deprel_obj',
+                'premise_dep_deprel_amod', 'hypothesis_dep_deprel_amod', 'diff_dep_deprel_amod',
+                # ... all other deprels ...
+                'premise_dep_deprel_csubj:pass', 'hypothesis_dep_deprel_csubj:pass', 'diff_dep_deprel_csubj:pass',
+                'premise_dep_deprel_list', 'hypothesis_dep_deprel_list', 'diff_dep_deprel_list',
+                'premise_dep_deprel_orphan', 'hypothesis_dep_deprel_orphan', 'diff_dep_deprel_orphan',
+                'premise_dep_deprel_dep', 'hypothesis_dep_deprel_dep', 'diff_dep_deprel_dep',
+                'premise_dep_deprel_nsubj:outer', 'hypothesis_dep_deprel_nsubj:outer', 'diff_dep_deprel_nsubj:outer',
+                'premise_dep_deprel_vocative', 'hypothesis_dep_deprel_vocative', 'diff_dep_deprel_vocative',
+                'premise_dep_deprel_dislocated', 'hypothesis_dep_deprel_dislocated', 'diff_dep_deprel_dislocated',
+                'premise_dep_deprel_csubj:outer', 'hypothesis_dep_deprel_csubj:outer', 'diff_dep_deprel_csubj:outer',
+                # Added from warning
+
+                # Other Dependency Stats
+                'premise_dep_dep_tree_depth_proxy', 'hypothesis_dep_dep_tree_depth_proxy',
+                'diff_dep_dep_tree_depth_proxy',
+                'premise_dep_avg_dep_dist', 'hypothesis_dep_avg_dep_dist', 'diff_dep_avg_dep_dist',
+                'premise_dep_max_dep_dist', 'hypothesis_dep_max_dep_dist', 'diff_dep_max_dep_dist',
+                'premise_dep_root_children_count', 'hypothesis_dep_root_children_count', 'diff_dep_root_children_count'
+            ]
+
+            # Find columns expected but not present in the generated features
+            current_cols = final_features_df.columns
+            missing_cols = [col for col in expected_syntactic_columns if col not in current_cols]
+
+            if missing_cols:
+                logger.info(
+                    f"Adding {len(missing_cols)} missing expected syntactic columns with 0 value before saving.")
+                logger.debug(f"Missing columns: {missing_cols}")
+                for col in missing_cols:
+                    final_features_df[col] = 0  # Add missing columns and fill with 0
+
+            # Optional: Reorder columns for absolute consistency (requires defining full order)
+            # all_expected_columns = ['pair_id', 'label'] + sorted(lexical_feature_column_names) + sorted(expected_syntactic_columns)
+            # existing_columns_in_order = [col for col in all_expected_columns if col in final_features_df.columns]
+            # final_features_df = final_features_df[existing_columns_in_order] # Select only existing cols in the defined order
+
+        # --- END ADDITION ---
+
+        # Fill NaN values AFTER adding potential missing columns
         logger.info("Filling NaN values in the final feature set.")
-        final_features_df = _fill_nan_values(final_features_df)
+        final_features_df = _fill_nan_values(final_features_df)  # Handles NaNs from merges or calculations
 
-        # Remove pair_id if it's not needed for training (keep labels)
-        # final_features_df = final_features_df.drop(columns=['pair_id'])
-
-        # Store the combined features using the final_feature_table_name
+        # Store the combined and potentially padded features
         logger.info(f"Storing final features ({final_features_df.shape}) to table: {final_feature_table_name}")
-        # Use the specific table name for the final features file
         self.db_handler.store_dataframe(final_features_df, dataset_name, split, final_feature_table_name)
         logger.info(f"Successfully stored final features for {dataset_name}/{split}/{suffix}")
 
-        # Clean up large objects
         del pairs_df, sentences_df, parse_trees_df, combined_df, lexical_features_df, syntactic_features_df
         gc.collect()
 
         return final_features_df
+
+    # def extract_features(
+    #         self,
+    #         dataset_name: str,
+    #         split: str,
+    #         suffix: str,  # Expect suffix to be passed directly
+    #         feature_types: Optional[List[str]] = None,  # Default to both
+    #         force_recompute: bool = False
+    # ) -> pd.DataFrame:
+    #     """
+    #     Extracts specified features (lexical, syntactic) for a given dataset, split, and suffix.
+    #     Loads intermediate data (pairs, sentences, parse_trees) based on the suffix,
+    #     computes features, and stores the final combined feature set.
+    #     """
+    #     if feature_types is None:
+    #         feature_types = ["lexical", "syntactic"]  # Default features
+    #
+    #     feature_name_part = "_".join(sorted(feature_types))  # Consistent naming e.g., lexical_syntactic
+    #     # Define the FINAL features table/filename using dataset, split, and suffix
+    #     # This filename base will be used for the file stored in the root PARQUET_DIR
+    #     # final_feature_table_name = f"features_{feature_name_part}_{suffix}"
+    #     final_feature_table_name = f"{dataset_name}_{split}_features_{feature_name_part}_{suffix}"  # NEW FORMAT
+    #
+    #     logger.info(f"Starting feature extraction for: {dataset_name}/{split}/{suffix}")
+    #     logger.info(f"Features requested: {feature_types}")
+    #     logger.info(f"Final output table: {final_feature_table_name}")
+    #     logger.info(f"Force recompute: {force_recompute}")
+    #
+    #     # --- Check if final features already exist ---
+    #     # Use check_exists with the final table name
+    #     if not force_recompute and self.db_handler.check_exists(dataset_name, split, final_feature_table_name):
+    #         logger.info(f"Loading existing final features from database: {final_feature_table_name}")
+    #         # Load the final features (DatabaseHandler knows it's in the root dir)
+    #         return self.db_handler.load_dataframe(dataset_name, split, final_feature_table_name)
+    #
+    #     # --- Load required intermediate data ---
+    #     logger.info(f"Loading intermediate data for suffix: {suffix}")
+    #     # Define intermediate table names
+    #     pairs_table = f"pairs_{suffix}"
+    #     sentences_table = f"sentences_{suffix}"
+    #     parse_trees_table = f"parse_trees_{suffix}"
+    #
+    #     # Load dataframes using the correct table names
+    #     pairs_df = self.db_handler.load_dataframe(dataset_name, split, pairs_table)
+    #     sentences_df = self.db_handler.load_dataframe(dataset_name, split, sentences_table)
+    #
+    #     # Load parse trees only if syntactic features are needed
+    #     parse_trees_df = pd.DataFrame()  # Initialize empty
+    #     if "syntactic" in feature_types:
+    #         parse_trees_df = self.db_handler.load_dataframe(dataset_name, split, parse_trees_table)
+    #
+    #     # --- Validate loaded data ---
+    #     if pairs_df.empty:
+    #         logger.error(f"Essential intermediate data '{pairs_table}' is empty or failed to load. Cannot proceed.")
+    #         return pd.DataFrame()
+    #     if sentences_df.empty and "lexical" in feature_types:  # Sentences needed for lexical if text not in pairs
+    #         logger.warning(
+    #             f"Intermediate data '{sentences_table}' is empty. Lexical features might be incomplete if text is missing from pairs.")
+    #         # Proceed, but lexical features might fail later if text is needed and missing
+    #     if parse_trees_df.empty and "syntactic" in feature_types:
+    #         logger.error(
+    #             f"Intermediate data '{parse_trees_table}' is empty, but syntactic features requested. Cannot proceed with syntactic features.")
+    #         # Option 1: Proceed without syntactic features
+    #         # feature_types.remove("syntactic")
+    #         # logger.warning("Proceeding without syntactic features.")
+    #         # Option 2: Fail extraction
+    #         return pd.DataFrame()
+    #
+    #     # --- Join dataframes to get text and trees alongside pairs ---
+    #     logger.info("Joining intermediate dataframes...")
+    #     # Start with pairs, ensure 'id' and 'label' are preserved
+    #     combined_df = pairs_df[['id', 'premise_id', 'hypothesis_id', 'label']].copy()
+    #     combined_df.rename(columns={'id': 'pair_id'}, inplace=True)  # Use 'pair_id' consistently
+    #
+    #     # Join sentence text if needed for lexical features
+    #     if "lexical" in feature_types:
+    #         if not sentences_df.empty and 'id' in sentences_df.columns and 'text' in sentences_df.columns:
+    #             # Merge premise text
+    #             combined_df = pd.merge(combined_df,
+    #                                    sentences_df[['id', 'text']].rename(columns={'text': 'premise_text'}),
+    #                                    left_on='premise_id', right_on='id', how='left').drop('id', axis=1)
+    #             # Merge hypothesis text
+    #             combined_df = pd.merge(combined_df,
+    #                                    sentences_df[['id', 'text']].rename(columns={'text': 'hypothesis_text'}),
+    #                                    left_on='hypothesis_id', right_on='id', how='left').drop('id', axis=1)
+    #         else:
+    #             logger.warning(f"Could not join sentence text from '{sentences_table}'.")
+    #         # Fill missing text with empty strings AFTER potential joins
+    #         combined_df['premise_text'] = combined_df.get('premise_text', pd.Series(index=combined_df.index)).fillna('')
+    #         combined_df['hypothesis_text'] = combined_df.get('hypothesis_text',
+    #                                                          pd.Series(index=combined_df.index)).fillna('')
+    #
+    #     # Join parse trees if needed for syntactic features
+    #     if "syntactic" in feature_types:
+    #         if not parse_trees_df.empty and 'sentence_id' in parse_trees_df.columns:
+    #             tree_cols = ['sentence_id', 'constituency_tree', 'dependency_tree']
+    #             if all(col in parse_trees_df.columns for col in tree_cols):
+    #                 # Merge premise trees
+    #                 combined_df = pd.merge(combined_df, parse_trees_df[tree_cols].rename(
+    #                     columns={'constituency_tree': 'premise_constituency', 'dependency_tree': 'premise_dependency'}),
+    #                                        left_on='premise_id', right_on='sentence_id', how='left').drop('sentence_id',
+    #                                                                                                       axis=1)
+    #                 # Merge hypothesis trees
+    #                 combined_df = pd.merge(combined_df, parse_trees_df[tree_cols].rename(
+    #                     columns={'constituency_tree': 'hypothesis_constituency',
+    #                              'dependency_tree': 'hypothesis_dependency'}),
+    #                                        left_on='hypothesis_id', right_on='sentence_id', how='left').drop(
+    #                     'sentence_id', axis=1)
+    #             else:
+    #                 logger.warning(f"Missing required columns in '{parse_trees_table}'. Could not join parse trees.")
+    #         else:
+    #             logger.warning(f"Could not join parse trees from '{parse_trees_table}'.")
+    #
+    #         # Fill missing trees with empty strings AFTER potential joins
+    #         combined_df['premise_constituency'] = combined_df.get('premise_constituency',
+    #                                                               pd.Series(index=combined_df.index)).fillna('')
+    #         combined_df['premise_dependency'] = combined_df.get('premise_dependency',
+    #                                                             pd.Series(index=combined_df.index)).fillna('')
+    #         combined_df['hypothesis_constituency'] = combined_df.get('hypothesis_constituency',
+    #                                                                  pd.Series(index=combined_df.index)).fillna('')
+    #         combined_df['hypothesis_dependency'] = combined_df.get('hypothesis_dependency',
+    #                                                                pd.Series(index=combined_df.index)).fillna('')
+    #
+    #     if combined_df.empty:
+    #         logger.error("Combined DataFrame is empty after joining. Cannot extract features.")
+    #         return pd.DataFrame()
+    #
+    #     logger.info(f"Successfully joined data. Shape: {combined_df.shape}")
+    #
+    #     # --- Feature Extraction ---
+    #     # Initialize a DataFrame to hold the final features, starting with ID and label
+    #     final_features_df = combined_df[['pair_id', 'label']].copy()
+    #
+    #     # --- Lexical Feature Extraction (Batched) ---
+    #     if "lexical" in feature_types:
+    #         logger.info(f"Extracting lexical features for {len(combined_df)} pairs...")
+    #         # Ensure text columns exist and are suitable type
+    #         if 'premise_text' not in combined_df.columns or 'hypothesis_text' not in combined_df.columns:
+    #             logger.error(
+    #                 "Missing text columns ('premise_text', 'hypothesis_text') in combined data. Cannot extract lexical features.")
+    #             return pd.DataFrame()  # Fail if text is missing
+    #
+    #         # Call the batched lexical extraction method
+    #         lexical_features_df = self._extract_lexical_features_batched(
+    #             combined_df[['pair_id', 'premise_text', 'hypothesis_text']])  # Pass only needed cols
+    #
+    #         # Merge lexical features back using 'pair_id'
+    #         if not lexical_features_df.empty:
+    #             final_features_df = pd.merge(final_features_df, lexical_features_df, on="pair_id", how="left")
+    #             logger.info(f"Merged lexical features. Shape after merge: {final_features_df.shape}")
+    #         else:
+    #             logger.warning("Lexical feature extraction returned empty results.")
+    #
+    #     # --- Syntactic Feature Extraction (Vectorized Apply) ---
+    #     if "syntactic" in feature_types:
+    #         logger.info(f"Extracting syntactic features for {len(combined_df)} pairs...")
+    #         # Ensure necessary tree columns exist
+    #         required_syntactic_cols = ["premise_constituency", "premise_dependency", "hypothesis_constituency",
+    #                                    "hypothesis_dependency"]
+    #         if not all(col in combined_df.columns for col in required_syntactic_cols):
+    #             logger.error(
+    #                 f"Missing required parse tree columns in combined data. Cannot extract syntactic features.")
+    #             # Decide whether to fail or continue without them
+    #             return pd.DataFrame()  # Fail for now
+    #
+    #         # Apply the row-wise extraction function
+    #         syntactic_features_series = combined_df.apply(_extract_syntactic_features_row, axis=1)
+    #         # syntactic_features_df = pd.DataFrame(syntactic_features_series.tolist(), index=combined_df.index) # Convert list of dicts if needed
+    #         syntactic_features_df = syntactic_features_series  # If _extract_syntactic_features_row returns Series
+    #
+    #         # Add pair_id for merging (if apply didn't preserve it implicitly via index)
+    #         syntactic_features_df['pair_id'] = combined_df['pair_id'].values  # Ensure pair_id is present
+    #
+    #         # Merge syntactic features back using 'pair_id'
+    #         if not syntactic_features_df.empty:
+    #             final_features_df = pd.merge(final_features_df, syntactic_features_df, on="pair_id", how="left")
+    #             logger.info(f"Merged syntactic features. Shape after merge: {final_features_df.shape}")
+    #         else:
+    #             logger.warning("Syntactic feature extraction returned empty results.")
+    #
+    #     # --- Final Processing & Storage ---
+    #     if len(final_features_df.columns) <= 2:  # Only pair_id and label
+    #         logger.error("No features were successfully extracted or merged. Aborting.")
+    #         return pd.DataFrame()
+    #
+    #     # Fill NaN values AFTER merging all features
+    #     logger.info("Filling NaN values in the final feature set.")
+    #     final_features_df = _fill_nan_values(final_features_df)
+    #
+    #     # Remove pair_id if it's not needed for training (keep labels)
+    #     # final_features_df = final_features_df.drop(columns=['pair_id'])
+    #
+    #     # Store the combined features using the final_feature_table_name
+    #     logger.info(f"Storing final features ({final_features_df.shape}) to table: {final_feature_table_name}")
+    #     # Use the specific table name for the final features file
+    #     self.db_handler.store_dataframe(final_features_df, dataset_name, split, final_feature_table_name)
+    #     logger.info(f"Successfully stored final features for {dataset_name}/{split}/{suffix}")
+    #
+    #     # Clean up large objects
+    #     del pairs_df, sentences_df, parse_trees_df, combined_df, lexical_features_df, syntactic_features_df
+    #     gc.collect()
+    #
+    #     return final_features_df
 
     # Removed _join_data static method, join logic moved into extract_features
 

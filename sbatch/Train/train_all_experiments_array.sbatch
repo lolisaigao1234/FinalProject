@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:A100:1                 # Request 1 GPU per task
 #SBATCH --cpus-per-task=64                 # CPUs per task (adjust if needed)
-#SBATCH --mem=64G                         # Memory per task (adjust if needed)
+#SBATCH --mem=128G                         # Memory per task (adjust if needed)
 #SBATCH --account=jywu3-ic                # <<< YOUR ACCOUNT HERE >>>
 #SBATCH --array=1-33                      # Submit 33 tasks (11 experiments * 3 datasets)
 #SBATCH --output=slurm_logs/train_nli_array_%A_%a.log # Output log (%A=jobID, %a=taskID)

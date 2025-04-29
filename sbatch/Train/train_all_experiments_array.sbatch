@@ -1,16 +1,16 @@
 #!/bin/bash
-#SBATCH --job-name=train_nli_sklearn   # Job name reflecting sklearn focus
-#SBATCH --partition=IllinoisComputes   # CPU-focused partition
-#SBATCH --time=72:00:00                # Max time per task (adjust as needed)
-#SBATCH --nodes=1                      # Run each task on a single node
-#SBATCH --ntasks-per-node=1            # Run one Python process per node
-#SBATCH --cpus-per-task=64            # Request all available CPUs on the node (adjust if nodes have different core counts)
-#SBATCH --mem=80G                     # Memory per task (Monitor usage and adjust if needed)
-#SBATCH --account=jywu3-ic             # <<< YOUR ACCOUNT HERE >>>
-#SBATCH --array=1-33                   # Submit 33 tasks (11 experiments * 3 datasets)
+#SBATCH --job-name=train_nli_sklearn_parallel # Updated job name
+#SBATCH --partition=IllinoisComputes          # Correct partition
+#SBATCH --time=72:00:00                     # Max time (3 days) - Adjust based on expected task runtime if shorter
+#SBATCH --nodes=1                           # Each array task runs on a single node
+#SBATCH --ntasks-per-node=1                 # One Python process per task/node
+#SBATCH --cpus-per-task=128                 # *** Request all available CPUs on the node ***
+#SBATCH --mem=480G                          # *** Request most memory (approx. 480GB) - Monitor actual usage and adjust if needed ***
+#SBATCH --account=jywu3-ic                  # <<< YOUR ACCOUNT HERE >>>
+#SBATCH --array=1-33                        # Submit 33 independent tasks. SLURM runs them in parallel on available nodes.
 #SBATCH --output=slurm_logs/train_nli_sklearn_%A_%a.log # Output log (%A=jobID, %a=taskID)
-#SBATCH --mail-type=END,FAIL           # Optional: Get email notifications
-#SBATCH --mail-user=your_email@example.com # Optional: <<< YOUR EMAIL HERE >>>
+#SBATCH --mail-type=END,FAIL                # Optional: Get email notifications
+#SBATCH --mail-user=jywu3@illinois.edu  # Optional: <<< YOUR EMAIL HERE >>>
 
 # --- Define Task Parameters ---
 # Order matters: datasets first, then experiments cycle through for each dataset
@@ -47,29 +47,31 @@ echo "SLURM Job ID: $SLURM_JOB_ID"
 echo "SLURM Array Job ID: $SLURM_ARRAY_JOB_ID"
 echo "SLURM Array Task ID: $SLURM_ARRAY_TASK_ID"
 echo "Running on host: $(hostname)"
+echo "Node allocated: $SLURM_NODELIST" # Log the specific node allocated to this task
 echo "Requested CPUs: $SLURM_CPUS_PER_TASK"
-echo "Requested Memory: $SLURM_MEM_PER_NODE MB"
+echo "Requested Memory: ${SLURM_MEM_PER_NODE}M" # Log memory allocated by SLURM (in MB)
 echo "Running Dataset: $CURRENT_DATASET"
 echo "Running Experiment: $CURRENT_EXPERIMENT"
 echo "------------------------------------------------"
 START_TIME=$(date +%s)
 
-# Load modules - Removed CUDA as it's not needed for sklearn
+# Load modules
 module purge
 module load anaconda3/2024.10 # Or your specific Anaconda/Python module
 echo "Modules loaded."
 
 # Activate Conda environment
 # <<< Make sure 'IS567' is your correct conda environment name >>>
-source activate IS567
-echo "Python environment 'IS567' activated."
+CONDA_ENV_NAME="IS567" # Define conda environment name variable
+source activate "$CONDA_ENV_NAME" || { echo "Error activating Conda environment '$CONDA_ENV_NAME'"; exit 1; }
+echo "Python environment '$CONDA_ENV_NAME' activated."
 
 # Set environment variables for CPU parallelism
-# OMP_NUM_THREADS often controls threading in underlying libraries (NumPy/SciPy with MKL/OpenBLAS)
+# Use the value allocated by SLURM for OMP_NUM_THREADS
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 echo "OMP_NUM_THREADS set to $OMP_NUM_THREADS"
 
-# Optional: Set MKL threads explicitly if using Intel MKL
+# Optional: Set MKL threads explicitly if using Intel MKL and it's relevant
 # export MKL_NUM_THREADS=$SLURM_CPUS_PER_TASK
 # echo "MKL_NUM_THREADS set to $MKL_NUM_THREADS"
 
@@ -83,10 +85,12 @@ cd "$PROJECT_DIR" || { echo "Error changing directory to $PROJECT_DIR"; exit 1; 
 echo "Changed directory to $(pwd)"
 
 # --- Execute the training command ---
-echo "Starting Python script for $CURRENT_DATASET / $CURRENT_EXPERIMENT..."
+echo "Starting Python script for $CURRENT_DATASET / $CURRENT_EXPERIMENT (Task ID $SLURM_ARRAY_TASK_ID)..."
 
-# Ensure the Python code uses n_jobs=-1 in relevant sklearn functions/models
-# (e.g., RandomForest, GradientBoosting, cross_validate) to utilize the allocated CPUs.
+# IMPORTANT: Ensure your Python code (main.py) uses the allocated CPUs effectively.
+# For scikit-learn models (like RandomForest, GradientBoosting) or functions (like cross_validate),
+# set the 'n_jobs' parameter to -1 (to use all available CPUs) or explicitly to $SLURM_CPUS_PER_TASK.
+# Example: model = RandomForestClassifier(n_jobs=-1)
 python -u main.py \
   --dataset "$CURRENT_DATASET" \
   --mode train \

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=train_nli_sklearn_parallel # Updated job name
-#SBATCH --partition=IllinoisComputes          # Correct partition
+#SBATCH --partition=IllinoisComputes-GPU          # Correct partition
 #SBATCH --time=72:00:00                     # Max time (3 days) - Adjust based on expected task runtime if shorter
 #SBATCH --nodes=1                           # Each array task runs on a single node
 #SBATCH --ntasks-per-node=1                 # One Python process per task/node

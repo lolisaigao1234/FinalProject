@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --time=00:01:00
 #SBATCH --account=jywu3-ic
-#SBATCH --partition=IllinoisComputes-GPU
+#SBATCH --partition=IllinoisComputes
 
 # Print general CPU information
 echo "=== CPU Information ==="

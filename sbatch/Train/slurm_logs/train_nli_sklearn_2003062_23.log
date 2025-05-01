@@ -1,0 +1,31 @@
+------------------------------------------------
+SLURM Job ID: 2007135
+SLURM Array Job ID: 2003062
+SLURM Array Task ID: 23
+Running on host: ccc0293.campuscluster.illinois.edu
+Node allocated: ccc0293
+Requested CPUs: 16
+Requested Memory: M
+Running Dataset: ANLI
+Running Experiment: svm
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated.
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for ANLI / svm (Task ID 23)...
+INFO:__main__:Running in train mode on ANLI dataset
+INFO:__main__:Using device: cpu
+INFO:__main__:Selected model type: svm
+INFO:__main__:Processing full dataset (no sample size specified).
+INFO:__main__:Initializing BaselineTrainer for model: svm, dataset: ANLI
+INFO:__main__:Starting training process...
+INFO:models.baseline_trainer:Trainer loading data for svm on ANLI (full)
+INFO:models.baseline_trainer:Loading precomputed features using base: features_lexical_syntactic_full
+INFO:utils.database:Loading final features data from /scratch/jywu3/IS567FP/cache/parquet/ANLI_train_features_lexical_syntactic_full.parquet
+INFO:utils.database:Loading final features data from /scratch/jywu3/IS567FP/cache/parquet/ANLI_validation_features_lexical_syntactic_full.parquet
+INFO:utils.database:Loading final features data from /scratch/jywu3/IS567FP/cache/parquet/ANLI_test_features_lexical_syntactic_full.parquet
+INFO:models.baseline_trainer:Starting SVM training for BoW, Syntax, and Combined features...
+INFO:models.baseline_trainer:--- Training SVM_BoW ---
+INFO:models.svm_bow_baseline:Storing 46 feature columns used for training.
+INFO:models.svm_bow_baseline:Training SVM (linear, C=1.0) with 740653 samples, 46 features

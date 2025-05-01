@@ -1,0 +1,67 @@
+------------------------------------------------
+SLURM Job ID: 2003197
+SLURM Array Job ID: 2003062
+SLURM Array Task ID: 3
+Running on host: ccc0367.campuscluster.illinois.edu
+Node allocated: ccc0367
+Requested CPUs: 16
+Requested Memory: M
+Running Dataset: SNLI
+Running Experiment: mnb_bow
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated.
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for SNLI / mnb_bow (Task ID 3)...
+INFO:__main__:Running in train mode on SNLI dataset
+INFO:__main__:Using device: cpu
+INFO:__main__:Selected model type: mnb_bow
+INFO:__main__:Processing full dataset (no sample size specified).
+INFO:__main__:Initializing BaselineTrainer for model: mnb_bow, dataset: SNLI
+INFO:__main__:Starting training process...
+INFO:models.baseline_trainer:Trainer loading data for mnb_bow on SNLI (full)
+INFO:models.baseline_trainer:Loading raw text data for mnb_bow
+INFO:models.baseline_base:Attempting to load intermediate raw text data: SNLI/train/full
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/sentences_full.parquet
+INFO:models.baseline_base:Merging intermediate pairs and sentences data...
+INFO:models.baseline_base:Successfully loaded and merged intermediate data. Shape after merge: (549367, 4)
+INFO:models.baseline_base:Attempting to load intermediate raw text data: SNLI/validation/full
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/validation/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/validation/sentences_full.parquet
+INFO:models.baseline_base:Merging intermediate pairs and sentences data...
+INFO:models.baseline_base:Successfully loaded and merged intermediate data. Shape after merge: (9842, 4)
+INFO:models.baseline_base:Attempting to load intermediate raw text data: SNLI/test/full
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/test/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/test/sentences_full.parquet
+INFO:models.baseline_base:Merging intermediate pairs and sentences data...
+INFO:models.baseline_base:Successfully loaded and merged intermediate data. Shape after merge: (9824, 4)
+INFO:models.baseline_trainer:Initializing model: mnb_bow
+INFO:models.baseline_trainer:Handling mnb_bow. Using raw text data.
+INFO:models.baseline_trainer:Fitting feature extractor...
+INFO:models.baseline_base:Fitting CountVectorizer on 549367 combined texts...
+INFO:models.baseline_base:CountVectorizer fitted. Vocabulary size: 10000
+INFO:models.baseline_trainer:Transforming training data...
+INFO:models.baseline_base:Training MultinomialNB with 549367 samples...
+INFO:models.baseline_base:MultinomialNB training complete.
+INFO:models.baseline_trainer:Evaluating on validation data...
+INFO:models.baseline_base:Evaluating model on 9842 samples...
+INFO:models.baseline_base:Prediction finished in 0.00 seconds.
+INFO:models.baseline_base:Evaluation Metrics - Accuracy: 0.5977, Precision: 0.6008, Recall: 0.5977, F1: 0.5973
+INFO:models.baseline_base:MultinomialNB model saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/mnb_bow/full/SNLI_mnb_bow_full_model.joblib
+INFO:models.baseline_base:Feature extractor (BoWExtractor) saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/mnb_bow/full/SNLI_mnb_bow_full_extractor.joblib
+INFO:models.baseline_trainer:Starting evaluation: Model=mnb_bow, Dataset=SNLI, Suffix=full
+INFO:models.baseline_trainer:Loading mnb_bow model from base path /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/mnb_bow/full/SNLI_mnb_bow_full for evaluation...
+INFO:models.baseline_base:MultinomialNaiveBayesBaseline loaded from /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/mnb_bow/full using base name SNLI_mnb_bow_full
+INFO:models.baseline_trainer:Extracting features for evaluation...
+INFO:models.baseline_base:Evaluating model on 9824 samples...
+INFO:models.baseline_base:Prediction finished in 0.00 seconds.
+INFO:models.baseline_base:Evaluation Metrics - Accuracy: 0.6046, Precision: 0.6073, Recall: 0.6046, F1: 0.6044
+INFO:models.baseline_trainer:Evaluation results for mnb_bow: {'accuracy': 0.6046416938110749, 'precision': 0.607261165278468, 'recall': 0.6046416938110749, 'f1': 0.6043559802371331}
+INFO:__main__:Training finished. Results: {'mnb_bow': {'accuracy': 0.5977443609022557, 'precision': 0.6008471406922848, 'recall': 0.5977443609022557, 'f1': 0.5972598127239008, 'eval_time': 0.002492189407348633, 'train_time': 0.053698062896728516}}
+Python script finished with exit code 0 for Task ID 3
+------------------------------------------------
+Job Task 3 finished.
+Total Runtime: 37 seconds
+------------------------------------------------

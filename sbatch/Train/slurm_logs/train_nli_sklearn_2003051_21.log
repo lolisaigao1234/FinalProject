@@ -1,0 +1,39 @@
+------------------------------------------------
+SLURM Job ID: 2003172
+SLURM Array Job ID: 2003051
+SLURM Array Task ID: 21
+Running on host: ccc0361.campuscluster.illinois.edu
+Node allocated: ccc0361
+Requested CPUs: 16
+Requested Memory: M
+Running Dataset: MNLI
+Running Experiment: cross_eval_syntactic_exp7
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated.
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for MNLI / cross_eval_syntactic_exp7 (Task ID 21)...
+INFO:__main__:Running in train mode on MNLI dataset
+INFO:__main__:Using device: cpu
+INFO:__main__:Selected model type: cross_eval_syntactic_exp7
+INFO:__main__:Using sample size: 100
+INFO:__main__:Initializing special experiment runner for: cross_eval_syntactic_exp7, dataset: MNLI
+INFO:__main__:Starting cross_eval_syntactic_exp7 run...
+INFO:models.cross_eval_syntactic_experiment_7:===== Starting Experiment 7 for MNLI (sample100) =====
+INFO:models.cross_eval_syntactic_experiment_7:Exp7: Loading precomputed features for MNLI/train/sample100
+WARNING:utils.database:Final feature file not found at /scratch/jywu3/IS567FP/cache/parquet/MNLI_train_features_lexical_syntactic_sample100.parquet. Checking intermediate paths...
+WARNING:utils.database:No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/MNLI/train/MNLI_train_features_lexical_syntactic_sample100.parquet or final path for table 'MNLI_train_features_lexical_syntactic_sample100'.
+ERROR:models.cross_eval_syntactic_experiment_7:Loaded empty features DataFrame for MNLI_train_features_lexical_syntactic_sample100.
+INFO:models.cross_eval_syntactic_experiment_7:Exp7: Loading precomputed features for MNLI/validation/sample100
+WARNING:utils.database:Final feature file not found at /scratch/jywu3/IS567FP/cache/parquet/MNLI_validation_features_lexical_syntactic_sample100.parquet. Checking intermediate paths...
+WARNING:utils.database:No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/MNLI/validation/MNLI_validation_features_lexical_syntactic_sample100.parquet or final path for table 'MNLI_validation_features_lexical_syntactic_sample100'.
+ERROR:models.cross_eval_syntactic_experiment_7:Loaded empty features DataFrame for MNLI_validation_features_lexical_syntactic_sample100.
+ERROR:models.cross_eval_syntactic_experiment_7:Failed to load training data. Aborting Experiment 7.
+INFO:__main__:cross_eval_syntactic_exp7 finished. Overall Results Summary:
+INFO:__main__:  - Config: error, Result: Training data failed to load.
+Python script finished with exit code 0 for Task ID 21
+------------------------------------------------
+Job Task 21 finished.
+Total Runtime: 10 seconds
+------------------------------------------------

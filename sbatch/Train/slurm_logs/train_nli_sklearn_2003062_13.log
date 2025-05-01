@@ -1,0 +1,52 @@
+------------------------------------------------
+SLURM Job ID: 2005601
+SLURM Array Job ID: 2003062
+SLURM Array Task ID: 13
+Running on host: ccc0288.campuscluster.illinois.edu
+Node allocated: ccc0288
+Requested CPUs: 16
+Requested Memory: M
+Running Dataset: MNLI
+Running Experiment: logistic_tfidf
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated.
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for MNLI / logistic_tfidf (Task ID 13)...
+INFO:__main__:Running in train mode on MNLI dataset
+INFO:__main__:Using device: cpu
+INFO:__main__:Selected model type: logistic_tfidf
+INFO:__main__:Processing full dataset (no sample size specified).
+INFO:__main__:Initializing BaselineTrainer for model: logistic_tfidf, dataset: MNLI
+INFO:__main__:Starting training process...
+INFO:models.baseline_trainer:Trainer loading data for logistic_tfidf on MNLI (full)
+INFO:models.baseline_trainer:Loading raw text data for logistic_tfidf
+INFO:models.baseline_base:Attempting to load intermediate raw text data: MNLI/train/full
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/train/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/train/sentences_full.parquet
+INFO:models.baseline_base:Merging intermediate pairs and sentences data...
+INFO:models.baseline_base:Successfully loaded and merged intermediate data. Shape after merge: (392702, 4)
+INFO:models.baseline_base:Attempting to load intermediate raw text data: MNLI/validation/full
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/validation/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/validation/sentences_full.parquet
+INFO:models.baseline_base:Merging intermediate pairs and sentences data...
+INFO:models.baseline_base:Successfully loaded and merged intermediate data. Shape after merge: (9815, 4)
+INFO:models.baseline_base:Attempting to load intermediate raw text data: MNLI/test/full
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/test/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/test/sentences_full.parquet
+INFO:models.baseline_base:Merging intermediate pairs and sentences data...
+INFO:models.baseline_base:Successfully loaded and merged intermediate data. Shape after merge: (9832, 4)
+INFO:models.baseline_trainer:Initializing model: logistic_tfidf
+INFO:models.baseline_trainer:Handling logistic_tfidf. Using raw text data.
+INFO:models.baseline_trainer:Fitting feature extractor...
+INFO:models.baseline_base:Fitting TfidfVectorizer on 392702 combined texts...
+INFO:models.baseline_base:TfidfVectorizer fitted. Vocabulary size: 10000
+INFO:models.baseline_trainer:Transforming training data...
+/var/spool/slurmd/job2005601/slurm_script: line 96: 859141 Killed                  python -u main.py --dataset "$CURRENT_DATASET" --mode train --model_type "$CURRENT_EXPERIMENT"
+Python script finished with exit code 137 for Task ID 13
+------------------------------------------------
+Job Task 13 finished.
+Total Runtime: 62 seconds
+------------------------------------------------
+slurmstepd: error: Detected 1 oom_kill event in StepId=2005601.batch. Some of the step tasks have been OOM Killed.

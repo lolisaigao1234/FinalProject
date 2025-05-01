@@ -1,0 +1,84 @@
+------------------------------------------------
+SLURM Job ID: 2005948
+SLURM Array Job ID: 2003062
+SLURM Array Task ID: 18
+Running on host: ccc0291.campuscluster.illinois.edu
+Node allocated: ccc0291
+Requested CPUs: 16
+Requested Memory: M
+Running Dataset: MNLI
+Running Experiment: mnb_bow_syntactic_exp4
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated.
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for MNLI / mnb_bow_syntactic_exp4 (Task ID 18)...
+INFO:__main__:Running in train mode on MNLI dataset
+INFO:__main__:Using device: cpu
+INFO:__main__:Selected model type: mnb_bow_syntactic_exp4
+INFO:__main__:Processing full dataset (no sample size specified).
+INFO:__main__:Initializing BaselineTrainer for model: mnb_bow_syntactic_exp4, dataset: MNLI
+INFO:__main__:Starting training process...
+INFO:models.baseline_trainer:Handling training for internally loading model: mnb_bow_syntactic_exp4
+INFO:models.baseline_trainer:Initializing model: mnb_bow_syntactic_exp4
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Starting Exp4 training for MNLI/train/full
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Loading data for MNLI/train (suffix: full)
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/train/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/train/sentences_full.parquet
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Successfully loaded and merged text data. Shape: (392702, 4)
+INFO:utils.database:Loading final features data from /scratch/jywu3/IS567FP/cache/parquet/MNLI_train_features_lexical_syntactic_full.parquet
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Successfully loaded precomputed features. Shape: (392702, 293)
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Keeping 245 syntactic features.
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Merged text and syntactic features: 392702 rows.
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Building feature pipeline...
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Adding MinMaxScaler for syntactic features.
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Feature pipeline built.
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Fitting feature pipeline on training data...
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Training data transformed. Shape: (392702, 10245)
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Training Multinomial Naive Bayes model...
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Model training completed in 25.56s.
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Loading and evaluating on validation data: MNLI/validation/full
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Loading data for MNLI/validation (suffix: full)
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/validation/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/validation/sentences_full.parquet
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Successfully loaded and merged text data. Shape: (9815, 4)
+INFO:utils.database:Loading final features data from /scratch/jywu3/IS567FP/cache/parquet/MNLI_validation_features_lexical_syntactic_full.parquet
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Successfully loaded precomputed features. Shape: (9815, 289)
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Keeping 241 syntactic features.
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Merged text and syntactic features: 9815 rows.
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Transforming validation data...
+WARNING:models.multinomial_naive_bayes_bow_syntactic_experiment_4:FeatureSelector: Columns ['diff_dep_deprel_goeswith', 'hypothesis_dep_deprel_list', 'hypothesis_dep_deprel_reparandum', 'premise_dep_deprel_goeswith'] not found during transform. Adding columns with 0.
+/u/jywu3/.conda/envs/IS567/lib/python3.12/site-packages/sklearn/pipeline.py:62: FutureWarning: This Pipeline instance is not fitted yet. Call 'fit' with appropriate arguments before using other methods such as transform, predict, etc. This will raise an error in 1.8 instead of the current warning.
+  warnings.warn(
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Evaluating model on validation data...
+INFO:models.baseline_base:Evaluating model on 9815 samples...
+INFO:models.baseline_base:Prediction finished in 0.00 seconds.
+INFO:models.baseline_base:Evaluation Metrics - Accuracy: 0.4595, Precision: 0.4607, Recall: 0.4595, F1: 0.4595
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Saving Exp4 model to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/mnb_bow_syntactic_exp4/full/MNLI_mnb_bow_syntactic_exp4_full_model.joblib, pipeline to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/mnb_bow_syntactic_exp4/full/MNLI_mnb_bow_syntactic_exp4_full_pipeline.joblib, metadata to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/mnb_bow_syntactic_exp4/full/MNLI_mnb_bow_syntactic_exp4_full_metadata.joblib
+INFO:models.baseline_trainer:Starting evaluation: Model=mnb_bow_syntactic_exp4, Dataset=MNLI, Suffix=full
+INFO:models.baseline_trainer:Loading mnb_bow_syntactic_exp4 model from base path /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/mnb_bow_syntactic_exp4/full/MNLI_mnb_bow_syntactic_exp4_full for evaluation...
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Loading Exp4 model from /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/mnb_bow_syntactic_exp4/full/MNLI_mnb_bow_syntactic_exp4_full_model.joblib, pipeline from /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/mnb_bow_syntactic_exp4/full/MNLI_mnb_bow_syntactic_exp4_full_pipeline.joblib, metadata from /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/mnb_bow_syntactic_exp4/full/MNLI_mnb_bow_syntactic_exp4_full_metadata.joblib
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4 Model loaded successfully.
+INFO:models.baseline_trainer:Triggering internal evaluation for mnb_bow_syntactic_exp4...
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Loading data for MNLI/test (suffix: full)
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/test/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/test/sentences_full.parquet
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Successfully loaded and merged text data. Shape: (9832, 4)
+INFO:utils.database:Loading final features data from /scratch/jywu3/IS567FP/cache/parquet/MNLI_test_features_lexical_syntactic_full.parquet
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Successfully loaded precomputed features. Shape: (9832, 286)
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Keeping 238 syntactic features.
+INFO:models.multinomial_naive_bayes_bow_syntactic_experiment_4:Exp4: Merged text and syntactic features: 9832 rows.
+WARNING:models.multinomial_naive_bayes_bow_syntactic_experiment_4:FeatureSelector: Columns ['diff_dep_deprel_csubj:outer', 'diff_dep_deprel_goeswith', 'hypothesis_dep_deprel_csubj:outer', 'hypothesis_dep_deprel_orphan', 'hypothesis_dep_deprel_reparandum', 'premise_dep_deprel_csubj:outer', 'premise_dep_deprel_goeswith'] not found during transform. Adding columns with 0.
+/u/jywu3/.conda/envs/IS567/lib/python3.12/site-packages/sklearn/pipeline.py:62: FutureWarning: This Pipeline instance is not fitted yet. Call 'fit' with appropriate arguments before using other methods such as transform, predict, etc. This will raise an error in 1.8 instead of the current warning.
+  warnings.warn(
+INFO:models.baseline_base:Evaluating model on 9832 samples...
+INFO:models.baseline_base:Prediction finished in 0.00 seconds.
+INFO:models.baseline_base:Evaluation Metrics - Accuracy: 0.4620, Precision: 0.4679, Recall: 0.4620, F1: 0.4613
+INFO:models.baseline_trainer:Evaluation results for mnb_bow_syntactic_exp4: {'accuracy': 0.46196094385679415, 'precision': 0.4679339757867016, 'recall': 0.46196094385679415, 'f1': 0.4613215481295507}
+INFO:__main__:Training finished. Results: {'mnb_bow_syntactic_exp4': {'train_time': 25.557735204696655, 'accuracy': 0.45950076413652574, 'precision': 0.46074565177911203, 'recall': 0.45950076413652574, 'f1': 0.4595447715977086, 'eval_time': 0.00411677360534668}}
+Python script finished with exit code 0 for Task ID 18
+------------------------------------------------
+Job Task 18 finished.
+Total Runtime: 54 seconds
+------------------------------------------------

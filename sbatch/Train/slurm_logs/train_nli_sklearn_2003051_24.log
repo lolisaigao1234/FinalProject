@@ -1,0 +1,82 @@
+------------------------------------------------
+SLURM Job ID: 2003177
+SLURM Array Job ID: 2003051
+SLURM Array Task ID: 24
+Running on host: ccc0361.campuscluster.illinois.edu
+Node allocated: ccc0361
+Requested CPUs: 16
+Requested Memory: M
+Running Dataset: ANLI
+Running Experiment: logistic_tfidf
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated.
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for ANLI / logistic_tfidf (Task ID 24)...
+INFO:__main__:Running in train mode on ANLI dataset
+INFO:__main__:Using device: cpu
+INFO:__main__:Selected model type: logistic_tfidf
+INFO:__main__:Using sample size: 100
+INFO:__main__:Initializing BaselineTrainer for model: logistic_tfidf, dataset: ANLI
+INFO:__main__:Starting training process...
+INFO:models.baseline_trainer:Trainer loading data for logistic_tfidf on ANLI (sample100)
+INFO:models.baseline_trainer:Loading raw text data for logistic_tfidf
+INFO:models.baseline_base:Attempting to load intermediate raw text data: ANLI/train/sample100
+WARNING:utils.database:No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/ANLI/train/pairs_sample100.parquet or final path for table 'pairs_sample100'.
+WARNING:utils.database:No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/ANLI/train/sentences_sample100.parquet or final path for table 'sentences_sample100'.
+WARNING:models.baseline_base:Intermediate data (pairs_sample100 or sentences_sample100) not found or empty. Falling back to original data loader.
+WARNING:models.baseline_base:Executing fallback: Loading original raw data using DatasetLoader.
+INFO:data.data_loader:Loading dataset: ANLI (HF: facebook/anli), Split: train
+INFO:data.data_loader:Loading raw ANLI/train from DB table: raw_data_full
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/ANLI/train/raw_data_full.parquet
+INFO:data.data_loader:Loaded 162865 examples for ANLI/train
+INFO:models.baseline_base:Fallback data loaded successfully. Shape: (162865, 8)
+INFO:models.baseline_base:Attempting to load intermediate raw text data: ANLI/validation/sample100
+WARNING:utils.database:No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/ANLI/validation/pairs_sample100.parquet or final path for table 'pairs_sample100'.
+WARNING:utils.database:No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/ANLI/validation/sentences_sample100.parquet or final path for table 'sentences_sample100'.
+WARNING:models.baseline_base:Intermediate data (pairs_sample100 or sentences_sample100) not found or empty. Falling back to original data loader.
+WARNING:models.baseline_base:Executing fallback: Loading original raw data using DatasetLoader.
+INFO:data.data_loader:Loading dataset: ANLI (HF: facebook/anli), Split: validation
+INFO:data.data_loader:Loading raw ANLI/validation from DB table: raw_data_full
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/ANLI/validation/raw_data_full.parquet
+INFO:data.data_loader:Loaded 3200 examples for ANLI/validation
+INFO:models.baseline_base:Fallback data loaded successfully. Shape: (3200, 8)
+INFO:models.baseline_base:Attempting to load intermediate raw text data: ANLI/test/sample100
+WARNING:utils.database:No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/ANLI/test/pairs_sample100.parquet or final path for table 'pairs_sample100'.
+WARNING:utils.database:No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/ANLI/test/sentences_sample100.parquet or final path for table 'sentences_sample100'.
+WARNING:models.baseline_base:Intermediate data (pairs_sample100 or sentences_sample100) not found or empty. Falling back to original data loader.
+WARNING:models.baseline_base:Executing fallback: Loading original raw data using DatasetLoader.
+INFO:data.data_loader:Loading dataset: ANLI (HF: facebook/anli), Split: test
+INFO:data.data_loader:Loading raw ANLI/test from DB table: raw_data_full
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/ANLI/test/raw_data_full.parquet
+INFO:data.data_loader:Loaded 3200 examples for ANLI/test
+INFO:models.baseline_base:Fallback data loaded successfully. Shape: (3200, 8)
+INFO:models.baseline_trainer:Initializing model: logistic_tfidf
+INFO:models.baseline_trainer:Handling logistic_tfidf. Using raw text data.
+INFO:models.baseline_trainer:Fitting feature extractor...
+INFO:models.baseline_base:Fitting TfidfVectorizer on 162865 combined texts...
+INFO:models.baseline_base:TfidfVectorizer fitted. Vocabulary size: 10000
+INFO:models.baseline_trainer:Transforming training data...
+INFO:models.baseline_base:Training LogisticRegression with 162865 samples...
+INFO:models.baseline_base:LogisticRegression training complete.
+INFO:models.baseline_trainer:Evaluating on validation data...
+INFO:models.baseline_base:Evaluating model on 3200 samples...
+INFO:models.baseline_base:Prediction finished in 0.08 seconds.
+INFO:models.baseline_base:Evaluation Metrics - Accuracy: 0.3409, Precision: 0.3371, Recall: 0.3409, F1: 0.3310
+INFO:models.baseline_base:LogisticRegression model saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/logistic_tfidf/sample100/ANLI_logistic_tfidf_sample100_model.joblib
+INFO:models.baseline_base:Feature extractor (TFIDFExtractor) saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/logistic_tfidf/sample100/ANLI_logistic_tfidf_sample100_extractor.joblib
+INFO:models.baseline_trainer:Starting evaluation: Model=logistic_tfidf, Dataset=ANLI, Suffix=sample100
+INFO:models.baseline_trainer:Loading logistic_tfidf model from base path /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/logistic_tfidf/sample100/ANLI_logistic_tfidf_sample100 for evaluation...
+INFO:models.baseline_base:LogisticTFIDFBaseline loaded from /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/logistic_tfidf/sample100 using base name ANLI_logistic_tfidf_sample100
+INFO:models.baseline_trainer:Extracting features for evaluation...
+INFO:models.baseline_base:Evaluating model on 3200 samples...
+INFO:models.baseline_base:Prediction finished in 0.03 seconds.
+INFO:models.baseline_base:Evaluation Metrics - Accuracy: 0.3509, Precision: 0.3455, Recall: 0.3509, F1: 0.3422
+INFO:models.baseline_trainer:Evaluation results for logistic_tfidf: {'accuracy': 0.3509375, 'precision': 0.3454946475416415, 'recall': 0.3509375, 'f1': 0.34219054730145443}
+INFO:__main__:Training finished. Results: {'logistic_tfidf': {'accuracy': 0.3409375, 'precision': 0.3370717278993179, 'recall': 0.3409375, 'f1': 0.33100726832289346, 'eval_time': 0.08363485336303711, 'train_time': 16.785121202468872}}
+Python script finished with exit code 0 for Task ID 24
+------------------------------------------------
+Job Task 24 finished.
+Total Runtime: 58 seconds
+------------------------------------------------

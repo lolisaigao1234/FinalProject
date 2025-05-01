@@ -1,0 +1,84 @@
+------------------------------------------------
+SLURM Job ID: 2003960
+SLURM Array Job ID: 2003062
+SLURM Array Task ID: 6
+Running on host: ccc0288.campuscluster.illinois.edu
+Node allocated: ccc0288
+Requested CPUs: 16
+Requested Memory: M
+Running Dataset: SNLI
+Running Experiment: logistic_tfidf_syntactic_exp3
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated.
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for SNLI / logistic_tfidf_syntactic_exp3 (Task ID 6)...
+INFO:__main__:Running in train mode on SNLI dataset
+INFO:__main__:Using device: cpu
+INFO:__main__:Selected model type: logistic_tfidf_syntactic_exp3
+INFO:__main__:Processing full dataset (no sample size specified).
+INFO:__main__:Initializing BaselineTrainer for model: logistic_tfidf_syntactic_exp3, dataset: SNLI
+INFO:__main__:Starting training process...
+INFO:models.baseline_trainer:Handling training for internally loading model: logistic_tfidf_syntactic_exp3
+INFO:models.baseline_trainer:Initializing model: logistic_tfidf_syntactic_exp3
+INFO:models.logistic_tfidf_syntactic_experiment_3:Starting Exp3 training for SNLI/train/full
+INFO:models.logistic_tfidf_syntactic_experiment_3:Exp3: Loading data for SNLI/train (suffix: full)
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/sentences_full.parquet
+INFO:models.logistic_tfidf_syntactic_experiment_3:Successfully loaded and merged text data. Shape: (549367, 4)
+INFO:utils.database:Loading final features data from /scratch/jywu3/IS567FP/cache/parquet/SNLI_train_features_lexical_syntactic_full.parquet
+INFO:models.logistic_tfidf_syntactic_experiment_3:Successfully loaded precomputed features. Shape: (549367, 288)
+INFO:models.logistic_tfidf_syntactic_experiment_3:Merged text and features: 549367 rows.
+INFO:models.logistic_tfidf_syntactic_experiment_3:Building feature pipeline...
+INFO:models.logistic_tfidf_syntactic_experiment_3:Identified 240 syntactic feature columns for pipeline.
+INFO:models.logistic_tfidf_syntactic_experiment_3:Feature pipeline built.
+INFO:models.logistic_tfidf_syntactic_experiment_3:Fitting feature pipeline on training data...
+INFO:models.logistic_tfidf_syntactic_experiment_3:FeatureSelector fit: All 240 potential columns were found in the training data.
+INFO:models.logistic_tfidf_syntactic_experiment_3:Training data transformed. Shape: (549367, 10240)
+INFO:models.logistic_tfidf_syntactic_experiment_3:Training Logistic Regression model...
+/u/jywu3/.conda/envs/IS567/lib/python3.12/site-packages/sklearn/svm/_base.py:1249: ConvergenceWarning: Liblinear failed to converge, increase the number of iterations.
+  warnings.warn(
+INFO:models.logistic_tfidf_syntactic_experiment_3:Model training completed in 5269.85s.
+INFO:models.logistic_tfidf_syntactic_experiment_3:Loading and evaluating on validation data: SNLI/validation/full
+INFO:models.logistic_tfidf_syntactic_experiment_3:Exp3: Loading data for SNLI/validation (suffix: full)
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/validation/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/validation/sentences_full.parquet
+INFO:models.logistic_tfidf_syntactic_experiment_3:Successfully loaded and merged text data. Shape: (9842, 4)
+INFO:utils.database:Loading final features data from /scratch/jywu3/IS567FP/cache/parquet/SNLI_validation_features_lexical_syntactic_full.parquet
+INFO:models.logistic_tfidf_syntactic_experiment_3:Successfully loaded precomputed features. Shape: (9842, 274)
+INFO:models.logistic_tfidf_syntactic_experiment_3:Merged text and features: 9842 rows.
+INFO:models.logistic_tfidf_syntactic_experiment_3:Transforming validation data...
+WARNING:models.logistic_tfidf_syntactic_experiment_3:FeatureSelector transform: Columns {'hypothesis_dep_deprel_dislocated', 'diff_dep_deprel_list', 'hypothesis_dep_deprel_csubj:pass', 'hypothesis_dep_pos_X', 'premise_dep_deprel_dep', 'premise_dep_deprel_vocative', 'diff_dep_deprel_csubj:outer', 'hypothesis_dep_deprel_csubj:outer', 'diff_dep_pos_X', 'premise_dep_deprel_nsubj:outer', 'hypothesis_dep_deprel_orphan', 'diff_dep_deprel_csubj:pass', 'premise_dep_pos_X', 'hypothesis_dep_deprel_list'} (seen during fit) are missing in the data being transformed. Adding these columns with 0.
+INFO:models.logistic_tfidf_syntactic_experiment_3:Evaluating model on validation data...
+INFO:models.baseline_base:Evaluating model on 9842 samples...
+INFO:models.baseline_base:Prediction finished in 0.00 seconds.
+INFO:models.baseline_base:Evaluation Metrics - Accuracy: 0.6405, Precision: 0.6408, Recall: 0.6405, F1: 0.6402
+INFO:models.logistic_tfidf_syntactic_experiment_3:Saving Exp3 model to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/logistic_tfidf_syntactic_exp3/full/SNLI_logistic_tfidf_syntactic_exp3_full_model.joblib
+INFO:models.logistic_tfidf_syntactic_experiment_3:Saving Exp3 pipeline to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/logistic_tfidf_syntactic_exp3/full/SNLI_logistic_tfidf_syntactic_exp3_full_pipeline.joblib
+INFO:models.logistic_tfidf_syntactic_experiment_3:Saving Exp3 metadata to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/logistic_tfidf_syntactic_exp3/full/SNLI_logistic_tfidf_syntactic_exp3_full_metadata.joblib
+INFO:models.baseline_trainer:Starting evaluation: Model=logistic_tfidf_syntactic_exp3, Dataset=SNLI, Suffix=full
+INFO:models.baseline_trainer:Loading logistic_tfidf_syntactic_exp3 model from base path /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/logistic_tfidf_syntactic_exp3/full/SNLI_logistic_tfidf_syntactic_exp3_full for evaluation...
+INFO:models.logistic_tfidf_syntactic_experiment_3:Loading Exp3 model from /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/logistic_tfidf_syntactic_exp3/full/SNLI_logistic_tfidf_syntactic_exp3_full_model.joblib
+INFO:models.logistic_tfidf_syntactic_experiment_3:Loading Exp3 pipeline from /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/logistic_tfidf_syntactic_exp3/full/SNLI_logistic_tfidf_syntactic_exp3_full_pipeline.joblib
+INFO:models.logistic_tfidf_syntactic_experiment_3:Loading Exp3 metadata from /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/logistic_tfidf_syntactic_exp3/full/SNLI_logistic_tfidf_syntactic_exp3_full_metadata.joblib
+INFO:models.logistic_tfidf_syntactic_experiment_3:Exp3 Model loaded successfully.
+INFO:models.baseline_trainer:Triggering internal evaluation for logistic_tfidf_syntactic_exp3...
+INFO:models.logistic_tfidf_syntactic_experiment_3:Exp3: Loading data for SNLI/test (suffix: full)
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/test/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/test/sentences_full.parquet
+INFO:models.logistic_tfidf_syntactic_experiment_3:Successfully loaded and merged text data. Shape: (9824, 4)
+INFO:utils.database:Loading final features data from /scratch/jywu3/IS567FP/cache/parquet/SNLI_test_features_lexical_syntactic_full.parquet
+INFO:models.logistic_tfidf_syntactic_experiment_3:Successfully loaded precomputed features. Shape: (9824, 280)
+INFO:models.logistic_tfidf_syntactic_experiment_3:Merged text and features: 9824 rows.
+WARNING:models.logistic_tfidf_syntactic_experiment_3:FeatureSelector transform: Columns {'diff_dep_deprel_list', 'hypothesis_dep_deprel_csubj:pass', 'premise_dep_pos_SYM', 'premise_dep_deprel_dislocated', 'hypothesis_dep_deprel_orphan', 'diff_dep_deprel_csubj:pass', 'premise_dep_pos_X', 'hypothesis_dep_deprel_list'} (seen during fit) are missing in the data being transformed. Adding these columns with 0.
+INFO:models.baseline_base:Evaluating model on 9824 samples...
+INFO:models.baseline_base:Prediction finished in 0.00 seconds.
+INFO:models.baseline_base:Evaluation Metrics - Accuracy: 0.6361, Precision: 0.6359, Recall: 0.6361, F1: 0.6353
+INFO:models.baseline_trainer:Evaluation results for logistic_tfidf_syntactic_exp3: {'accuracy': 0.6360952768729642, 'precision': 0.6359478629157627, 'recall': 0.6360952768729642, 'f1': 0.6353133226535354}
+INFO:__main__:Training finished. Results: {'logistic_tfidf_syntactic_exp3': {'train_time': 5269.85328745842, 'accuracy': 0.6405202194675879, 'precision': 0.6408146996453307, 'recall': 0.6405202194675879, 'f1': 0.6401870720488644, 'eval_time': 0.004167318344116211}}
+Python script finished with exit code 0 for Task ID 6
+------------------------------------------------
+Job Task 6 finished.
+Total Runtime: 5312 seconds
+------------------------------------------------

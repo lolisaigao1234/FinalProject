@@ -1,0 +1,32 @@
+------------------------------------------------
+SLURM Job ID: 2003198
+SLURM Array Job ID: 2003062
+SLURM Array Task ID: 4
+Running on host: ccc0367.campuscluster.illinois.edu
+Node allocated: ccc0367
+Requested CPUs: 16
+Requested Memory: M
+Running Dataset: SNLI
+Running Experiment: svm_syntactic_exp1
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated.
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for SNLI / svm_syntactic_exp1 (Task ID 4)...
+INFO:__main__:Running in train mode on SNLI dataset
+INFO:__main__:Using device: cpu
+INFO:__main__:Selected model type: svm_syntactic_exp1
+INFO:__main__:Processing full dataset (no sample size specified).
+INFO:__main__:Initializing BaselineTrainer for model: svm_syntactic_exp1, dataset: SNLI
+INFO:__main__:Starting training process...
+INFO:models.baseline_trainer:Trainer loading data for svm_syntactic_exp1 on SNLI (full)
+INFO:models.baseline_trainer:Loading precomputed features using base: features_lexical_syntactic_full
+INFO:utils.database:Loading final features data from /scratch/jywu3/IS567FP/cache/parquet/SNLI_train_features_lexical_syntactic_full.parquet
+INFO:utils.database:Loading final features data from /scratch/jywu3/IS567FP/cache/parquet/SNLI_validation_features_lexical_syntactic_full.parquet
+INFO:utils.database:Loading final features data from /scratch/jywu3/IS567FP/cache/parquet/SNLI_test_features_lexical_syntactic_full.parquet
+INFO:models.baseline_trainer:Initializing model: svm_syntactic_exp1
+INFO:models.svm_hand_crafted_syntactic_features_experiment_1:Initializing Experiment 1 SVM with Syntactic Features (Kernel: linear, C: 1.0)
+INFO:models.baseline_trainer:Handling svm_syntactic_exp1. Using precomputed features.
+INFO:models.svm_bow_baseline:Storing 240 feature columns used for training.
+INFO:models.svm_bow_baseline:Training SVM (linear, C=1.0) with 549367 samples, 240 features

@@ -1,0 +1,67 @@
+------------------------------------------------
+SLURM Job ID: 2007136
+SLURM Array Job ID: 2003062
+SLURM Array Task ID: 24
+Running on host: ccc0293.campuscluster.illinois.edu
+Node allocated: ccc0293
+Requested CPUs: 16
+Requested Memory: M
+Running Dataset: ANLI
+Running Experiment: logistic_tfidf
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated.
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for ANLI / logistic_tfidf (Task ID 24)...
+INFO:__main__:Running in train mode on ANLI dataset
+INFO:__main__:Using device: cpu
+INFO:__main__:Selected model type: logistic_tfidf
+INFO:__main__:Processing full dataset (no sample size specified).
+INFO:__main__:Initializing BaselineTrainer for model: logistic_tfidf, dataset: ANLI
+INFO:__main__:Starting training process...
+INFO:models.baseline_trainer:Trainer loading data for logistic_tfidf on ANLI (full)
+INFO:models.baseline_trainer:Loading raw text data for logistic_tfidf
+INFO:models.baseline_base:Attempting to load intermediate raw text data: ANLI/train/full
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/ANLI/train/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/ANLI/train/sentences_full.parquet
+INFO:models.baseline_base:Merging intermediate pairs and sentences data...
+INFO:models.baseline_base:Successfully loaded and merged intermediate data. Shape after merge: (162865, 4)
+INFO:models.baseline_base:Attempting to load intermediate raw text data: ANLI/validation/full
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/ANLI/validation/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/ANLI/validation/sentences_full.parquet
+INFO:models.baseline_base:Merging intermediate pairs and sentences data...
+INFO:models.baseline_base:Successfully loaded and merged intermediate data. Shape after merge: (3200, 4)
+INFO:models.baseline_base:Attempting to load intermediate raw text data: ANLI/test/full
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/ANLI/test/pairs_full.parquet
+INFO:utils.database:Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/ANLI/test/sentences_full.parquet
+INFO:models.baseline_base:Merging intermediate pairs and sentences data...
+INFO:models.baseline_base:Successfully loaded and merged intermediate data. Shape after merge: (3200, 4)
+INFO:models.baseline_trainer:Initializing model: logistic_tfidf
+INFO:models.baseline_trainer:Handling logistic_tfidf. Using raw text data.
+INFO:models.baseline_trainer:Fitting feature extractor...
+INFO:models.baseline_base:Fitting TfidfVectorizer on 162865 combined texts...
+INFO:models.baseline_base:TfidfVectorizer fitted. Vocabulary size: 10000
+INFO:models.baseline_trainer:Transforming training data...
+INFO:models.baseline_base:Training LogisticRegression with 162865 samples...
+INFO:models.baseline_base:LogisticRegression training complete.
+INFO:models.baseline_trainer:Evaluating on validation data...
+INFO:models.baseline_base:Evaluating model on 3200 samples...
+INFO:models.baseline_base:Prediction finished in 0.10 seconds.
+INFO:models.baseline_base:Evaluation Metrics - Accuracy: 0.3409, Precision: 0.3371, Recall: 0.3409, F1: 0.3310
+INFO:models.baseline_base:LogisticRegression model saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/logistic_tfidf/full/ANLI_logistic_tfidf_full_model.joblib
+INFO:models.baseline_base:Feature extractor (TFIDFExtractor) saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/logistic_tfidf/full/ANLI_logistic_tfidf_full_extractor.joblib
+INFO:models.baseline_trainer:Starting evaluation: Model=logistic_tfidf, Dataset=ANLI, Suffix=full
+INFO:models.baseline_trainer:Loading logistic_tfidf model from base path /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/logistic_tfidf/full/ANLI_logistic_tfidf_full for evaluation...
+INFO:models.baseline_base:LogisticTFIDFBaseline loaded from /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/logistic_tfidf/full using base name ANLI_logistic_tfidf_full
+INFO:models.baseline_trainer:Extracting features for evaluation...
+INFO:models.baseline_base:Evaluating model on 3200 samples...
+INFO:models.baseline_base:Prediction finished in 0.06 seconds.
+INFO:models.baseline_base:Evaluation Metrics - Accuracy: 0.3509, Precision: 0.3455, Recall: 0.3509, F1: 0.3422
+INFO:models.baseline_trainer:Evaluation results for logistic_tfidf: {'accuracy': 0.3509375, 'precision': 0.3454946475416415, 'recall': 0.3509375, 'f1': 0.34219054730145443}
+INFO:__main__:Training finished. Results: {'logistic_tfidf': {'accuracy': 0.3409375, 'precision': 0.3370717278993179, 'recall': 0.3409375, 'f1': 0.33100726832289346, 'eval_time': 0.10231518745422363, 'train_time': 17.315417289733887}}
+Python script finished with exit code 0 for Task ID 24
+------------------------------------------------
+Job Task 24 finished.
+Total Runtime: 62 seconds
+------------------------------------------------

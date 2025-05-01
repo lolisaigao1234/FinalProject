@@ -1,0 +1,14 @@
+----------------------------------------
+Job started at: Thu May  1 05:36:51 CDT 2025
+Running in directory: /u/jywu3/scratch/IS567FP/sbatch/git_sync
+Target repository: /u/jywu3/scratch/IS567FP
+Target remote/branch: origin/main
+----------------------------------------
+Current git status:
+ M sbatch/git_sync/auto_git_sync.slurm
+?? sbatch/ANLI/preprocess_ANLI_1950249.log
+?? sbatch/MNLI/preprocess_MNLI_1950251.log
+?? sbatch/git_sync/auto_git_sync_2021063.err
+?? sbatch/git_sync/auto_git_sync_2021063.out
+Changes detected. Proceeding with add, commit, push.
+Running 'git add .'

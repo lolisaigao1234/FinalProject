@@ -7,6 +7,8 @@
 #SBATCH --nodes=1                   # Run on a single node
 #SBATCH --ntasks=1                  # Run a single task
 #SBATCH --cpus-per-task=1           # Use a single CPU
+#SBATCH --account=jywu3-ic                  # <<< YOUR ACCOUNT HERE >>>
+#SBATCH --partition=secondary
 
 # --- Script Configuration ---
 # !!! IMPORTANT: Set the correct path to your git repository !!!

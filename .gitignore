@@ -140,3 +140,7 @@ cython_debug/
 txt
 data_files
 saved_models
+.DS_Store
+data/.DS_Store
+/data
+data/.DS_Store

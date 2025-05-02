@@ -33,7 +33,7 @@ cd /u/jywu3/scratch/IS567FP || exit
 echo "Starting MNLI preprocessing job..."
 # Run preprocessing for MNLI dataset
 # The -u flag ensures unbuffered output, good for logging.
-python -u main.py --dataset MNLI --mode preprocess --fp16 # Added --fp16 based on config.py default
+python -u main.py --dataset MNLI --mode preprocess --fp16 --sample_size 10000 --force_reprocess # Added --fp16 based on config.py default
 
 echo "MNLI preprocessing job finished."
 

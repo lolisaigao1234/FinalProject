@@ -26,4 +26,4 @@ export TF_CPP_MIN_LOG_LEVEL=3     # Reduce TensorFlow logging (if used)
 cd /u/jywu3/scratch/IS567FP || exit
 
 # Run with optimizations
-python -u main.py --dataset SNLI --mode preprocess --sample_size 10000 --force_reprocess True
+python -u main.py --dataset SNLI --mode preprocess --sample_size 10000 --force_reprocess --fp16

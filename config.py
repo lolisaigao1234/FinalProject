@@ -75,16 +75,16 @@ EPOCHS = 5
 SYNTACTIC_FEATURE_DIM = 200
 
 # Ensure NUM_CLASSES is defined
-NUM_CLASSES = 3
-HIDDEN_SIZE = 768  # Typical BERT-base hidden size
-
-# Baseline Model optimization/parameters
-LEARNING_RATE = 3e-5  # Adjusted for larger batch size (for potential future neural models)
-WEIGHT_DECAY = 0.01
-EPOCHS = 5
-# Dimension of syntactic features extracted from Stanza parse trees
-# Note: This is the raw dimension before potential selection/scaling
-SYNTACTIC_FEATURE_DIM = 200  # This seems like a placeholder, the actual number of features generated might be different
+# NUM_CLASSES = 3
+# HIDDEN_SIZE = 768  # Typical BERT-base hidden size
+#
+# # Baseline Model optimization/parameters
+# LEARNING_RATE = 3e-5  # Adjusted for larger batch size (for potential future neural models)
+# WEIGHT_DECAY = 0.01
+# EPOCHS = 5
+# # Dimension of syntactic features extracted from Stanza parse trees
+# # Note: This is the raw dimension before potential selection/scaling
+# SYNTACTIC_FEATURE_DIM = 200  # This seems like a placeholder, the actual number of features generated might be different
 
 # Stanza settings
 STANZA_PROCESSORS = "tokenize,pos,lemma,depparse,constituency"

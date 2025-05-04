@@ -12,7 +12,7 @@ from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 # Use the existing NLIModel ABC from common.py as the ultimate base
 from utils.common import NLIModel
 from utils.database import DatabaseHandler
-from config import MODELS_DIR
+from config import MODELS_DIR, DATA_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -591,3 +591,26 @@ class FeatureBasedBaselineModel(ABC):
 #     precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted')
 #     logger.info(f"{model_name} - Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
 #     return {'accuracy': accuracy, 'precision': precision, 'recall': recall, 'f1': f1}
+
+class SimpleParquetLoader:
+    def load_data(self, dataset_name, split, suffix):
+        # Construct path - adjust based on where parquet files are stored
+        cache_dir = os.path.join(DATA_DIR, 'cache', 'parquet')  # Example cache dir
+        filename = f"{dataset_name}_{split}_{suffix}.parquet"
+        filepath = os.path.join(cache_dir, filename)
+        logger.info(f"Attempting to load parquet data from: {filepath}")
+        if not os.path.exists(filepath):
+            alt_filename = f"{dataset_name}_{split}_features_{suffix}.parquet"
+            alt_filepath = os.path.join(cache_dir, alt_filename)
+            if not os.path.exists(alt_filepath):
+                raise FileNotFoundError(f"Could not find parquet data at {filepath} or {alt_filepath}")
+            else:
+                filepath = alt_filepath
+
+        df = pd.read_parquet(filepath)
+        logger.info(f"Loaded {len(df)} rows from {filepath}")
+        req_cols = ['premise_text', 'hypothesis_text', 'label']  # Example, adjust if needed
+        if not all(col in df.columns for col in req_cols):
+            logger.error(f"Loaded parquet file {filepath} is missing required columns ({req_cols}). Available: {df.columns.tolist()}")
+            raise ValueError(f"Missing required columns in {filepath}")
+        return df

@@ -14,45 +14,9 @@ from sklearn.linear_model import LogisticRegression
 # Ensure TextBaselineModel exists and has expected structure (like inheriting NLIModel)
 from .baseline_base import TextBaselineModel, TextFeatureExtractorBase
 # Import evaluation helpers and data cleaning
-from .baseline_base import _evaluate_model_performance, clean_dataset
+from .baseline_base import clean_dataset, _evaluate_model_performance, SimpleParquetLoader # Import SimpleParquetLoader
 
 logger = logging.getLogger(__name__)
-
-# Define a simple loader for this context if not using DB handler directly
-# Example: Simple Parquet Loader (adjust path logic as needed)
-# --- REUSE OR ADAPT SimpleParquetLoader FROM PREVIOUS FIX ---
-from config import DATA_DIR # Import DATA_DIR if used by loader
-class SimpleParquetLoader:
-    def load_data(self, dataset_name, split, suffix):
-        # Construct path - adjust based on where parquet files are stored
-        # This might need to align with how FeatureExtractor saves features, or use a dedicated path
-        cache_dir = os.path.join(DATA_DIR, 'cache', 'parquet') # Example cache dir
-        # --- !!! IMPORTANT: Adjust filename pattern !!! ---
-        # Does TFIDF use a specific feature type name? Or just suffix?
-        # Example assuming a generic name based on suffix:
-        filename = f"{dataset_name}_{split}_{suffix}.parquet"
-        filepath = os.path.join(cache_dir, filename)
-        logger.info(f"Attempting to load parquet data from: {filepath}")
-        if not os.path.exists(filepath):
-             # Try alternative common naming convention if first fails
-             alt_filename = f"{dataset_name}_{split}_features_{suffix}.parquet"
-             alt_filepath = os.path.join(cache_dir, alt_filename)
-             if not os.path.exists(alt_filepath):
-                  raise FileNotFoundError(f"Could not find parquet data at {filepath} or {alt_filepath}")
-             else:
-                  filepath = alt_filepath
-
-
-        df = pd.read_parquet(filepath)
-        logger.info(f"Loaded {len(df)} rows from {filepath}")
-         # Ensure required columns are present after loading
-         # Adjust required columns based on TFIDFExtractor needs (e.g., premise_text)
-        req_cols = ['premise_text', 'hypothesis_text', 'label'] # Example, adjust if needed
-        if not all(col in df.columns for col in req_cols):
-            logger.error(f"Loaded parquet file {filepath} is missing required columns ({req_cols}). Available: {df.columns.tolist()}")
-            raise ValueError(f"Missing required columns in {filepath}")
-        return df
-# --- END SimpleParquetLoader ---
 
 
 class TFIDFExtractor(TextFeatureExtractorBase):

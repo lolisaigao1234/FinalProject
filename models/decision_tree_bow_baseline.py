@@ -12,49 +12,13 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.feature_extraction.text import CountVectorizer
 
 # Project-specific imports
-from utils.common import NLIModel  # Inherits directly from NLIModel
-# Ensure ParquetLoader is correctly imported if used for loading
-# Adjust if using a different loader mechanism tied to baseline_trainer
-# from data.data_loader import ParquetLoader # Assuming this loader works independently
-from utils.database import DatabaseHandler  # If loading parquet via db handler
-from config import MODELS_DIR, DATA_DIR  # For paths
+from utils.common import NLIModel
+from utils.database import DatabaseHandler
+
 # Import base utilities
-from .baseline_base import clean_dataset, _evaluate_model_performance
+from .baseline_base import clean_dataset, _evaluate_model_performance, SimpleParquetLoader  # Import SimpleParquetLoader
 
 logger = logging.getLogger(__name__)
-
-
-# Define a simple loader for this context if not using DB handler directly
-# Example: Simple Parquet Loader (adjust path logic as needed)
-class SimpleParquetLoader:
-    def load_data(self, dataset_name, split, suffix):
-        # Construct path - adjust based on where parquet files are stored
-        # This might need to align with how FeatureExtractor saves features, or use a dedicated path
-        cache_dir = os.path.join(DATA_DIR, 'cache', 'parquet')  # Example cache dir
-        filename = f"{dataset_name}_{split}_features_{suffix}.parquet"  # Example filename pattern
-        # NOTE: Adjust filename pattern if it's different (e.g., based on feature type name)
-        filepath = os.path.join(cache_dir, filename)
-        logger.info(f"Attempting to load parquet data from: {filepath}")
-        if not os.path.exists(filepath):
-            # Fallback: Try loading raw data if feature parquet doesn't exist?
-            # Or just raise error. For baseline assuming features exist.
-            alt_filename = f"{dataset_name}_{split}_{suffix}.parquet"  # Simpler name?
-            alt_filepath = os.path.join(cache_dir, alt_filename)
-            if not os.path.exists(alt_filepath):
-                raise FileNotFoundError(f"Could not find parquet data at {filepath} or {alt_filepath}")
-            else:
-                filepath = alt_filepath
-
-        df = pd.read_parquet(filepath)
-        logger.info(f"Loaded {len(df)} rows from {filepath}")
-        # Ensure required columns are present after loading
-        if 'premise' not in df.columns or 'hypothesis' not in df.columns or 'label' not in df.columns:
-            logger.error(f"Loaded parquet file {filepath} is missing required columns (premise, hypothesis, label).")
-            # Depending on structure, maybe load 'premise_text', 'hypothesis_text'?
-            # Adjust column names based on actual parquet content.
-            # Forcing an error if columns are strictly required:
-            raise ValueError(f"Missing required columns in {filepath}")
-        return df
 
 
 class DecisionTreeBowBaseline(NLIModel):  # Inherits NLIModel
@@ -75,7 +39,7 @@ class DecisionTreeBowBaseline(NLIModel):  # Inherits NLIModel
         self.is_trained = False
         # Use the simple loader for demonstration. Replace with DB Handler if appropriate
         self.loader = SimpleParquetLoader()
-        # self.db_handler = DatabaseHandler() # Or use DB Handler if needed
+        self.db_handler = DatabaseHandler() # Or use DB Handler if needed
 
     def _prepare_features(self, df: pd.DataFrame, fit_vectorizer: bool = False) -> Optional[np.ndarray]:
         """Prepares BoW features from premise and hypothesis."""

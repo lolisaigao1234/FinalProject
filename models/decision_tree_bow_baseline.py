@@ -1,173 +1,321 @@
-# File: IS567FP/models/decision_tree_bow_baseline.py
-from abc import ABC
+# models/decision_tree_bow_baseline.py
+import logging
+import time
+import pandas as pd
+import numpy as np
+import joblib
+import os
+from typing import Optional, Dict, Any
 
+# Scikit-learn components
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.pipeline import Pipeline
-import numpy as np
 
-# Assuming config is importable and defines necessary constants
-try:
-    import config
-except ModuleNotFoundError:
-    print("Warning: config.py not found. Using placeholder values.")
-    # Define placeholder config values if config.py is not available
-    # In a real scenario, ensure config.py is in the Python path
-    class ConfigPlaceholder:
-        RANDOM_SEED = 42
-        DECISION_TREE_MAX_DEPTH = None
-        DECISION_TREE_MIN_SAMPLES_SPLIT = 2
-        DECISION_TREE_MIN_SAMPLES_LEAF = 1
-        BOW_MAX_FEATURES = 5000
-        BOW_NGRAM_RANGE = (1, 1)
-        BOW_STOP_WORDS = 'english'
-        BOW_LOWERCASE = True
-        BOW_BINARY = False
-    config = ConfigPlaceholder()
+# Project-specific imports
+from utils.common import NLIModel  # Inherits directly from NLIModel
+# Ensure ParquetLoader is correctly imported if used for loading
+# Adjust if using a different loader mechanism tied to baseline_trainer
+# from data.data_loader import ParquetLoader # Assuming this loader works independently
+from utils.database import DatabaseHandler  # If loading parquet via db handler
+from config import MODELS_DIR, DATA_DIR  # For paths
+# Import base utilities
+from .baseline_base import clean_dataset, _evaluate_model_performance
 
-# Make sure BaselineBase can be imported
-try:
-    from models.baseline_base import TextBaselineModel
-except ModuleNotFoundError:
-    print("Warning: baseline_base.py not found. Defining a dummy BaselineBase.")
-    # Define a dummy base class if not found
-    class BaselineBase:
-        def __init__(self, **kwargs):
-            self.model_config = kwargs
-            self.name = "Dummy Base Model"
-            self.description = "Base class placeholder"
-            self.feature_type = 'text' # Default or example
-            self.pipeline = None
-            self.params = {}
-
-        def fit(self, X, y):
-             if self.pipeline:
-                 print(f"Fitting {self.name}")
-                 self.pipeline.fit(X, y)
-             else:
-                 print("Pipeline not defined.")
-
-        def predict(self, X):
-             if self.pipeline:
-                 return self.pipeline.predict(X)
-             else:
-                 print("Pipeline not defined.")
-                 return None
-
-        def predict_proba(self, X):
-             if self.pipeline:
-                try:
-                    return self.pipeline.predict_proba(X)
-                except AttributeError:
-                    print(f"{self.name} classifier does not support predict_proba.")
-                    # Return dummy probabilities based on predict for compatibility
-                    predictions = self.predict(X)
-                    # Assuming binary classification [class 0, class 1]
-                    # This is a placeholder and might not be suitable for all metrics
-                    n_samples = len(predictions) if hasattr(predictions, '__len__') else 0
-                    proba = [[1.0, 0.0] if p == 0 else [0.0, 1.0] for p in predictions] # Simplified
-                    # Try to get classes_ if possible, otherwise assume 0 and 1
-                    try:
-                       classes = self.pipeline.classes_
-                       n_classes = len(classes)
-                       proba = np.zeros((n_samples, n_classes))
-                       for i, p in enumerate(predictions):
-                           class_idx = np.where(classes == p)[0][0]
-                           proba[i, class_idx] = 1.0
-                    except Exception:
-                        # Fallback to simple binary assumption if classes_ fails
-                         proba = [[1.0, 0.0] if p == 0 else [0.0, 1.0] for p in predictions]
-
-                    return np.array(proba)
+logger = logging.getLogger(__name__)
 
 
-             else:
-                 print("Pipeline not defined.")
-                 return None
+# Define a simple loader for this context if not using DB handler directly
+# Example: Simple Parquet Loader (adjust path logic as needed)
+class SimpleParquetLoader:
+    def load_data(self, dataset_name, split, suffix):
+        # Construct path - adjust based on where parquet files are stored
+        # This might need to align with how FeatureExtractor saves features, or use a dedicated path
+        cache_dir = os.path.join(DATA_DIR, 'cache', 'parquet')  # Example cache dir
+        filename = f"{dataset_name}_{split}_features_{suffix}.parquet"  # Example filename pattern
+        # NOTE: Adjust filename pattern if it's different (e.g., based on feature type name)
+        filepath = os.path.join(cache_dir, filename)
+        logger.info(f"Attempting to load parquet data from: {filepath}")
+        if not os.path.exists(filepath):
+            # Fallback: Try loading raw data if feature parquet doesn't exist?
+            # Or just raise error. For baseline assuming features exist.
+            alt_filename = f"{dataset_name}_{split}_{suffix}.parquet"  # Simpler name?
+            alt_filepath = os.path.join(cache_dir, alt_filename)
+            if not os.path.exists(alt_filepath):
+                raise FileNotFoundError(f"Could not find parquet data at {filepath} or {alt_filepath}")
+            else:
+                filepath = alt_filepath
 
-        def get_pipeline(self):
-            return self.pipeline
-
-        def get_params(self):
-            return self.params
-
-        def get_config(self):
-            # Return model-specific configuration used
-            config_dict = {'name': self.name}
-            if hasattr(self, 'model_config_fields'):
-                 config_dict.update({k: self.params.get(k) for k in self.model_config_fields})
-            return config_dict
-
-
-class DecisionTreeBowBaseline(TextBaselineModel, ABC):
-    """
-    Baseline 1: Decision Tree + Bag-of-Words (BoW)
-    Simple and fast decision tree classifier using word counts as features.
-    Feature extraction via CountVectorizer.
-    """
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.name = "Baseline 1: Decision Tree + BoW"
-        self.description = "Decision Tree classifier using Bag-of-Words features."
-        self.model_config_fields = ['max_depth', 'min_samples_split', 'min_samples_leaf', 'random_state']
-        self.feature_type = 'bow' # Indicates uses 'text' column for BOW
-
-        # Get hyperparameters from config or use defaults
-        self.params = {
-            'max_depth': config.DECISION_TREE_MAX_DEPTH,
-            'min_samples_split': config.DECISION_TREE_MIN_SAMPLES_SPLIT,
-            'min_samples_leaf': config.DECISION_TREE_MIN_SAMPLES_LEAF,
-            'random_state': config.RANDOM_SEED
-        }
-
-        # Update params with any kwargs passed during instantiation
-        # Filter kwargs to only include expected hyperparameters
-        relevant_kwargs = {k: v for k, v in kwargs.items() if k in self.model_config_fields}
-        self.params.update(relevant_kwargs)
-        self.model_config = self.params.copy() # Store the actual used config
-
-        # Define the pipeline
-        self.pipeline = Pipeline([
-            ('vectorizer', CountVectorizer(
-                max_features=config.BOW_MAX_FEATURES,
-                ngram_range=config.BOW_NGRAM_RANGE,
-                stop_words=config.BOW_STOP_WORDS if config.BOW_STOP_WORDS else None, # Handle None case
-                lowercase=config.BOW_LOWERCASE,
-                binary=config.BOW_BINARY
-                # Add other CountVectorizer parameters from config if needed
-            )),
-            ('classifier', DecisionTreeClassifier(
-                max_depth=self.params['max_depth'],
-                min_samples_split=self.params['min_samples_split'],
-                min_samples_leaf=self.params['min_samples_leaf'],
-                random_state=self.params['random_state']
-            ))
-        ])
-
-    def get_pipeline(self):
-        """Returns the scikit-learn pipeline object."""
-        return self.pipeline
-
-    def get_params(self):
-        """Returns the parameters for the model."""
-        # Return relevant pipeline parameters, especially for grid search or logging
-        pipeline_params = self.pipeline.get_params() # Gets params of steps
-        # Combine classifier params and vectorizer params
-        model_params = {f'classifier__{k}': v for k, v in self.params.items()}
-
-        # Manually add vectorizer params from config as they are set directly
-        vectorizer_params = {
-             'vectorizer__max_features': config.BOW_MAX_FEATURES,
-             'vectorizer__ngram_range': config.BOW_NGRAM_RANGE,
-             'vectorizer__stop_words': config.BOW_STOP_WORDS,
-             'vectorizer__lowercase': config.BOW_LOWERCASE,
-             'vectorizer__binary': config.BOW_BINARY
-        }
-        # Filter vectorizer params to only include those settable/gettable in CountVectorizer
-        cv_params_available = CountVectorizer().get_params().keys()
-        vectorizer_params_filtered = {k: v for k, v in vectorizer_params.items() if k.split('__')[1] in cv_params_available}
+        df = pd.read_parquet(filepath)
+        logger.info(f"Loaded {len(df)} rows from {filepath}")
+        # Ensure required columns are present after loading
+        if 'premise' not in df.columns or 'hypothesis' not in df.columns or 'label' not in df.columns:
+            logger.error(f"Loaded parquet file {filepath} is missing required columns (premise, hypothesis, label).")
+            # Depending on structure, maybe load 'premise_text', 'hypothesis_text'?
+            # Adjust column names based on actual parquet content.
+            # Forcing an error if columns are strictly required:
+            raise ValueError(f"Missing required columns in {filepath}")
+        return df
 
 
-        # Combine all parameters
-        all_params = {**model_params, **vectorizer_params_filtered}
-        return all_params
+class DecisionTreeBowBaseline(NLIModel):  # Inherits NLIModel
+    """Decision Tree baseline using Bag-of-Words features."""
+    MODEL_NAME = "DecisionTree_BoW_Baseline"
+
+    def __init__(self, args: Optional[object] = None, max_features: int = 10000, max_depth: Optional[int] = None,
+                 random_state: int = 42, **kwargs):
+        # Handle args object if passed
+        if args:
+            # Use bow_max_features specific arg if available, else fallback
+            max_features = getattr(args, 'bow_max_features', getattr(args, 'max_features', max_features))
+            max_depth = getattr(args, 'max_depth', max_depth)
+            random_state = getattr(args, 'random_state', random_state)
+
+        self.vectorizer = CountVectorizer(max_features=max_features, lowercase=True, ngram_range=(1, 1))
+        self.model = DecisionTreeClassifier(max_depth=max_depth, random_state=random_state)
+        self.is_trained = False
+        # Use the simple loader for demonstration. Replace with DB Handler if appropriate
+        self.loader = SimpleParquetLoader()
+        # self.db_handler = DatabaseHandler() # Or use DB Handler if needed
+
+    def _prepare_features(self, df: pd.DataFrame, fit_vectorizer: bool = False) -> Optional[np.ndarray]:
+        """Prepares BoW features from premise and hypothesis."""
+        # Use premise/hypothesis columns if they exist, fallback to text columns? Adjust as needed.
+        premise_col = 'premise' if 'premise' in df.columns else 'premise_text'
+        hypothesis_col = 'hypothesis' if 'hypothesis' in df.columns else 'hypothesis_text'
+
+        if premise_col not in df.columns or hypothesis_col not in df.columns:
+            logger.error(
+                f"DataFrame missing suitable premise ({premise_col}) or hypothesis ({hypothesis_col}) columns.")
+            return None
+
+        # Combine premise and hypothesis for vectorization
+        # Handle potential NaN values before concatenation
+        df[premise_col] = df[premise_col].fillna('')
+        df[hypothesis_col] = df[hypothesis_col].fillna('')
+        combined_text = df[premise_col] + " " + df[hypothesis_col]
+
+        try:
+            if fit_vectorizer:
+                logger.info(f"Fitting CountVectorizer with max_features={self.vectorizer.max_features}...")
+                features = self.vectorizer.fit_transform(combined_text)
+                logger.info(f"Vectorizer fitted with {features.shape[1]} features.")
+            else:
+                if not hasattr(self.vectorizer, 'vocabulary_') or not self.vectorizer.vocabulary_:
+                    logger.error("Vectorizer has not been fitted. Call fit first or load a trained model.")
+                    return None
+                logger.info("Transforming text using existing CountVectorizer...")
+                features = self.vectorizer.transform(combined_text)
+            # Convert sparse matrix to dense for Decision Tree (can be memory intensive)
+            return features.toarray()
+        except Exception as e:
+            logger.error(f"Error during CountVectorizer fit/transform: {e}", exc_info=True)
+            return None
+
+    # --- Method to satisfy NLIModel ABC ---
+    def extract_features(self, data: pd.DataFrame, fit: bool = False) -> Optional[np.ndarray]:
+        """
+        Implementation of the abstract extract_features method.
+        Delegates to _prepare_features. Handles fitting the vectorizer if fit=True.
+        """
+        if not isinstance(data, pd.DataFrame):
+            logger.error("extract_features requires a pandas DataFrame input.")
+            return None
+        logger.info(f"Extracting features (fit={fit})...")
+        # Determine if fitting is needed based on 'fit' flag AND if the model isn't already trained
+        # This logic assumes 'fit=True' is only passed during the training phase.
+        should_fit_vectorizer = fit and not self.is_trained
+        features = self._prepare_features(data, fit_vectorizer=should_fit_vectorizer)
+        # Crucially, if fitting occurred, mark the vectorizer part as ready (model itself isn't trained yet)
+        # The main `train` method will handle setting `self.is_trained` after model.fit()
+        return features
+
+    def train(self, train_dataset: str, train_split: str, train_suffix: str,
+              val_dataset: str, val_split: str, val_suffix: str, **kwargs) -> Optional[Dict[str, Any]]:
+        """Train the Decision Tree model."""
+        logger.info(f"Starting training for {self.MODEL_NAME} on {train_dataset}/{train_split} ({train_suffix})")
+        # Load data
+        try:
+            # Use self.loader to get data
+            df_train = self.loader.load_data(train_dataset, train_split, train_suffix)
+            # Load validation data if split/suffix specify it
+            df_val = None
+            if val_dataset and val_split and val_suffix:
+                df_val = self.loader.load_data(val_dataset, val_split, val_suffix)
+                df_val = clean_dataset(df_val)
+            else:
+                logger.info("No validation dataset/split/suffix provided for evaluation during training.")
+
+        except FileNotFoundError as e:
+            logger.error(f"Required data not found: {e}")
+            return None
+        except ValueError as e:  # Catch missing columns error from loader
+            logger.error(f"Error loading data: {e}")
+            return None
+
+        df_train = clean_dataset(df_train)
+
+        if df_train.empty:
+            logger.error("Training data is empty after cleaning.")
+            return None
+
+        # Use extract_features with fit=True for training data
+        X_train = self.extract_features(df_train, fit=True)
+        y_train = df_train['label'].values
+
+        if X_train is None:
+            logger.error("Feature preparation failed for training data.")
+            return None
+
+        logger.info(f"Training Decision Tree model (max_depth={self.model.max_depth})...")
+        start_time = time.time()
+        self.model.fit(X_train, y_train)
+        self.is_trained = True  # Model is now trained
+        train_time = time.time() - start_time
+        logger.info(f"Training finished in {train_time:.2f}s.")
+
+        # Evaluate on validation set if available
+        val_metrics = {}
+        if df_val is not None and not df_val.empty:
+            logger.info("Evaluating on validation set...")
+            # Use extract_features with fit=False for validation data
+            X_val = self.extract_features(df_val, fit=False)
+            y_val = df_val['label'].values
+            if X_val is not None:
+                y_pred_val = self.predict(df_val)  # Use predict which calls extract_features internally
+                val_metrics = _evaluate_model_performance(y_val, y_pred_val, f"{self.MODEL_NAME} Validation")
+                val_metrics['validation_time'] = time.time() - (start_time + train_time)
+            else:
+                logger.warning("Could not prepare features for validation set.")
+        elif df_val is not None and df_val.empty:
+            logger.warning("Validation data was empty after cleaning.")
+        else:
+            logger.info("No validation data to evaluate.")
+
+        # Return combined results
+        results = {'train_time': train_time}
+        results.update(val_metrics)
+        return results
+
+    def predict(self, data: Any) -> np.ndarray:
+        """Make predictions (expects a DataFrame)."""
+        if not self.is_trained:
+            raise RuntimeError(f"{self.MODEL_NAME} has not been trained yet.")
+        if not isinstance(data, pd.DataFrame):
+            raise TypeError(f"Input 'data' for {self.MODEL_NAME}.predict must be a pandas DataFrame.")
+
+        # Use extract_features with fit=False for prediction
+        X = self.extract_features(data, fit=False)
+        if X is None:
+            raise ValueError("Failed to prepare features for prediction.")
+        logger.info(f"Predicting with {self.MODEL_NAME} on {X.shape[0]} samples...")
+        return self.model.predict(X)
+
+    # --- Method to satisfy NLIModel ABC ---
+    def evaluate(self, dataset_name: str, split: str, suffix: str) -> Optional[Dict[str, Any]]:
+        """
+        Evaluates the trained model on a given dataset split.
+        Implementation of the abstract evaluate method.
+        """
+        if not self.is_trained:
+            logger.error(f"Cannot evaluate {self.MODEL_NAME}. Model is not trained.")
+            return None
+
+        logger.info(f"Evaluating {self.MODEL_NAME} on {dataset_name}/{split} ({suffix})")
+        # Load test data
+        try:
+            df_eval = self.loader.load_data(dataset_name, split, suffix)
+        except FileNotFoundError as e:
+            logger.error(f"Evaluation data not found: {e}")
+            return None
+        except ValueError as e:  # Catch missing columns error from loader
+            logger.error(f"Error loading evaluation data: {e}")
+            return None
+
+        df_eval = clean_dataset(df_eval)
+        if df_eval.empty:
+            logger.error(f"Evaluation data for {split} is empty after cleaning.")
+            return None
+
+        # Extract features (fit=False)
+        # X_eval = self.extract_features(df_eval, fit=False) # Predict method does this
+        y_true = df_eval['label'].values
+
+        # Make predictions
+        try:
+            start_time = time.time()
+            y_pred = self.predict(df_eval)  # Predict handles feature extraction
+            eval_time = time.time() - start_time
+        except Exception as e:
+            logger.error(f"Error during prediction in evaluation: {e}", exc_info=True)
+            return None
+
+        # Calculate metrics
+        eval_metrics = _evaluate_model_performance(y_true, y_pred, f"{self.MODEL_NAME} {split.capitalize()}")
+        eval_metrics['eval_time'] = eval_time
+        eval_metrics['eval_split'] = split  # Add split info
+
+        logger.info(f"Evaluation metrics for {split}: {eval_metrics}")
+        return eval_metrics
+
+    def save(self, path_prefix: str) -> None:
+        """Saves the vectorizer and the trained model."""
+        if not self.is_trained:
+            logger.warning(f"Attempting to save an untrained {self.MODEL_NAME}.")
+            # Decide if saving should be allowed even if not trained (e.g., save fitted vectorizer)
+            # For safety, often better to prevent saving untrained models fully.
+            # return # Uncomment to prevent saving untrained models
+
+        # Ensure directory exists (path_prefix might contain directory path)
+        save_dir = os.path.dirname(path_prefix)
+        if save_dir:  # Only create if path_prefix includes a directory
+            os.makedirs(save_dir, exist_ok=True)
+
+        vectorizer_path = f"{path_prefix}_vectorizer.joblib"
+        model_path = f"{path_prefix}_model.joblib"
+
+        try:
+            logger.info(f"Saving vectorizer to {vectorizer_path}")
+            joblib.dump(self.vectorizer, vectorizer_path)
+        except Exception as e:
+            logger.error(f"Failed to save vectorizer: {e}", exc_info=True)
+
+        try:
+            logger.info(f"Saving model to {model_path}")
+            joblib.dump(self.model, model_path)
+        except Exception as e:
+            logger.error(f"Failed to save model: {e}", exc_info=True)
+
+    @classmethod
+    def load(cls, path_prefix: str) -> 'DecisionTreeBowBaseline':
+        """Loads the vectorizer and the trained model."""
+        vectorizer_path = f"{path_prefix}_vectorizer.joblib"
+        model_path = f"{path_prefix}_model.joblib"
+
+        # Check if files exist before attempting load
+        if not os.path.exists(vectorizer_path):
+            raise FileNotFoundError(f"Vectorizer file not found at {vectorizer_path}")
+        if not os.path.exists(model_path):
+            raise FileNotFoundError(f"Model file not found at {model_path}")
+
+        logger.info(f"Loading vectorizer from {vectorizer_path}")
+        vectorizer = joblib.load(vectorizer_path)
+        logger.info(f"Loading model from {model_path}")
+        model = joblib.load(model_path)
+
+        # Recreate instance - pass necessary params if __init__ requires them
+        # Here, assuming defaults or that params are implicitly handled/not needed for load
+        # If __init__ requires 'args', loading becomes complex as 'args' isn't saved.
+        # Consider saving essential params (max_depth, random_state) in save()
+        # Or modify __init__ to have None defaults if args isn't passed.
+        try:
+            instance = cls(max_depth=model.max_depth, random_state=model.random_state)  # Pass loaded params
+        except Exception as e:
+            logger.warning(
+                f"Could not instantiate {cls.__name__} with loaded params during load: {e}. Trying default init.")
+            instance = cls()  # Fallback to default init
+
+        instance.vectorizer = vectorizer
+        instance.model = model
+        instance.is_trained = True  # Assume loaded model is trained
+        logger.info(f"{cls.MODEL_NAME} loaded successfully.")
+        return instance

@@ -1,55 +1,137 @@
-# Modify in IS567FP/models/random_forest_bow_syntactic_experiment_5.py
-
+# models/random_forest_bow_syntactic_experiment_5.py
 import logging
-import os
-from typing import Tuple, Optional, Any, Dict, List # Added Dict, Tuple, Optional, List
-import pandas as pd
 import numpy as np
-import joblib
-import time # Added time
+import pandas as pd
+import time
+from typing import List, Optional, Any # Ensure necessary imports
 
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.utils.validation import check_is_fitted
+from sklearn.feature_extraction.text import CountVectorizer
+from scipy.sparse import hstack # To combine sparse matrices
 
-# Import necessary components
-from utils.common import NLIModel
-from utils.database import DatabaseHandler # Added
-from .baseline_base import clean_dataset, _evaluate_model_performance # Added
+# --- Updated Import ---
+# Import FeatureExtractor from its new location
+from .baseline_base import FeatureExtractor, SyntacticFeatureExtractor, FeatureBasedBaselineModel
+# You might also need other base components depending on your structure
+# from .baseline_base import FeatureBasedBaselineModel # If using the example base model
+# --- End Updated Import ---
+
+from utils.common import NLIModel # Keep this if RF model inherits directly from NLIModel
+# from data.preprocessor import preprocess_text # Assuming you need preprocessing
 
 logger = logging.getLogger(__name__)
 
+# --- Feature Extractor for this specific experiment ---
+# This class now correctly inherits from the FeatureExtractor defined in baseline_base.py
 class CombinedBowSyntacticExtractor(FeatureExtractor):
-    # ... (keep existing implementation) ...
-    def get_feature_columns(self, data: pd.DataFrame) -> List[str]:
-        """Get all relevant feature columns (BoW/lexical + syntactic)."""
-        lexical_cols = filter_lexical_features(data)
-        syntactic_cols = filter_syntactic_features(data)
-        combined_cols = sorted(list(set(lexical_cols + syntactic_cols)))
-        logger.debug(f"Combined BoW+Syntactic extractor identified {len(combined_cols)} columns.")
-        final_cols = [col for col in combined_cols if col not in ['label', 'gold_label', 'pair_id']]
-        return final_cols
+    """Combines Bag-of-Words features with precomputed Syntactic features."""
+    def __init__(self, max_features: Optional[int] = 5000, ngram_range: tuple = (1, 1)):
+        self.bow_vectorizer = CountVectorizer(
+            # preprocessor=preprocess_text, # Use your preprocessing function
+            max_features=max_features,
+            ngram_range=ngram_range,
+            lowercase=True
+        )
+        # Use the SyntacticFeatureExtractor moved to baseline_base
+        self.syntactic_extractor = SyntacticFeatureExtractor()
+        self.bow_feature_names_ = None # To store BOW feature names after fitting
+        self.syntactic_feature_names_ = None # To store Syntactic feature names
 
-    def extract(self, data: pd.DataFrame, feature_cols: List[str]) -> np.ndarray:
-        """Extracts the specified columns, handling potential missing ones."""
-        missing_cols = set(feature_cols) - set(data.columns)
-        if missing_cols:
-            logger.warning(f"Combined BoW+Syntactic extractor: Missing columns {missing_cols} during extraction. Filling with 0.")
-            data_copy = data.copy()
-            for col in missing_cols:
-                data_copy[col] = 0
-            return data_copy[feature_cols].values
-        else:
-            return data[feature_cols].values
+    def fit(self, data: pd.DataFrame, y: Optional[Any] = None):
+        """Fit the BoW vectorizer."""
+        logger.info("Fitting BoW vectorizer...")
+        # Combine premise and hypothesis for BoW vocabulary fitting
+        combined_text = data['premise'] + " " + data['hypothesis']
+        self.bow_vectorizer.fit(combined_text)
+        self.bow_feature_names_ = self.bow_vectorizer.get_feature_names_out()
+        logger.info(f"BoW vectorizer fitted with {len(self.bow_feature_names_)} features.")
+        # Also get syntactic feature names (requires the dataframe structure)
+        self.syntactic_feature_names_ = self.syntactic_extractor.get_feature_columns(data)
+        logger.info(f"Identified {len(self.syntactic_feature_names_)} syntactic features.")
+        return self
+
+    def transform(self, data: pd.DataFrame) -> np.ndarray:
+        """Transform data into combined BoW and Syntactic features."""
+        logger.info("Transforming data with BoW vectorizer...")
+        premise_bow = self.bow_vectorizer.transform(data['premise'])
+        hypothesis_bow = self.bow_vectorizer.transform(data['hypothesis'])
+        # Combine BoW features (e.g., concatenate, difference, product - concatenating here)
+        bow_features = hstack([premise_bow, hypothesis_bow]) # sparse matrix
+        logger.info(f"BoW features shape: {bow_features.shape}")
+
+        logger.info("Extracting syntactic features...")
+        # Extract syntactic features using the dedicated extractor
+        # Ensure feature_cols used here match those stored if predicting after load
+        syntactic_features_np = self.syntactic_extractor.extract(data, self.syntactic_feature_names_)
+        logger.info(f"Syntactic features shape: {syntactic_features_np.shape}")
+
+        # Combine sparse BoW features with dense Syntactic features
+        # Need to handle potential NaN in syntactic features if not already done
+        syntactic_features_np = np.nan_to_num(syntactic_features_np) # Simple NaN handling
+        combined_features = hstack([bow_features, syntactic_features_np]).tocsr() # combine as sparse
+        logger.info(f"Combined features shape: {combined_features.shape}")
+        return combined_features
+
+    def fit_transform(self, data: pd.DataFrame, y: Optional[Any] = None) -> np.ndarray:
+        """Fit the BoW vectorizer and then transform the data."""
+        self.fit(data, y)
+        return self.transform(data)
+
+    # --- Implementing abstract methods from FeatureExtractor ---
+    def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
+        """ Extracts features (implements the base class method).
+            Note: For vectorizers, usually fit/transform is used.
+            This implementation assumes fit has already been called.
+            'feature_cols' are implicitly handled by the fitted vectorizer + syntactic extractor.
+        """
+        if self.bow_feature_names_ is None or self.syntactic_feature_names_ is None:
+             raise RuntimeError("Extractor must be fitted before calling extract/transform.")
+        # Re-use the transform logic
+        return self.transform(data)
 
 
-class RandomForestBowSyntacticExperiment5(NLIModel):
-    # ... (keep __init__ and other methods as they are) ...
-    def __init__(self, n_estimators: int = 100, max_depth: Optional[int] = None, random_state: int = 42, **kwargs):
-        # ... (existing init code) ...
-        self.db_handler = DatabaseHandler() # Add db_handler instance
-        # ... (rest of init) ...
-        logger.info(f"Initializing Experiment 5 Random Forest (n_estimators={n_estimators}, max_depth={max_depth})")
-        self.feature_extractor = CombinedBowSyntacticExtractor()
+    def get_feature_columns(self, data: pd.DataFrame = None) -> List[str]:
+        """ Gets the combined list of feature names. Requires fitting first.
+            'data' parameter is optional here as names are stored after fit.
+        """
+        if self.bow_feature_names_ is None or self.syntactic_feature_names_ is None:
+            # If not fitted, maybe return expected prefixes? Or raise error?
+            # raise RuntimeError("Extractor must be fitted before getting feature columns.")
+             logger.warning("Extractor not fitted. Returning empty feature list.")
+             return []
+
+        # Prefix BoW features to distinguish premise/hypothesis if needed, or just combine
+        premise_bow_names = [f"premise_{name}" for name in self.bow_feature_names_]
+        hypothesis_bow_names = [f"hypothesis_{name}" for name in self.bow_feature_names_]
+        # Return combined list
+        return premise_bow_names + hypothesis_bow_names + self.syntactic_feature_names_
+
+
+# --- Random Forest Model using the Combined Extractor ---
+# Option 1: Inherit from NLIModel directly
+# class RandomForestBowSyntacticExperiment5(NLIModel):
+# Option 2: Inherit from a new FeatureBasedBaselineModel (Recommended if structure fits)
+class RandomForestBowSyntacticExperiment5(FeatureBasedBaselineModel): # Inherit from base
+    """Random Forest model using Bag-of-Words and Syntactic features."""
+    MODEL_NAME = "RandomForest_BoW_Syntactic_Exp5"
+
+    # Pass the specific extractor instance to the base class
+    def __init__(self,
+                 max_features: Optional[int] = 5000, # BoW max features
+                 ngram_range: tuple = (1, 1), # BoW ngram range
+                 n_estimators: int = 100,     # RF parameter
+                 max_depth: Optional[int] = None, # RF parameter
+                 random_state: int = 42,
+                 **kwargs): # RF parameter
+        # Initialize the specific feature extractor for this model
+        extractor = CombinedBowSyntacticExtractor(
+            max_features=max_features,
+            ngram_range=ngram_range
+        )
+        # Initialize the base class with this extractor
+        super().__init__(feature_extractor=extractor) # Pass extractor to base
+
+        # Initialize the actual RF model
         self.model = RandomForestClassifier(
             n_estimators=n_estimators,
             max_depth=max_depth,
@@ -58,224 +140,81 @@ class RandomForestBowSyntacticExperiment5(NLIModel):
             **kwargs
         )
         self.is_trained = False
-        self.feature_cols = None # Stores feature names used during training
+        # feature_cols will be set by the base class extract_features during training
 
-        # Store hyperparameters
-        self.n_estimators = n_estimators
-        self.max_depth = max_depth
-        self.random_state = random_state
-        self.model_kwargs = kwargs
-
-
-    def _load_and_prepare_data(self, dataset: str, split: str, suffix: str) -> Optional[Tuple[pd.DataFrame, np.ndarray]]:
-        """Loads precomputed features, handles NaNs, cleans, and returns features+labels."""
-        logger.info(f"Exp5: Loading features for {dataset}/{split}/{suffix}")
-        feature_type_base = f"features_lexical_syntactic_{suffix}" # Expecting combined features
-        feature_table_name = f"{dataset}_{split}_{feature_type_base}"
-
-        try:
-            features_df = self.db_handler.load_dataframe(dataset, split, feature_table_name)
-            if features_df.empty:
-                logger.error(f"Loaded empty features DataFrame for {feature_table_name}.")
-                return None
-            features_df = _handle_nan_values(features_df, f"{dataset}/{split} features")
-        except Exception as e:
-            logger.error(f"Failed to load features from {feature_table_name}: {e}", exc_info=True)
-            return None
-
-        clean_result = clean_dataset(features_df)
-        if not clean_result:
-            logger.error(f"Feature data for {split} is invalid after cleaning.")
-            return None
-        features_df_clean, y_labels = clean_result
-
-        # Return the cleaned DataFrame (needed for feature extraction step) and labels
-        return features_df_clean, y_labels
-
-    # --- MODIFIED train METHOD ---
-    def train(self, train_dataset: str, train_split: str, train_suffix: str,
-              val_dataset: Optional[str] = None, val_split: Optional[str] = None, val_suffix: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Loads data, extracts features, trains the RandomForestClassifier, and optionally evaluates.
-        Signature now matches the call from BaselineTrainer.
-        """
-        logger.info(f"Starting Exp5 training for {train_dataset}/{train_split}/{train_suffix}")
+    def train(self, X: np.ndarray, y: np.ndarray) -> None:
+        """Train the Random Forest model."""
+        if X is None or X.shape[0] == 0 or y is None or y.shape[0] == 0:
+            logger.error("Cannot train Random Forest with empty features or labels.")
+            return
+        logger.info(f"Training {self.MODEL_NAME} with {X.shape[0]} samples, {X.shape[1]} features...")
         start_time = time.time()
-
-        # 1. Load and prepare training data
-        train_prep_result = self._load_and_prepare_data(train_dataset, train_split, train_suffix)
-        if not train_prep_result:
-            return {'error': 'Training data loading/preparation failed.'}
-        X_train_df, y_train = train_prep_result
-
-        # 2. Extract features (this also sets self.feature_cols)
-        logger.info("Extracting features from training data...")
-        try:
-            # Use the instance's extract_features method, which will discover/store columns
-            X_train_transformed = self.extract_features(X_train_df)
-            if X_train_transformed is None or X_train_transformed.shape[0] == 0:
-                 raise ValueError("Feature extraction returned empty array.")
-            logger.info(f"Training features extracted. Shape: {X_train_transformed.shape}")
-        except Exception as e:
-            logger.error(f"Error extracting training features: {e}", exc_info=True)
-            return {'error': 'Training feature extraction failed.'}
-
-        # 3. Train the RandomForest model (using the original internal train logic)
-        # Check for NaN/Infinity in features before training
-        if not np.all(np.isfinite(X_train_transformed)):
-            logger.error("Non-finite values (NaN or Infinity) found in training features (X_train_transformed). Cannot train Random Forest.")
-            return {'error': 'Non-finite values in training features.'}
-
-        logger.info("Training Random Forest model...")
-        self.model.fit(X_train_transformed, y_train)
-        self.is_trained = True # Mark as trained *after* successful fit
-        train_time = time.time() - start_time
-        logger.info(f"Model training completed in {train_time:.2f}s.")
-
-        # 4. Evaluate on validation data (if provided)
-        eval_metrics = {}
-        eval_time = 0.0
-        if val_dataset and val_split and val_suffix:
-            logger.info(f"Loading and evaluating on validation data: {val_dataset}/{val_split}/{val_suffix}")
-            val_prep_result = self._load_and_prepare_data(val_dataset, val_split, val_suffix)
-            if val_prep_result:
-                X_val_df, y_val = val_prep_result
-                try:
-                    logger.info("Extracting features from validation data...")
-                    # Use extract_features again, it will use stored self.feature_cols now
-                    X_val_transformed = self.extract_features(X_val_df)
-                    logger.info("Evaluating model on validation data...")
-                    # Pass self directly to the evaluator as it implements predict
-                    eval_time, metrics = _evaluate_model_performance(self, X_val_transformed, y_val)
-                    eval_metrics = metrics
-                    eval_metrics['eval_time'] = eval_time
-                except Exception as e:
-                    logger.error(f"Error during validation evaluation: {e}", exc_info=True)
-                    eval_metrics = {'error': 'Validation evaluation failed.'}
-            else:
-                logger.warning("Failed to load/prepare validation data. Skipping validation.")
-                eval_metrics = {'warning': 'Validation data failed to load.'}
-        else:
-            logger.info("No validation data provided. Skipping validation.")
-
-        results = {
-            'train_time': train_time,
-            **eval_metrics
-        }
-        return results # Return evaluation results
-
-    # --- extract_features, predict, save, load methods remain mostly unchanged ---
-    # Ensure extract_features sets self.feature_cols correctly during the first call (training)
-    def extract_features(self, data: pd.DataFrame) -> np.ndarray:
-        # ... (Keep existing implementation from random_forest_bow_syntactic_experiment_5.py) ...
-        # This implementation correctly discovers columns on first call (train)
-        # and reuses them on subsequent calls (predict/eval).
-        if not isinstance(data, pd.DataFrame):
-            raise TypeError("Input data must be a pandas DataFrame.")
-
-        if not self.is_trained or self.feature_cols is None:
-            logger.debug("Experiment 5: Discovering feature columns during training/first extraction.")
-            self.feature_cols = self.feature_extractor.get_feature_columns(data)
-            if not self.feature_cols:
-                 raise ValueError("Experiment 5: No features extracted during training phase.")
-            logger.info(f"Experiment 5: Storing {len(self.feature_cols)} feature columns for training.")
-            features = self.feature_extractor.extract(data, self.feature_cols)
-        else:
-            logger.debug(f"Experiment 5: Extracting features for prediction using stored {len(self.feature_cols)} columns.")
-            features = self.feature_extractor.extract(data, self.feature_cols)
-
-        if features.dtype == 'object' or pd.DataFrame(features).isna().any().any():
-            logger.warning("NaNs or non-numeric types detected after feature extraction. Applying fillna(0).")
-            features = pd.DataFrame(features, columns=self.feature_cols).fillna(0).values
-
-        return features.astype(np.float32) # Ensure float type for RF
+        self.model.fit(X, y)
+        self.is_trained = True # Mark as trained AFTER fitting
+        end_time = time.time()
+        logger.info(f"Training complete. Time taken: {end_time - start_time:.2f} seconds.")
 
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        # ... (Keep existing implementation) ...
-         if not self.is_trained:
-            raise RuntimeError("Random Forest Model has not been trained yet.")
-         check_is_fitted(self.model) # Use sklearn's check
-
-         if X is None:
-              raise ValueError("Input features (X) for prediction cannot be None.")
-         if self.feature_cols is None:
-              raise RuntimeError("Feature columns were not set during training.")
-         if X.shape[1] != len(self.feature_cols):
-              raise ValueError(f"Feature mismatch for prediction. Expected {len(self.feature_cols)} features, got {X.shape[1]}.")
-         # Check for NaN/Infinity in prediction features
-         if not np.all(np.isfinite(X)):
-            logger.warning("Non-finite values (NaN or Infinity) found in prediction features (X). Attempting to predict anyway after filling with 0.")
-            X = np.nan_to_num(X, nan=0.0, posinf=np.finfo(np.float32).max, neginf=np.finfo(np.float32).min)
-
-
-         logger.debug(f"Predicting with trained Random Forest on {X.shape[0]} samples...")
-         predictions = self.model.predict(X)
-         logger.debug("Prediction finished.")
-         return predictions
+        """Make predictions with the trained Random Forest model."""
+        if not self.is_trained or self.model is None:
+            raise RuntimeError(f"{self.MODEL_NAME} has not been trained yet.")
+        # Dimension check might be needed if features can vary, but handled by base class extract_features
+        logger.info(f"Predicting with {self.MODEL_NAME} on {X.shape[0]} samples...")
+        predictions = self.model.predict(X)
+        logger.info("Prediction complete.")
+        return predictions
 
     def save(self, filepath: str) -> None:
-        # ... (Keep existing implementation) ...
-        model_path = f"{filepath}.joblib" # Save directly as joblib
-        logger.info(f"Saving Experiment 5 Random Forest model state to {model_path}")
-
+        """Save the model and extractor state."""
         if not self.is_trained:
-            logger.warning("Attempting to save an untrained Random Forest model.")
-        # Ensure feature_cols is set before saving metadata if trained
-        if self.is_trained and self.feature_cols is None:
-             logger.error("Model is marked trained but feature_cols is None. Cannot save feature list.")
-             # Decide how to handle: save anyway, raise error, or try re-extracting?
-             # Saving without feature_cols might break loading/prediction later.
-             # For now, we'll log the error and save what we have.
-             # A better approach might be to ensure feature_cols is always set after training.
-
-        model_data = {
+            logger.warning(f"Attempting to save an untrained {self.MODEL_NAME} model.")
+        # Save necessary components: sklearn model, extractor state, feature columns
+        state = {
             'model_state': self.model,
+            'extractor_state': self.feature_extractor, # Save the fitted extractor
+            'feature_cols': self.feature_cols, # Save feature names used for training
             'is_trained': self.is_trained,
-            'feature_cols': self.feature_cols, # Save the list of columns used
-            'hyperparameters': { # Store hyperparameters
-                 'n_estimators': self.n_estimators,
-                 'max_depth': self.max_depth,
-                 'random_state': self.random_state,
-                 **self.model_kwargs
-            }
+            # Add any other parameters needed for re-initialization if necessary
+            # 'init_params': {'n_estimators': self.model.n_estimators, ...}
         }
-        try:
-            joblib.dump(model_data, model_path)
-            logger.info(f"Successfully saved model data to {model_path}")
-        except Exception as e:
-             logger.error(f"Error saving Random Forest model data to {model_path}: {e}", exc_info=True)
-
+        # Consider using joblib for efficient saving of sklearn objects
+        import joblib
+        joblib.dump(state, filepath)
+        logger.info(f"Saved {self.MODEL_NAME} state to {filepath}")
 
     @classmethod
-    def load(cls, filepath: str, feature_extractor: Optional[Any] = None) -> 'RandomForestBowSyntacticExperiment5':
-        # ... (Keep existing implementation) ...
-        model_path = f"{filepath}.joblib"
-        logger.info(f"Loading Experiment 5 Random Forest model state from {model_path}")
+    def load(cls, filepath: str, feature_extractor: Optional[FeatureExtractor] = None) -> 'RandomForestBowSyntacticExperiment5':
+        """Load the model and extractor state."""
+        import joblib
+        logger.info(f"Loading {cls.MODEL_NAME} state from {filepath}")
+        state = joblib.load(filepath)
 
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Model file not found at {model_path}")
+        # Re-create the instance - need init params if not saved in state
+        # This part is tricky - how were max_features, ngram_range etc stored?
+        # Assuming they are part of the saved extractor state or defaults are okay.
+        instance = cls() # Use default init params, will be overwritten
 
-        try:
-            model_data = joblib.load(model_path)
-        except Exception as e:
-            logger.error(f"Error loading Random Forest model data from {model_path}: {e}", exc_info=True)
-            raise
+        instance.model = state['model_state']
+        instance.feature_extractor = state['extractor_state']
+        instance.feature_cols = state['feature_cols']
+        instance.is_trained = state['is_trained']
 
-        # Re-instantiate the class with saved hyperparameters
-        hyperparams = model_data.get('hyperparameters', {})
-        instance = cls(
-            n_estimators=hyperparams.get('n_estimators', 100),
-            max_depth=hyperparams.get('max_depth', None),
-            random_state=hyperparams.get('random_state', 42),
-            **{k: v for k, v in hyperparams.items() if k not in ['n_estimators', 'max_depth', 'random_state']} # Pass extra kwargs
-        )
-        instance.model = model_data['model_state']
-        instance.is_trained = model_data['is_trained']
-        instance.feature_cols = model_data['feature_cols'] # Load feature columns
+        # Verify the loaded extractor type if needed
+        if not isinstance(instance.feature_extractor, CombinedBowSyntacticExtractor):
+             logger.warning("Loaded extractor type does not match expected CombinedBowSyntacticExtractor.")
 
         if instance.feature_cols is None and instance.is_trained:
-             logger.warning(f"Loaded trained Random Forest model from {model_path} but feature_cols list is missing.")
+             logger.warning(f"Loaded trained {cls.MODEL_NAME} model from {filepath} but feature_cols list is missing.")
 
-        logger.info(f"Successfully loaded Experiment 5 Random Forest model. Trained: {instance.is_trained}")
+        logger.info(f"Loaded {cls.MODEL_NAME}. Trained: {instance.is_trained}")
         return instance
+
+# --- (Keep or adapt evaluate function as needed) ---
+# Example evaluation function (similar to _evaluate_model_performance in base)
+# def evaluate(self, X_test: np.ndarray, y_test: np.ndarray) -> Dict[str, Any]:
+#    """Evaluates the model on the test set."""
+#    if not self.is_trained:
+#        raise RuntimeError("Model must be trained before evaluation.")
+#    y_pred = self.predict(X_test)
+#    return _evaluate_model_performance(y_test, y_pred, self.MODEL_NAME) # Use the base evaluator

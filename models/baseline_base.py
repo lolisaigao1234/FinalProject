@@ -1,7 +1,7 @@
 # Modify: IS567FP/models/baseline_base.py
 import logging
 import os
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 import joblib
 import pandas as pd
 import numpy as np
@@ -424,3 +424,170 @@ class TextBaselineModel(NLIModel):
                 return None
 
         return merged_df
+
+
+# --- START: Code moved from svm_bow_baseline.py ---
+
+class FeatureExtractor(ABC): # Changed to ABC for clarity
+    """Base class for feature extraction from feature DataFrames."""
+    @abstractmethod
+    def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
+        """Extracts features into a numpy array."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_feature_columns(self, data: pd.DataFrame) -> List[str]:
+        """Gets the list of feature column names from the data."""
+        raise NotImplementedError
+
+def _feature_return_helper(df: pd.DataFrame, feature_cols: List[str]) -> pd.DataFrame:
+    """Helper to select feature columns and essential ID/label columns."""
+    cols_to_keep = feature_cols[:] # Create a copy
+    if 'label' in df.columns: cols_to_keep.append('label')
+    elif 'gold_label' in df.columns: cols_to_keep.append('gold_label')
+    if 'pair_id' in df.columns: cols_to_keep.append('pair_id')
+    # Ensure only existing columns are selected
+    existing_cols_to_keep = [col for col in cols_to_keep if col in df.columns]
+    # logger.debug(f"Selecting columns for feature set: {existing_cols_to_keep}")
+    return df[existing_cols_to_keep]
+
+def filter_syntactic_features(df: pd.DataFrame) -> List[str]:
+    """Return list of syntactic feature column names."""
+    # Define prefixes or patterns that identify syntactic features
+    # Adjust these based on your actual feature naming convention
+    syntax_cols = [col for col in df.columns if any(prefix in col for prefix in
+                                                    ['_const_', '_dep_', 'diff_const_', 'diff_dep_', 'deprel_', 'pos_'])]
+    # logger.debug(f"Identified {len(syntax_cols)} syntactic columns.")
+    return syntax_cols
+
+def filter_lexical_features(df: pd.DataFrame) -> List[str]:
+    """Return list of lexical/statistical feature column names."""
+    # Define prefixes or patterns that identify lexical/statistical features
+    # Adjust these based on your actual feature naming convention
+    # Example: '_bert_' might be embeddings, '_length' simple stats, 'overlap' specific lexical metric
+    lexical_cols = [col for col in df.columns if any(prefix in col for prefix in
+                                                     ['_bert_', '_length', 'length_', 'overlap', '_tfidf_', '_bow_'])] # Added tfidf/bow common patterns
+    # logger.debug(f"Identified {len(lexical_cols)} lexical/stat columns.")
+    return lexical_cols
+
+# --- Feature Extractors using precomputed/existing features ---
+# These assume features are already calculated and present in the DataFrame
+
+class LexicalFeatureExtractor(FeatureExtractor):
+    """Extracts precomputed lexical/statistical features from a DataFrame."""
+    def get_feature_columns(self, data: pd.DataFrame) -> List[str]:
+        return filter_lexical_features(data)
+
+    def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
+        target_cols = feature_cols or self.get_feature_columns(data)
+        # Ensure all target columns exist, fill missing with 0 if necessary during prediction
+        missing_cols = set(target_cols) - set(data.columns)
+        if missing_cols:
+            logger.warning(f"Lexical extractor: Missing columns {missing_cols}. Filling with 0.")
+            # Create a copy to avoid modifying the original DataFrame slice
+            data_copy = data.copy()
+            for col in missing_cols: data_copy[col] = 0
+            return data_copy[target_cols].values
+        return data[target_cols].values
+
+class SyntacticFeatureExtractor(FeatureExtractor):
+    """Extracts precomputed syntactic features from a DataFrame."""
+    def get_feature_columns(self, data: pd.DataFrame) -> List[str]:
+        return filter_syntactic_features(data)
+
+    def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
+        target_cols = feature_cols or self.get_feature_columns(data)
+        missing_cols = set(target_cols) - set(data.columns)
+        if missing_cols:
+            logger.warning(f"Syntactic extractor: Missing columns {missing_cols}. Filling with 0.")
+            data_copy = data.copy()
+            for col in missing_cols: data_copy[col] = 0
+            return data_copy[target_cols].values
+        return data[target_cols].values
+
+class CombinedFeatureExtractor(FeatureExtractor):
+    """Extracts all precomputed features (lexical + syntactic) from a DataFrame."""
+    def get_feature_columns(self, data: pd.DataFrame) -> List[str]:
+        lexical = filter_lexical_features(data)
+        syntactic = filter_syntactic_features(data)
+        # Combine, ensuring no duplicates and sort for consistency
+        return sorted(list(set(lexical + syntactic)))
+
+    def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
+        target_cols = feature_cols or self.get_feature_columns(data)
+        missing_cols = set(target_cols) - set(data.columns)
+        if missing_cols:
+            logger.warning(f"Combined extractor: Missing columns {missing_cols}. Filling with 0.")
+            data_copy = data.copy()
+            for col in missing_cols: data_copy[col] = 0
+            return data_copy[target_cols].values
+        return data[target_cols].values
+
+# --- END: Code moved from svm_bow_baseline.py ---
+
+# ... (rest of the existing code in baseline_base.py) ...
+
+# Example of how a FeatureBasedBaselineModel might look (if you don't have one already)
+class FeatureBasedBaselineModel(ABC):
+    """Abstract Base Class for models that operate on pre-extracted features."""
+    def __init__(self, feature_extractor: FeatureExtractor, **kwargs):
+        if feature_extractor is None:
+             raise ValueError(f"{self.__class__.__name__} requires a FeatureExtractor instance.")
+        self.feature_extractor = feature_extractor
+        self.model = None # The actual sklearn or similar model
+        self.is_trained = False
+        self.feature_cols = None # Stores feature names used during training
+
+    @abstractmethod
+    def train(self, X: np.ndarray, y: np.ndarray) -> None:
+        """Train the underlying model."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Make predictions using the trained model."""
+        raise NotImplementedError
+
+    def extract_features(self, data: pd.DataFrame) -> np.ndarray:
+        """Extracts features using the assigned extractor, handling train/predict differences."""
+        if not self.is_trained:
+            # Training: discover and store feature column names
+            self.feature_cols = self.feature_extractor.get_feature_columns(data)
+            logger.info(f"Storing {len(self.feature_cols)} feature columns used for training.")
+            # Extract using discovered columns
+            return self.feature_extractor.extract(data, self.feature_cols)
+        else:
+            # Prediction: use the stored feature column names
+            if self.feature_cols is None:
+                raise RuntimeError("Model is marked trained but feature_cols is not set.")
+            logger.debug(f"Extracting features for prediction using stored {len(self.feature_cols)} columns.")
+            # Pass stored columns to extractor
+            return self.feature_extractor.extract(data, self.feature_cols)
+
+    @abstractmethod
+    def save(self, filepath: str) -> None:
+        """Save the model state."""
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def load(cls, filepath: str, feature_extractor: FeatureExtractor = None) -> 'FeatureBasedBaselineModel':
+        """Load the model state."""
+        raise NotImplementedError
+
+# # You might also move clean_dataset and _evaluate_model_performance here if they aren't already.
+# def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
+#     """Cleans the dataset by removing rows with label -1."""
+#     initial_count = len(df)
+#     df_cleaned = df[df['label'] != -1].copy()
+#     removed_count = initial_count - len(df_cleaned)
+#     if removed_count > 0:
+#         logger.info(f"Removed {removed_count} entries with label -1.")
+#     return df_cleaned
+#
+# def _evaluate_model_performance(y_true: np.ndarray, y_pred: np.ndarray, model_name: str) -> Dict[str, Any]:
+#     """Evaluates the model and returns performance metrics."""
+#     accuracy = accuracy_score(y_true, y_pred)
+#     precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted')
+#     logger.info(f"{model_name} - Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
+#     return {'accuracy': accuracy, 'precision': precision, 'recall': recall, 'f1': f1}

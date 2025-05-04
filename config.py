@@ -74,19 +74,6 @@ EPOCHS = 5
 # Dimension of syntactic features extracted from Stanza parse trees
 SYNTACTIC_FEATURE_DIM = 200
 
-# Ensure NUM_CLASSES is defined
-# NUM_CLASSES = 3
-# HIDDEN_SIZE = 768  # Typical BERT-base hidden size
-#
-# # Baseline Model optimization/parameters
-# LEARNING_RATE = 3e-5  # Adjusted for larger batch size (for potential future neural models)
-# WEIGHT_DECAY = 0.01
-# EPOCHS = 5
-# # Dimension of syntactic features extracted from Stanza parse trees
-# # Note: This is the raw dimension before potential selection/scaling
-# SYNTACTIC_FEATURE_DIM = 200  # This seems like a placeholder, the actual number of features generated might be different
-
-# Stanza settings
 STANZA_PROCESSORS = "tokenize,pos,lemma,depparse,constituency"
 STANZA_LANG = "en"
 
@@ -112,8 +99,28 @@ HF_MODEL_IDENTIFIERS = {
     # Add other identifiers if needed
 }
 
-
 # If only using baseline models defined in this project, you might not need this dict.
+try:
+    # Attempt to import dynamically if structure allows, otherwise define statically.
+    # This assumes config.py might be imported before models initializes fully in some contexts.
+    # Safest is often to define choices statically based on __init__.py or have main.py pass them.
+    # For this fix, we'll use the keys directly based on models/__init__.py
+    MODEL_CHOICES = [
+        "baseline-1", "baseline-2", "baseline-3",
+        "experiment-1", "experiment-2", "experiment-3", "experiment-4",
+        "experiment-5", "experiment-6", "experiment-7", "experiment-8"
+    ]
+    DEFAULT_MODEL = "baseline-1"  # Changed default from 'svm'
+except ImportError:
+    print("Warning: Could not dynamically import MODEL_REGISTRY from models. Using predefined list.")
+    # Define statically as a fallback, ensure this list matches models/__init__.py
+    MODEL_CHOICES = [
+        "baseline-1", "baseline-2", "baseline-3",
+        "experiment-1", "experiment-2", "experiment-3", "experiment-4",
+        "experiment-5", "experiment-6", "experiment-7", "experiment-8"
+    ]
+    DEFAULT_MODEL = "baseline-1"
+
 
 def parse_args():
     """Parse command line arguments with performance-related options"""
@@ -130,46 +137,47 @@ def parse_args():
                         help="Disable PyTorch compilation (for neural models)")
     parser.add_argument("--epochs", type=int, default=EPOCHS, help="Epochs for neural models")
     parser.add_argument("--learning_rate", type=float, default=LEARNING_RATE,
-                        help="Learning rate for neural/GB models")  # Updated help text
+                        help="Learning rate for neural/GB models")
     parser.add_argument("--force_reprocess", action="store_true",
                         help="Force reprocessing/recomputation of data/features/models")
     parser.add_argument("--sample_size", type=int, default=None,
                         help="Total sample size across splits for preprocessing & training. Processes full dataset if omitted.")
+
     # --- MODIFIED model_type ---
-    parser.add_argument("--model_type", default="svm",
-                        choices=[
-                            "svm",  # Handles BoW, Syntax, Combined SVM variants via BaselineTrainer logic
-                            "logistic_tfidf",
-                            "mnb_bow",
-                            "svm_syntactic_exp1",  # SVM with only syntactic features
-                            "svm_bow_syntactic_exp2",  # SVM with BoW + syntactic features
-                            "logistic_tfidf_syntactic_exp3",  # Logistic Regression with TFIDF + Syntactic
-                            "mnb_bow_syntactic_exp4",  # MNB with BoW + Syntactic
-                            "random_forest_bow_syntactic_exp5",  # Random Forest with BoW + Syntactic
-                            "gradient_boosting_tfidf_syntactic_exp6",  # Added Experiment 6
-                            "cross_eval_syntactic_exp7",  # Added Experiment 7
-                            "cross_validate_syntactic_experiment_8"  # <<< ADDED Experiment 8 >>>
-                        ],
-                        help="Model type to train/evaluate.")
+    # Choices now directly reflect the keys in MODEL_REGISTRY from models/__init__.py
+    parser.add_argument("--model_type", default=DEFAULT_MODEL, # Use the new default
+                        choices=MODEL_CHOICES, # Use the keys from MODEL_REGISTRY
+                        help="Model type to train/evaluate, corresponding to keys in models.MODEL_REGISTRY.")
     # ---------------------------
+
     # --- Baseline Model Hyperparameters ---
-    parser.add_argument("--kernel", default="linear", choices=["linear", "rbf", "poly"], help="SVM kernel type")
-    parser.add_argument("--C", type=float, default=1.0, help="SVM/Logistic Regression regularization parameter C")
+    # parser.add_argument("--kernel", default="linear", choices=["linear", "rbf", "poly"], help="SVM kernel type") # REMOVED - Specific to SVM
+    parser.add_argument("--C", type=float, default=1.0, help="Logistic Regression regularization parameter C") # Kept for Logistic Regression
     parser.add_argument("--max_features", type=int, default=10000, help="Max features for TF-IDF/BoW")
     parser.add_argument("--alpha", type=float, default=1.0, help="Smoothing parameter alpha for MNB")
-    # --- Random Forest / Gradient Boosting Hyperparameters ---
+
+    # --- Tree/Ensemble Model Hyperparameters ---
     parser.add_argument("--n_estimators", type=int, default=100,
-                        help="Number of trees for Random Forest (Exp 5) / Gradient Boosting (Exp 6)")
-    parser.add_argument("--max_depth", type=int, default=None, help="Max depth for trees (Exp 5/6, None for no limit)")
+                        help="Number of trees for Random Forest / Gradient Boosting")
+    parser.add_argument("--max_depth", type=int, default=None, help="Max depth for trees (None for no limit)")
     parser.add_argument("--max_iter", type=int, default=1000,
-                        help="Max iterations for Logistic Regression.")  # Add max_iter for LR
-    # Note: GradientBoostingClassifier has its own learning_rate parameter, which reuses the --learning_rate argument above.
-    # ------------------------------------------------------
+                        help="Max iterations for Logistic Regression.")
+
+    # --- KNN Hyperparameters (Added for Experiment 2) ---
+    parser.add_argument("--n_neighbors", type=int, default=5, help="Number of neighbors for KNN (Exp 2)")
+
     # --- Cross-Evaluation ---
+    # Note: The cross_evaluate argument seems tied only to Experiment 7 logic previously.
+    # Ensure Experiment 7 ('cross_eval_syntactic_experiment_7.py') correctly uses this flag if needed.
+    # Or remove if Experiment 7's logic changed. For now, keeping it as defined previously.
     parser.add_argument("--cross_evaluate", action="store_true",
-                        help="Perform cross-dataset evaluation (check implementation compatibility - Exp 7 only)")
-    # --- Neural Model Selection (If using neural models not covered here) ---
-    parser.add_argument("--baseline_model_name", type=str, default=None,
-                        choices=list(HF_MODEL_IDENTIFIERS.keys()) if HF_MODEL_IDENTIFIERS else [],
-                        help="Specify a baseline transformer model if using a neural model type")
+                        help="Perform cross-dataset evaluation (used by Exp 7)")
+
+    # --- Neural Model Selection (If using neural models - kept for potential future use) ---
+    # Assuming HF_MODEL_IDENTIFIERS is defined earlier in config.py
+    # HF_MODEL_IDENTIFIERS = { "bert-base-uncased": "bert-base-uncased"} # Example placeholder
+    # parser.add_argument("--baseline_model_name", type=str, default=None,
+    #                     choices=list(HF_MODEL_IDENTIFIERS.keys()) if 'HF_MODEL_IDENTIFIERS' in globals() and HF_MODEL_IDENTIFIERS else [],
+    #                     help="Specify a baseline transformer model if using a neural model type")
+
     return parser.parse_args()

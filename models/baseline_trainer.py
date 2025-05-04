@@ -1,421 +1,241 @@
-# Modify file: IS567FP/models/baseline_trainer.py
+# File: IS567FP/models/baseline_trainer.py (Refactored)
 import os
 import logging
 import time
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from typing import Optional, Tuple, Dict, Any, Type
+from typing import Optional, Dict, Any
 
-from config import MODELS_DIR, CACHE_DIR
-from utils.common import NLIModel
-from utils.database import DatabaseHandler
-from .baseline_base import TextBaselineModel, clean_dataset, _evaluate_model_performance
-from .logistic_tf_idf_baseline import LogisticTFIDFBaseline
-from .multinomial_naive_bayes_bow_baseline import MultinomialNaiveBayesBaseline
-from .svm_bow_baseline import SVMWithBagOfWords, SVMWithSyntax, SVMWithBothFeatures, _handle_nan_values, SVMModel, LexicalFeatureExtractor, SyntacticFeatureExtractor, CombinedFeatureExtractor
-from .logistic_tfidf_syntactic_experiment_3 import LogisticTFIDFSyntacticExperiment3
-from .multinomial_naive_bayes_bow_syntactic_experiment_4 import MultinomialNaiveBayesBowSyntacticExperiment4
-from .random_forest_bow_syntactic_experiment_5 import RandomForestBowSyntacticExperiment5, CombinedBowSyntacticExtractor
-# <<< Import Experiment 6 >>>
-from .gradient_boosting_tfidf_syntactic_experiment_6 import GradientBoostingTFIDFSyntacticExperiment6
-# -------------------------
+# Configuration and Utilities
+from config import MODELS_DIR
+from utils.common import NLIModel # Base class/interface (ensure models adhere to it)
+
+# Import the registry and ALL model classes it refers to
+from . import MODEL_REGISTRY
 
 logger = logging.getLogger(__name__)
 
 class BaselineTrainer:
-    """Handles training and evaluation for various baseline models."""
+    """
+    Handles orchestration of training and evaluation for models defined in MODEL_REGISTRY.
+    Relies on individual model classes to handle their specific data loading and logic.
+    """
     def __init__(self, model_type: str, dataset_name: str, args: object):
         """
         Initializes the trainer for a specific model type and dataset.
+
         Args:
-            model_type (str): Model identifier (e.g., 'svm', 'logistic_tfidf', 'gradient_boosting_tfidf_syntactic_exp6').
+            model_type (str): Model identifier key from MODEL_REGISTRY (e.g., 'baseline-1', 'experiment-3').
             dataset_name (str): Name of the dataset (e.g., 'SNLI').
             args (object): Command line arguments containing hyperparameters.
         """
-        self.model_type = model_type
+        self.model_key = model_type # Use 'key' to emphasize it's from the registry
         self.dataset_name = dataset_name
         self.args = args
         self.sample_size = getattr(args, 'sample_size', None)
         self.suffix = f"sample{self.sample_size}" if self.sample_size else "full"
+
+        # Get the corresponding model class from the registry
+        self.model_cls = MODEL_REGISTRY.get(self.model_key)
+        if not self.model_cls:
+            raise ValueError(f"Model type key '{self.model_key}' not found in MODEL_REGISTRY.")
+
         self.save_dir = self._get_save_directory()
         os.makedirs(self.save_dir, exist_ok=True)
-        self.db_handler = DatabaseHandler()
-        self.model: Optional[NLIModel] = None
+        # Keep db_handler if models need it passed during init or methods
+        # self.db_handler = DatabaseHandler()
+        self.model: Optional[NLIModel] = None # To hold the instantiated model
+
+        logger.info(f"Initialized Trainer for model key: '{self.model_key}', class: {self.model_cls.__name__}, dataset: {self.dataset_name}, suffix: {self.suffix}")
 
     def _get_save_directory(self) -> str:
-        """Determines the save directory."""
-        # Centralized directory for all baseline models, subfoldered by dataset/model_type/suffix
-        base_dir = os.path.join(MODELS_DIR, 'baseline_models', self.dataset_name, self.model_type, self.suffix)
+        """Determines the save directory based on model key."""
+        # Centralized directory, subfoldered by dataset/model_key/suffix
+        base_dir = os.path.join(MODELS_DIR, 'baseline_models', self.dataset_name, self.model_key, self.suffix)
         return base_dir
 
     def _get_model_filename_base(self) -> str:
         """Generates a base filename for saving models/artifacts."""
-        # Consistent naming convention
-        return f"{self.dataset_name}_{self.model_type}_{self.suffix}"
-
-    def _load_data(self) -> Tuple[Optional[pd.DataFrame], Optional[pd.DataFrame], Optional[pd.DataFrame]]:
-        """Loads train, validation, and test data based on model type."""
-        train_data, val_data, test_data = None, None, None
-        logger.info(f"Trainer loading data for {self.model_type} on {self.dataset_name} ({self.suffix})")
-
-        # Models needing precomputed features (SVMs, RF_Exp5, MNB_Exp4) - Note: Exp6 loads internally
-        models_needing_precomputed = ['svm', 'svm_syntactic_exp1', 'svm_bow_syntactic_exp2',
-                                      'random_forest_bow_syntactic_exp5', 'mnb_bow_syntactic_exp4']
-        if self.model_type in models_needing_precomputed:
-            feature_type_base = f'features_lexical_syntactic_{self.suffix}'
-            logger.info(f"Loading precomputed features using base: {feature_type_base}")
-
-            train_table_name = f"{self.dataset_name}_train_{feature_type_base}"
-            val_table_name = f"{self.dataset_name}_validation_{feature_type_base}"
-            test_table_name = f"{self.dataset_name}_test_{feature_type_base}"
-
-            try: train_data = self.db_handler.load_dataframe(self.dataset_name, 'train', train_table_name)
-            except Exception as e: logger.error(f"Failed to load train features ({train_table_name}): {e}", exc_info=True)
-            try: val_data = self.db_handler.load_dataframe(self.dataset_name, 'validation', val_table_name)
-            except Exception as e: logger.warning(f"Could not load validation features ({val_table_name}): {e}")
-            try: test_data = self.db_handler.load_dataframe(self.dataset_name, 'test', test_table_name)
-            except Exception as e: logger.warning(f"Could not load test features ({test_table_name}): {e}")
-
-            # Handle NaNs after loading
-            if train_data is not None and not train_data.empty: train_data = _handle_nan_values(train_data, "training features")
-            if val_data is not None and not val_data.empty: val_data = _handle_nan_values(val_data, "validation features")
-            if test_data is not None and not test_data.empty: test_data = _handle_nan_values(test_data, "test features")
-
-        # Models needing raw text (TFIDF, MNB_BoW)
-        elif self.model_type in ['logistic_tfidf', 'mnb_bow']:
-            logger.info(f"Loading raw text data for {self.model_type}")
-            try: train_data = TextBaselineModel.load_raw_text_data(self.dataset_name, 'train', self.suffix, self.db_handler)
-            except Exception as e: logger.error(f"Failed to load raw train data: {e}", exc_info=True)
-            try: val_data = TextBaselineModel.load_raw_text_data(self.dataset_name, 'validation', self.suffix, self.db_handler)
-            except Exception as e: logger.warning(f"Failed to load raw validation data: {e}")
-            try: test_data = TextBaselineModel.load_raw_text_data(self.dataset_name, 'test', self.suffix, self.db_handler)
-            except Exception as e: logger.warning(f"Failed to load raw test data: {e}")
-
-        # Models handling data internally (Exp3, Exp4, Exp5 now, Exp6)
-        # <<< ADDED gradient_boosting_tfidf_syntactic_exp6 >>>
-        elif self.model_type in ['logistic_tfidf_syntactic_exp3', 'mnb_bow_syntactic_exp4',
-                                 'random_forest_bow_syntactic_exp5', 'gradient_boosting_tfidf_syntactic_exp6']:
-            logger.info(f"{self.model_type} handles data loading internally. Skipping trainer data load.")
-            return None, None, None # Signal internal loading
-        # ----------------------------------------------------
-
-        else:
-            logger.error(f"Trainer._load_data: Unsupported model type: {self.model_type}")
-
-        return train_data, val_data, test_data
-
+        # Consistent naming using the model key
+        return f"{self.dataset_name}_{self.model_key}_{self.suffix}"
 
     def _initialize_model(self) -> Optional[NLIModel]:
-        """Initializes the correct model instance based on self.model_type."""
-        logger.info(f"Initializing model: {self.model_type}")
-        model: Optional[NLIModel] = None
-        # Get hyperparameters from args with defaults
-        kernel = getattr(self.args, 'kernel', 'linear')
-        C = getattr(self.args, 'C', 1.0)
-        max_features = getattr(self.args, 'max_features', 10000)
-        alpha = getattr(self.args, 'alpha', 1.0)
-        n_estimators = getattr(self.args, 'n_estimators', 100)
-        max_depth = getattr(self.args, 'max_depth', None)
-        # GB learning rate reuses the general learning_rate arg
-        learning_rate = getattr(self.args, 'learning_rate', 0.1) # Default for GB
-        random_state = 42
+        """Initializes the model instance using args."""
+        logger.info(f"Initializing model instance for {self.model_key} ({self.model_cls.__name__})")
+        model_instance: Optional[NLIModel] = None
+
+        # Prepare hyperparameters relevant to this model class
+        # This requires knowing which args each model might need.
+        # A more robust way is to inspect the model_cls.__init__ signature,
+        # but a simpler way is to pass all args or select known ones.
+        hyperparams = {
+            'C': getattr(self.args, 'C', 1.0),
+            'max_features': getattr(self.args, 'max_features', 10000), # For TFIDF/BoW based models
+            'tfidf_max_features': getattr(self.args, 'max_features', 10000), # Explicit name if models use it
+            'bow_max_features': getattr(self.args, 'max_features', 10000), # Explicit name if models use it
+            'alpha': getattr(self.args, 'alpha', 1.0), # For MNB
+            'n_estimators': getattr(self.args, 'n_estimators', 100), # For RF, GB
+            'max_depth': getattr(self.args, 'max_depth', None), # For RF, GB, DT
+            'learning_rate': getattr(self.args, 'learning_rate', 0.1), # For GB (check if others use it)
+            'n_neighbors': getattr(self.args, 'n_neighbors', 5), # For KNN
+            'max_iter': getattr(self.args, 'max_iter', 1000), # For Logistic Regression
+            'random_state': 42, # Common random state
+             # Add other relevant hyperparameters from args if needed by models
+             # e.g., kernel was removed as it was SVM specific. DT/KNN/RF don't use it.
+        }
+        # Add args/suffix/db_handler if model constructors need them
+        # hyperparams['args'] = self.args
+        # hyperparams['suffix'] = self.suffix
+        # hyperparams['db_handler'] = self.db_handler
 
         try:
-            if self.model_type == 'logistic_tfidf':
-                model = LogisticTFIDFBaseline(C=C, max_features=max_features)
-            elif self.model_type == 'mnb_bow':
-                model = MultinomialNaiveBayesBaseline(alpha=alpha, max_features=max_features)
-            elif self.model_type == 'svm_syntactic_exp1':
-                 model = SVMHandcraftedSyntacticExperiment1(kernel=kernel, C=C)
-            elif self.model_type == 'svm_bow_syntactic_exp2':
-                 model = SVMBowHandCraftedSyntacticExperiment2(kernel=kernel, C=C)
-            elif self.model_type == 'logistic_tfidf_syntactic_exp3':
-                 model = LogisticTFIDFSyntacticExperiment3(C=C, tfidf_max_features=max_features)
-            elif self.model_type == 'mnb_bow_syntactic_exp4':
-                 model = MultinomialNaiveBayesBowSyntacticExperiment4(alpha=alpha, bow_max_features=max_features)
-            elif self.model_type == 'random_forest_bow_syntactic_exp5':
-                model = RandomForestBowSyntacticExperiment5(n_estimators=n_estimators, max_depth=max_depth, random_state=random_state)
-            # <<< ADDED Exp6 Initialization >>>
-            elif self.model_type == 'gradient_boosting_tfidf_syntactic_exp6':
-                model = GradientBoostingTFIDFSyntacticExperiment6(
-                    n_estimators=n_estimators,
-                    learning_rate=learning_rate,
-                    max_depth=max_depth,
-                    random_state=random_state,
-                    tfidf_max_features=max_features # Pass TFIDF param
-                )
-            # ---------------------------------
-            elif self.model_type == 'svm': # General SVM type triggers multimodel training
-                logger.info("Model type 'svm' selected. Multiple SVM variants will be trained.")
-                return None # Signal multimodel handling needed
-            else:
-                logger.error(f"Unknown model type for initialization: {self.model_type}")
+            # Attempt to instantiate the model class with relevant args
+            # Option 1: Pass all args (simpler, models ignore extras)
+            # model_instance = self.model_cls(**vars(self.args))
+
+            # Option 2: Pass selected hyperparams (cleaner, requires knowing what models need)
+            # Filter hyperparams based on model needs - this is complex.
+            # Simplest approach for now: instantiate with common params.
+            # Models should ideally accept **kwargs or specific relevant params.
+            # Assuming models take relevant args from the hyperparams dict:
+            # This might require adjusting model __init__ signatures.
+            # For now, let's try instantiating with no args, assuming defaults are handled in the class
+            # OR that the class __init__ fetches from a shared config/args itself.
+            # A common pattern is passing the `args` object directly:
+            logger.warning("Attempting to initialize model with the 'args' object. Ensure model __init__ handles this.")
+            model_instance = self.model_cls(args=self.args) # Pass the whole args object
+
+            # --- OR --- If models take specific params:
+            # Example: If KNN takes n_neighbors and RF takes n_estimators, max_depth:
+            # if self.model_cls == KnnBowSyntacticExperiment2:
+            #     model_instance = self.model_cls(n_neighbors=hyperparams['n_neighbors'])
+            # elif self.model_cls == RandomForestBowSyntacticExperiment5:
+            #     model_instance = self.model_cls(n_estimators=hyperparams['n_estimators'], max_depth=hyperparams['max_depth'], random_state=hyperparams['random_state'])
+            # # ... This becomes complex quickly. Passing `args` is often easier.
+
         except Exception as e:
-            logger.error(f"Error initializing model {self.model_type}: {e}", exc_info=True)
+            logger.error(f"Error initializing model {self.model_key} ({self.model_cls.__name__}): {e}", exc_info=True)
+            return None
 
-        return model
+        if not isinstance(model_instance, NLIModel):
+             logger.error(f"Initialized object for {self.model_key} is not an instance of NLIModel.")
+             return None
 
-    def run_training(self):
-        """Runs the full training and evaluation pipeline."""
+        logger.info(f"Model {self.model_key} initialized successfully.")
+        return model_instance
+
+    def run_training(self) -> Optional[Dict[str, Any]]:
+        """
+        Runs the training pipeline: Initialize, Train, Save.
+        Assumes the model's train method handles data loading.
+        """
         results = {}
+        self.model = self._initialize_model()
 
-        # --- Handle models loading their own data (Exp3, Exp4, Exp5, Exp6) ---
-        # <<< ADDED Exp 6>>>
-        models_loading_internally = ['logistic_tfidf_syntactic_exp3', 'mnb_bow_syntactic_exp4',
-                                     'random_forest_bow_syntactic_exp5', 'gradient_boosting_tfidf_syntactic_exp6']
-        # ------------------
-        if self.model_type in models_loading_internally:
-            logger.info(f"Handling training for internally loading model: {self.model_type}")
-            self.model = self._initialize_model()
-            if not self.model: logger.error(f"Failed to initialize {self.model_type}."); return None
-            try:
-                # Call the model's train method, which loads data
-                train_results = self.model.train(
-                    train_dataset=self.dataset_name, train_split='train', train_suffix=self.suffix,
-                    val_dataset=self.dataset_name, val_split='validation', val_suffix=self.suffix
-                )
-                results[self.model_type] = train_results
-                # Save the model using the base filename (save method handles extensions)
-                model_filename_base = self._get_model_filename_base()
-                save_path_base = os.path.join(self.save_dir, model_filename_base)
-                self.model.save(save_path_base)
-                # Trigger evaluation (model loads its test data internally via _load_and_prepare_data)
-                self.run_evaluation(None)
-            except Exception as e: logger.error(f"Error during {self.model_type} training/saving: {e}", exc_info=True); return None
-            return results
+        if not self.model:
+            logger.error(f"Failed to initialize model {self.model_key}. Aborting training.")
+            return None
 
-        # --- Load data for other models ---
-        train_data, val_data, test_data = self._load_data()
-        if train_data is None or train_data.empty: logger.error("Training data could not be loaded. Aborting."); return None
+        logger.info(f"--- Starting training for {self.model_key} on {self.dataset_name} ({self.suffix}) ---")
+        start_time = time.time()
+        try:
+            # Assume train method takes dataset info and handles loading/processing
+            # Adjust signature based on actual model implementations
+            train_results = self.model.train(
+                train_dataset=self.dataset_name, train_split='train', train_suffix=self.suffix,
+                val_dataset=self.dataset_name, val_split='validation', val_suffix=self.suffix
+                # Pass other args if needed, e.g., db_handler=self.db_handler
+            )
+            # Store whatever results the train method returns (e.g., metrics, timings)
+            results[self.model_key] = train_results if train_results else {}
 
-        # --- Handle SVM Training (Multiple Models for type 'svm') ---
-        if self.model_type == 'svm':
-            logger.info("Starting SVM training for BoW, Syntax, and Combined features...")
-            svm_results = {}
-            kernel = getattr(self.args, 'kernel', 'linear'); C = getattr(self.args, 'C', 1.0)
-            svm_save_dir = self.save_dir # Use the specific dir for this model type
+        except NotImplementedError:
+             logger.error(f"Model class {self.model_cls.__name__} does not implement the 'train' method.")
+             return None
+        except Exception as e:
+            logger.error(f"Error during training for {self.model_key}: {e}", exc_info=True)
+            return None
+        finally:
+            train_time = time.time() - start_time
+            logger.info(f"Training phase for {self.model_key} finished in {train_time:.2f}s")
+            if self.model_key in results:
+                results[self.model_key]['train_time'] = train_time # Add train time to results
 
-            # Prepare validation data
-            if val_data is None or val_data.empty:
-                 if len(train_data) < 5: logger.error("Not enough training data for validation split."); return None
-                 logger.info("Splitting validation set from training data for SVM.")
-                 train_data, val_data = train_test_split(train_data, test_size=0.2, random_state=42, stratify=train_data.get('label', None))
-
-            clean_train_result = clean_dataset(train_data)
-            clean_val_result = clean_dataset(val_data) if val_data is not None else None
-            if not clean_train_result: logger.error("Training data invalid after cleaning."); return None
-            train_data_clean, y_train = clean_train_result
-            val_data_clean, y_val = clean_val_result if clean_val_result else (None, None)
-
-            svm_model_configs = [
-                (SVMWithBagOfWords(kernel=kernel, C=C), "SVM_BoW", LexicalFeatureExtractor()),
-                (SVMWithSyntax(kernel=kernel, C=C), "SVM_Syntax", SyntacticFeatureExtractor()),
-                (SVMWithBothFeatures(kernel=kernel, C=C), "SVM_Combined", CombinedFeatureExtractor())
-            ]
-
-            for svm_instance, model_name_suffix, extractor in svm_model_configs:
-                logger.info(f"--- Training {model_name_suffix} ---")
-                # Generate specific filename for this SVM variant
-                model_filename_base = f"{self.dataset_name}_{model_name_suffix}_{self.suffix}"
-                svm_instance.feature_extractor = extractor
-                X_train = svm_instance.extract_features(train_data_clean)
-                if X_train is None or X_train.size == 0: logger.error(f"Feature extraction failed for {model_name_suffix}. Skipping."); continue
-
-                start_time = time.time(); svm_instance.train(X_train, y_train); train_time = time.time() - start_time
-                logger.info(f"Training complete in {train_time:.2f}s")
-
-                eval_metrics = {}; eval_time = 0.0
-                if val_data_clean is not None and y_val is not None:
-                    X_val = svm_instance.extract_features(val_data_clean)
-                    if X_val is not None and X_val.size > 0: eval_time, eval_metrics = _evaluate_model_performance(svm_instance, X_val, y_val)
-                    else: logger.warning("Validation feature extraction failed. Skipping eval.")
-                else: logger.info("Skipping validation evaluation.")
-
-                # Save path needs to be specific to this variant
-                model_path = os.path.join(svm_save_dir, f"{model_filename_base}.joblib")
-                svm_instance.save(model_path)
-                svm_results[model_name_suffix] = {**eval_metrics, 'train_time': train_time, 'eval_time': eval_time}
-
-            logger.info("Finished training all SVM variants.")
-            # Trigger evaluation for the 'svm' group, passing test data if available
-            self.run_evaluation(test_data, model_type='svm')
-            return svm_results
-
-
-        # --- Handle Text Baselines & Specific SVM Experiments ---
-        elif self.model_type in ['logistic_tfidf', 'mnb_bow', 'svm_syntactic_exp1', 'svm_bow_syntactic_exp2']:
-            self.model = self._initialize_model()
-            if not self.model: logger.error(f"Failed to initialize model {self.model_type}. Aborting."); return None
-
-            eval_results = {}; train_time = 0.0; eval_time = 0.0
-
-            # Training Logic
-            if isinstance(self.model, SVMModel): # Exp1, Exp2 use precomputed
-                logger.info(f"Handling {self.model_type}. Using precomputed features.")
-                clean_train_result = clean_dataset(train_data)
-                if not clean_train_result: logger.error("Training data invalid."); return None
-                train_data_clean, y_train = clean_train_result
-                X_train = self.model.extract_features(train_data_clean)
-                start_time = time.time(); self.model.train(X_train, y_train); train_time = time.time() - start_time
-
-            elif isinstance(self.model, TextBaselineModel): # TFIDF, MNB_BoW use raw
-                logger.info(f"Handling {self.model_type}. Using raw text data.")
-                clean_train_result = clean_dataset(train_data)
-                if not clean_train_result: logger.error("Raw training data invalid."); return None
-                train_data_clean, y_train = clean_train_result
-                logger.info("Fitting feature extractor..."); self.model.extractor.fit(train_data_clean)
-                logger.info("Transforming training data..."); X_train = self.model.extract_features(train_data_clean)
-                start_time = time.time(); self.model.train(X_train, y_train); train_time = time.time() - start_time
-            else: logger.error("Model instance not recognized for training."); return None
-
-            # Validation Logic
-            if val_data is not None and not val_data.empty:
-                clean_val_result = clean_dataset(val_data)
-                if clean_val_result:
-                    val_data_clean, y_val = clean_val_result
-                    logger.info("Evaluating on validation data..."); X_val = self.model.extract_features(val_data_clean)
-                    eval_time, eval_metrics = _evaluate_model_performance(self.model, X_val, y_val)
-                    eval_results = {**eval_metrics, 'eval_time': eval_time}
-                else: logger.warning("Validation data invalid.")
-            else: logger.info("Skipping validation evaluation.")
-
-            # Saving Logic
-            model_filename_base = self._get_model_filename_base()
-            if isinstance(self.model, TextBaselineModel): self.model.save(self.save_dir, model_filename_base)
-            elif isinstance(self.model, SVMModel): self.model.save(os.path.join(self.save_dir, f"{model_filename_base}.joblib"))
-            else: logger.error("Cannot determine how to save this model type.")
-
-            results[self.model_type] = {**eval_results, 'train_time': train_time}
-            # Evaluate the specific model just trained
-            self.run_evaluation(test_data)
-
-        else:
-             logger.error(f"Unsupported model type in run_training: {self.model_type}"); return None
+        # --- Save the trained model ---
+        logger.info(f"Saving model {self.model_key}...")
+        model_filename_base = self._get_model_filename_base()
+        save_path_base = os.path.join(self.save_dir, model_filename_base)
+        try:
+            # Assume a save method exists that takes a base path
+            self.model.save(save_path_base)
+            logger.info(f"Model {self.model_key} saved with base path: {save_path_base}")
+        except NotImplementedError:
+             logger.error(f"Model class {self.model_cls.__name__} does not implement the 'save' method.")
+             # Continue, but model won't be saved
+        except Exception as e:
+            logger.error(f"Error saving model {self.model_key}: {e}", exc_info=True)
 
         return results
 
 
-    def run_evaluation(self, eval_data: Optional[pd.DataFrame], model_type: Optional[str] = None):
-        """Evaluates the trained model(s) on the provided data or loaded test data."""
-        model_to_eval_type = model_type or self.model_type
-        eval_dataset_name = self.dataset_name # Assuming eval on the same dataset as training
-        logger.info(f"Starting evaluation: Model={model_to_eval_type}, Dataset={eval_dataset_name}, Suffix={self.suffix}")
+    def run_evaluation(self, eval_split: str = 'test') -> Optional[Dict[str, Any]]:
+        """
+        Runs the evaluation pipeline: Load Model, Evaluate.
+        Assumes the model's evaluate method handles data loading for the specified split.
 
-        all_eval_metrics = {}
+        Args:
+            eval_split (str): The data split to evaluate on (e.g., 'test', 'validation').
 
-        # --- Special Handling for 'svm' (evaluate all variants) ---
-        if model_to_eval_type == 'svm':
-            if eval_data is None or eval_data.empty: logger.warning("No evaluation data provided/loaded for SVMs."); return {}
-            svm_variants_to_eval = [
-                (SVMWithBagOfWords, "SVM_BoW", LexicalFeatureExtractor()),
-                (SVMWithSyntax, "SVM_Syntax", SyntacticFeatureExtractor()),
-                (SVMWithBothFeatures, "SVM_Combined", CombinedFeatureExtractor())
-            ]
-            clean_eval_result = clean_dataset(eval_data)
-            if not clean_eval_result: logger.error("Eval data invalid for SVMs."); return {}
-            eval_data_clean, y_eval = clean_eval_result
+        Returns:
+            dict: Evaluation metrics, or None if evaluation fails.
+        """
+        logger.info(f"--- Starting evaluation for {self.model_key} on {self.dataset_name} split '{eval_split}' ({self.suffix}) ---")
 
-            for model_cls, model_name_suffix, extractor_instance in svm_variants_to_eval:
-                svm_variant_filename_base = f"{eval_dataset_name}_{model_name_suffix}_{self.suffix}"
-                # Use the directory specific to the 'svm' group for loading
-                svm_load_dir = os.path.join(MODELS_DIR, 'baseline_models', eval_dataset_name, 'svm', self.suffix)
-                model_path = os.path.join(svm_load_dir, f"{svm_variant_filename_base}.joblib")
-                try:
-                    loaded_svm_model = model_cls.load(model_path, extractor_instance)
-                    X_eval = loaded_svm_model.extract_features(eval_data_clean)
-                    if X_eval is not None and X_eval.shape[0] > 0:
-                        _, eval_metrics = _evaluate_model_performance(loaded_svm_model, X_eval, y_eval)
-                        all_eval_metrics[model_name_suffix] = eval_metrics
-                        logger.info(f"Eval results for {model_name_suffix}: {eval_metrics}")
-                    else: logger.warning(f"Feature extraction failed for eval on {model_name_suffix}")
-                except FileNotFoundError: logger.error(f"SVM model not found: {model_path}")
-                except Exception as e: logger.error(f"Error during SVM eval for {model_name_suffix}: {e}", exc_info=True)
-            return all_eval_metrics
+        # --- Load the saved model ---
+        model_filename_base = self._get_model_filename_base()
+        load_path_base = os.path.join(self.save_dir, model_filename_base)
+        loaded_model: Optional[NLIModel] = None
+        try:
+            # Assume a static load method exists that takes the base path
+            logger.info(f"Loading model {self.model_key} from base path: {load_path_base}")
+            loaded_model = self.model_cls.load(load_path_base)
+            if loaded_model is None: raise FileNotFoundError # If load returns None on failure
+        except FileNotFoundError:
+            logger.error(f"Model artifacts not found for {self.model_key} at base path {load_path_base}. Cannot evaluate.")
+            return None
+        except NotImplementedError:
+             logger.error(f"Model class {self.model_cls.__name__} does not implement the 'load' method.")
+             return None
+        except Exception as e:
+            logger.error(f"Error loading model {self.model_key} from {load_path_base}: {e}", exc_info=True)
+            return None
 
-        # --- Handling for other specific model types ---
-        # <<< ADDED Exp 6 >>>
-        specific_models = ['logistic_tfidf', 'mnb_bow', 'svm_syntactic_exp1', 'svm_bow_syntactic_exp2',
-                           'logistic_tfidf_syntactic_exp3', 'mnb_bow_syntactic_exp4',
-                           'random_forest_bow_syntactic_exp5', 'gradient_boosting_tfidf_syntactic_exp6']
-        # -------------------
-        if model_to_eval_type in specific_models:
-            # Load the single specified model
-            model_filename_base = f"{eval_dataset_name}_{model_to_eval_type}_{self.suffix}"
-            # Use the specific save directory for this model type
-            load_dir = os.path.join(MODELS_DIR, 'baseline_models', eval_dataset_name, model_to_eval_type, self.suffix)
-            load_path_base = os.path.join(load_dir, model_filename_base) # Base path for loading
-            loaded_model: Optional[NLIModel] = None
-            model_cls: Optional[Type[NLIModel]] = None
+        if not isinstance(loaded_model, NLIModel):
+             logger.error(f"Loaded object for {self.model_key} is not an instance of NLIModel.")
+             return None
 
-            try:
-                logger.info(f"Loading {model_to_eval_type} model from base path {load_path_base} for evaluation...")
-                # Map model_type string to the actual class
-                model_class_map = {
-                    'logistic_tfidf': LogisticTFIDFBaseline,
-                    'mnb_bow': MultinomialNaiveBayesBaseline,
-                    'svm_syntactic_exp1': SVMHandcraftedSyntacticExperiment1,
-                    'svm_bow_syntactic_exp2': SVMBowHandCraftedSyntacticExperiment2,
-                    'logistic_tfidf_syntactic_exp3': LogisticTFIDFSyntacticExperiment3,
-                    'mnb_bow_syntactic_exp4': MultinomialNaiveBayesBowSyntacticExperiment4,
-                    'random_forest_bow_syntactic_exp5': RandomForestBowSyntacticExperiment5,
-                    'gradient_boosting_tfidf_syntactic_exp6': GradientBoostingTFIDFSyntacticExperiment6 # Added Exp 6
-                }
-                model_cls = model_class_map.get(model_to_eval_type)
-                if not model_cls: raise ValueError(f"Unknown model type for loading: {model_to_eval_type}")
+        # --- Perform Evaluation ---
+        logger.info(f"Evaluating loaded model {self.model_key}...")
+        eval_results = {}
+        start_time = time.time()
+        try:
+            # Assume evaluate method takes dataset info + split and handles loading/processing
+            eval_metrics = loaded_model.evaluate(
+                dataset_name=self.dataset_name,
+                split=eval_split,
+                suffix=self.suffix
+                # Pass other args if needed, e.g., db_handler=self.db_handler
+            )
+            eval_results = eval_metrics if eval_metrics else {}
 
-                # Call the correct load method based on the model's base class or type
-                if issubclass(model_cls, TextBaselineModel):
-                    loaded_model = model_cls.load(load_dir, model_filename_base) # Needs dir and base name
-                elif issubclass(model_cls, SVMModel): # Covers Exp1, Exp2
-                     extractor = None # Determine extractor needed for this specific SVM experiment
-                     if model_cls == SVMHandcraftedSyntacticExperiment1: extractor = SyntacticFeatureExtractor()
-                     elif model_cls == SVMBowHandCraftedSyntacticExperiment2: extractor = CombinedFeatureExtractor()
-                     svm_model_path = os.path.join(load_dir, f"{model_filename_base}.joblib") # Path with extension
-                     loaded_model = model_cls.load(svm_model_path, extractor)
-                elif model_cls in [LogisticTFIDFSyntacticExperiment3, MultinomialNaiveBayesBowSyntacticExperiment4,
-                                    RandomForestBowSyntacticExperiment5, GradientBoostingTFIDFSyntacticExperiment6]: # Models loading internally
-                     loaded_model = model_cls.load(load_path_base) # Load using base path
-                else: raise TypeError(f"Don't know how to load model type {model_to_eval_type}")
+        except NotImplementedError:
+             logger.error(f"Model class {self.model_cls.__name__} does not implement the 'evaluate' method.")
+             return None
+        except Exception as e:
+            logger.error(f"Error during evaluation for {self.model_key} on split '{eval_split}': {e}", exc_info=True)
+            return None # Indicate evaluation failure
+        finally:
+             eval_time = time.time() - start_time
+             logger.info(f"Evaluation phase for {self.model_key} on split '{eval_split}' finished in {eval_time:.2f}s")
+             eval_results['eval_time'] = eval_time # Add eval time to results
 
-                if loaded_model is None: raise FileNotFoundError
-
-            except FileNotFoundError: logger.error(f"Model artifacts not found for {model_filename_base} at {load_path_base}. Cannot evaluate."); return {}
-            except Exception as e: logger.error(f"Error loading model {model_filename_base}: {e}", exc_info=True); return {}
-
-            # --- Perform Evaluation ---
-            # <<< ADDED Exp 6 >>>
-            models_loading_test_internally = ['logistic_tfidf_syntactic_exp3', 'mnb_bow_syntactic_exp4',
-                                              'random_forest_bow_syntactic_exp5', 'gradient_boosting_tfidf_syntactic_exp6']
-            # --------------------
-            if model_to_eval_type in models_loading_test_internally:
-                logger.info(f"Triggering internal evaluation for {model_to_eval_type}...")
-                try:
-                    # Assumes model has _load_and_prepare_data method
-                    test_prep_result = loaded_model._load_and_prepare_data(self.dataset_name, 'test', self.suffix)
-                    if test_prep_result:
-                        X_test_df, y_test = test_prep_result
-                        X_test_transformed = loaded_model.extract_features(X_test_df)
-                        _, eval_metrics = _evaluate_model_performance(loaded_model, X_test_transformed, y_test)
-                        all_eval_metrics[model_to_eval_type] = eval_metrics
-                        logger.info(f"Evaluation results for {model_to_eval_type}: {eval_metrics}")
-                    else: logger.error(f"Failed to load/prepare test data within {model_to_eval_type} model.")
-                except AttributeError: logger.error(f"{model_to_eval_type} missing _load_and_prepare_data method.")
-                except Exception as e: logger.error(f"Error during {model_to_eval_type} evaluation: {e}", exc_info=True)
-            else: # Evaluate other models (TFIDF, MNB, SVM Exp1/Exp2) using provided eval_data
-                if eval_data is None or eval_data.empty: logger.warning(f"No evaluation data provided for {model_to_eval_type}. Skipping."); return {}
-                clean_eval_result = clean_dataset(eval_data)
-                if not clean_eval_result: logger.error("Evaluation data invalid after cleaning."); return {}
-                eval_data_clean, y_eval = clean_eval_result
-                logger.info("Extracting features for evaluation..."); X_eval = None
-                try: X_eval = loaded_model.extract_features(eval_data_clean)
-                except Exception as e: logger.error(f"Error during feature extraction for evaluation: {e}", exc_info=True); return {}
-                if X_eval is None or X_eval.shape[0] == 0: logger.error("Feature extraction failed for evaluation data."); return {}
-                _, eval_metrics = _evaluate_model_performance(loaded_model, X_eval, y_eval)
-                all_eval_metrics[model_to_eval_type] = eval_metrics
-                logger.info(f"Evaluation results for {model_to_eval_type}: {eval_metrics}")
-
-            return all_eval_metrics
-        else:
-            logger.error(f"Unsupported model type for evaluation: {model_to_eval_type}")
-            return {}
+        logger.info(f"Evaluation results for {self.model_key} on '{eval_split}': {eval_results}")
+        return {self.model_key: eval_results}

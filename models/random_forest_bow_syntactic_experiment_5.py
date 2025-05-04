@@ -14,7 +14,6 @@ from sklearn.utils.validation import check_is_fitted
 # Import necessary components
 from utils.common import NLIModel
 from utils.database import DatabaseHandler # Added
-from .svm_bow_baseline import FeatureExtractor, filter_lexical_features, filter_syntactic_features, _handle_nan_values # Reusing helpers
 from .baseline_base import clean_dataset, _evaluate_model_performance # Added
 
 logger = logging.getLogger(__name__)

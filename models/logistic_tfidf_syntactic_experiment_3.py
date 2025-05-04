@@ -18,8 +18,6 @@ from utils.common import NLIModel
 from utils.database import DatabaseHandler
 # Import helpers specifically used for baseline models
 from .baseline_base import clean_dataset, prepare_labels, _evaluate_model_performance  # Use existing helpers
-from .svm_bow_baseline import load_parquet_data, _handle_nan_values, \
-    filter_syntactic_features  # Use SVM helpers for loading/filtering precomputed features
 
 logger = logging.getLogger(__name__)
 

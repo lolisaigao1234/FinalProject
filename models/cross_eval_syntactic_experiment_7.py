@@ -18,7 +18,6 @@ from utils.database import DatabaseHandler
 # Import helpers from baseline_base
 from .baseline_base import clean_dataset, _evaluate_model_performance, _handle_nan_values, prepare_labels
 # Import feature loading and filtering logic (can reuse logic from svm baseline)
-from .svm_bow_baseline import load_parquet_data, filter_syntactic_features, filter_lexical_features # Reusing helpers
 
 logger = logging.getLogger(__name__)
 

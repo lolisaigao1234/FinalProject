@@ -20,7 +20,6 @@ from utils.database import DatabaseHandler
 # Import helpers used for baseline models
 from .baseline_base import clean_dataset, _evaluate_model_performance # Use existing helpers
 # Use filtering logic from SVM baseline to identify syntactic features
-from .svm_bow_baseline import _handle_nan_values, filter_syntactic_features
 
 logger = logging.getLogger(__name__)
 

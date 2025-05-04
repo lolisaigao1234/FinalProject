@@ -1,7 +1,5 @@
 # File: IS567FP/models/__init__.py
 
-# Base classes
-from .baseline_trainer import BaselineTrainer
 
 # --- Baselines ---
 # Import new Decision Tree Baseline 1 (replaces SVM)

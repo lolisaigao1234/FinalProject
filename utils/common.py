@@ -1,7 +1,7 @@
 # utils/common.py
 import logging
 from abc import ABC, abstractmethod
-from typing import Tuple, List, Optional, Any
+from typing import Tuple, List, Optional, Any, Dict
 import pandas as pd
 import torch
 import numpy as np
@@ -79,8 +79,19 @@ class NLIModel(ABC):
         pass
 
     @abstractmethod
-    def train(self, x: np.ndarray, y: np.ndarray) -> None:
-        """Train the model."""
+    def train(self,
+              train_dataset: str,
+              train_split: str,
+              train_suffix: Optional[str] = None,
+              val_dataset: Optional[str] = None,
+              val_split: Optional[str] = None,
+              val_suffix: Optional[str] = None,
+              **kwargs: Any) -> Optional[Dict[str, Any]]:  # Changed signature and return type
+        """
+        Train the model. Implementations should handle data loading
+        based on the provided dataset, split, and suffix information.
+        Returns optional dictionary containing training metrics/results.
+        """
         pass
 
     @abstractmethod
@@ -97,4 +108,16 @@ class NLIModel(ABC):
     @abstractmethod
     def load(cls, filepath: str, feature_extractor: FeatureExtractorInterface) -> 'NLIModel':
         """Load model from disk."""
+        pass
+
+    @abstractmethod
+    def evaluate(self,
+                 dataset_name: str,
+                 split: str,
+                 suffix: Optional[str] = None,
+                 **kwargs: Any) -> Optional[Dict[str, Any]]:
+        """
+        Evaluate the model on a given dataset split.
+        Returns optional dictionary containing evaluation metrics.
+        """
         pass

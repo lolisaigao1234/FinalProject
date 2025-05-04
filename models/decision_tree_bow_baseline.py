@@ -1,7 +1,10 @@
 # File: IS567FP/models/decision_tree_bow_baseline.py
+from abc import ABC
+
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.pipeline import Pipeline
+import numpy as np
 
 # Assuming config is importable and defines necessary constants
 try:
@@ -24,7 +27,7 @@ except ModuleNotFoundError:
 
 # Make sure BaselineBase can be imported
 try:
-    from models.baseline_base import BaselineBase
+    from models.baseline_base import TextBaselineModel
 except ModuleNotFoundError:
     print("Warning: baseline_base.py not found. Defining a dummy BaselineBase.")
     # Define a dummy base class if not found
@@ -96,7 +99,7 @@ except ModuleNotFoundError:
             return config_dict
 
 
-class DecisionTreeBowBaseline(BaselineBase):
+class DecisionTreeBowBaseline(TextBaselineModel, ABC):
     """
     Baseline 1: Decision Tree + Bag-of-Words (BoW)
     Simple and fast decision tree classifier using word counts as features.

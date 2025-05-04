@@ -11,17 +11,17 @@ from models.baseline_trainer import BaselineTrainer # Use the unified trainer
 # --- Import corrected Experiment 7 & 8 classes ---
 # Make sure these class names match exactly what's defined in the files
 try:
-    from models.cross_eval_syntactic_experiment_7 import SyntacticFeatureEvaluator
+    from models.cross_eval_syntactic_experiment_7 import CrossEvalSyntacticExperiment7
 except ImportError:
     logging.error("Failed to import SyntacticFeatureEvaluator from models.cross_eval_syntactic_experiment_7")
     # Define a dummy class to avoid crashing if the file is missing/incorrect
-    class SyntacticFeatureEvaluator: pass
+    class CrossEvalSyntacticExperiment7: pass
 try:
-    from models.cross_validate_syntactic_experiment_8 import CrossValidator
+    from models.cross_validate_syntactic_experiment_8 import CrossValidateSyntacticExperiment8
 except ImportError:
     logging.error("Failed to import CrossValidator from models.cross_validate_syntactic_experiment_8")
     # Define a dummy class to avoid crashing if the file is missing/incorrect
-    class CrossValidator: pass
+    class CrossValidateSyntacticExperiment8: pass
 # --------------------------------------------------
 from utils.database import DatabaseHandler
 
@@ -82,8 +82,8 @@ def main():
         # --- Special experiment runners ---
         # Uses the NEW keys and CORRECTED class names
         special_experiment_runners = {
-            "experiment-7": SyntacticFeatureEvaluator, # CORRECTED Class Name
-            "experiment-8": CrossValidator           # CORRECTED Class Name
+            "experiment-7": CrossEvalSyntacticExperiment7, # CORRECTED Class Name
+            "experiment-8": CrossValidateSyntacticExperiment8           # CORRECTED Class Name
         }
         # --------------------------------------------------------------------
 

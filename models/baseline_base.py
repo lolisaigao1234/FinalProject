@@ -545,7 +545,7 @@ class FeatureBasedBaselineModel(ABC):
 
     @abstractmethod
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """Make predictions using the trained model."""
+        """Make pred ictions using the trained model."""
         raise NotImplementedError
 
     def extract_features(self, data: pd.DataFrame) -> np.ndarray:

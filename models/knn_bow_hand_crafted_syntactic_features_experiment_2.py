@@ -1,4 +1,6 @@
 # File: IS567FP/models/knn_bow_hand_crafted_syntactic_features_experiment_2.py
+from abc import ABC
+
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
@@ -27,7 +29,7 @@ except ModuleNotFoundError:
 
 # Make sure BaselineBase can be imported
 try:
-    from models.baseline_base import BaselineBase
+    from models.baseline_base import TextBaselineModel
 except ModuleNotFoundError:
     print("Warning: baseline_base.py not found. Defining a dummy BaselineBase.")
     class BaselineBase:
@@ -52,7 +54,7 @@ def select_columns(df, column_names):
         raise ValueError(f"Missing expected columns in DataFrame: {missing_cols}")
     return df[column_names]
 
-class KnnBowSyntacticExperiment2(BaselineBase):
+class KnnBowSyntacticExperiment2(TextBaselineModel, ABC):
     """
     Experiment 2: k-Nearest Neighbors + BoW + Hand-crafted Syntactic Features
     Combines lexical features (BoW) and pre-computed hand-crafted syntactic

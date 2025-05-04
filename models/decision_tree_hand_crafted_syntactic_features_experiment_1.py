@@ -1,4 +1,6 @@
 # File: IS567FP/models/decision_tree_hand_crafted_syntactic_features_experiment_1.py
+from abc import ABC
+
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import Pipeline
@@ -18,7 +20,7 @@ except ModuleNotFoundError:
 
 # Make sure BaselineBase can be imported
 try:
-    from models.baseline_base import BaselineBase
+    from models.baseline_base import TextBaselineModel
 except ModuleNotFoundError:
     print("Warning: baseline_base.py not found. Defining a dummy BaselineBase.")
     class BaselineBase:
@@ -59,7 +61,7 @@ class SyntacticFeatureSelector:
             print("Warning: Input X is not a DataFrame. Assuming it contains the correct syntactic features.")
             return X
 
-class DecisionTreeSyntacticExperiment1(BaselineBase):
+class DecisionTreeSyntacticExperiment1(TextBaselineModel, ABC):
     """
     Experiment 1: Decision Tree + Hand-crafted Syntactic Features
     Decision Tree using only hand-crafted features derived from parse trees.

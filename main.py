@@ -98,7 +98,7 @@ def main():
 
     # Optional: Set benchmark/deterministic based on needs
     torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = False # Set True for full reproducibility if needed
+    torch.backends.cudnn.deterministic = True # Set True for full reproducibility if needed
 
     logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
     logger.info(f"Using device: {determined_device}") # Use the determined device

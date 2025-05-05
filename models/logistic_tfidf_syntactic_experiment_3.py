@@ -211,75 +211,126 @@ class LogisticTFIDFSyntacticExperiment3(NLIModel):
 
     # Implement NLIModel abstract methods
 
+    # In IS567FP/models/logistic_tfidf_syntactic_experiment_3.py
     def extract_features(self, data: pd.DataFrame) -> Any:
         """
-        Transforms input DataFrame using the *fitted* feature pipeline.
-        This is called by the ExperimentTrainer during training AFTER loading features,
-        and by the evaluate method AFTER loading features.
-        The input DataFrame 'data' should contain 'premise_text', 'hypothesis_text',
-        and all required precomputed syntactic feature columns.
+        Transforms input DataFrame using the feature pipeline.
+        - If the model is not yet trained (self.is_trained is False), this indicates
+          it's being called during the training phase before the .train() method.
+          In this case, it FITS the pipeline on the data and then transforms it.
+        - If the model IS trained (self.is_trained is True), this indicates it's
+          being called during evaluation or prediction. In this case, it only
+          TRANSFORMS the data using the previously fitted pipeline.
         """
-        if not self.feature_pipeline:
-            # If called before training/loading, try building it (won't be fitted)
-            # This path is less likely with ExperimentTrainer but handles direct use.
-            logger.warning("Feature pipeline not available. Attempting to build (will be unfitted).")
-            self.feature_pipeline = self._build_feature_pipeline(
-                sample_df_for_fitting=data)  # Pass data to discover cols
-            # An unfitted pipeline might still be useful if only feature selection/text selection happens
-            # But TFIDF/Scaler need fitting. A fitted pipeline is expected here.
-            if not self.is_trained:
-                raise RuntimeError(
-                    "Feature pipeline must be fitted (model trained/loaded) before calling extract_features.")
-
-        logger.debug("Extracting features using fitted pipeline...")
         if not isinstance(data, pd.DataFrame):
             raise TypeError("Input data for feature extraction must be a pandas DataFrame.")
 
-        # Ensure required text columns are present for TFIDF
+        # Ensure required text columns are present for TFIDF processing
         if 'premise_text' not in data.columns or 'hypothesis_text' not in data.columns:
-            # Try to load text if only features were passed (less ideal, assumes alignment)
-            logger.warning("Missing text columns in input for extract_features. This might indicate an issue.")
-            # If you need to load text here, it adds complexity. Ideally, ExperimentTrainer provides combined data.
-            # For now, raise error or proceed knowing TFIDF might fail.
-            raise ValueError("Missing 'premise_text' or 'hypothesis_text' columns required by TFIDF.")
+            # We need text columns for both fitting and transforming TFIDF
+            raise ValueError("Missing 'premise_text' or 'hypothesis_text' columns required for the feature pipeline.")
 
-        # The pipeline's transform method will execute all steps:
-        # Text selection -> TFIDF vectorization -> Syntactic feature selection -> Scaling -> FeatureUnion combination
-        try:
-            extracted = self.feature_pipeline.transform(data)
-            logger.debug(f"Feature extraction successful. Output shape: {extracted.shape}")
-            return extracted
-        except Exception as e:
-            logger.error(f"Error during pipeline transform in extract_features: {e}", exc_info=True)
-            # Optionally, inspect the state, e.g., self._syntactic_feature_columns vs data.columns
-            logger.error(f"Syntactic columns expected by pipeline: {self._syntactic_feature_columns}")
-            logger.error(f"Columns available in input data: {data.columns.tolist()}")
-            raise  # Re-raise the exception
+        if not self.is_trained:
+            # --- Training Phase: Fit Pipeline and Transform ---
+            logger.info("Model not trained yet. Assuming training context: Building/Fitting pipeline...")
+
+            # Build the pipeline structure if it doesn't exist.
+            # _build_feature_pipeline needs the data to identify syntactic columns.
+            if not self.feature_pipeline:
+                self.feature_pipeline = self._build_feature_pipeline(sample_df_for_fitting=data)
+                # After building, _syntactic_feature_columns should be set internally.
+                if not self._syntactic_feature_columns:
+                    logger.warning("No syntactic feature columns identified during pipeline build.")
+
+            logger.info("Fitting feature pipeline and transforming training data...")
+            start_transform_time = time.time()
+            try:
+                # Fit the pipeline (TFIDF, Scaler, etc.) and transform the data in one step.
+                # Pass 'data' as X. y is not typically needed for fit_transform here.
+                X_transformed = self.feature_pipeline.fit_transform(data)  # Fit and transform
+                logger.info(f"Pipeline fit during training context successful.")
+            except Exception as e:
+                logger.error(f"Error during pipeline fit_transform in extract_features (training context): {e}",
+                             exc_info=True)
+                logger.error(f"Input data columns: {data.columns.tolist()}")
+                logger.error(f"Pipeline steps: {self.feature_pipeline.steps if self.feature_pipeline else 'None'}")
+                raise  # Re-raise
+
+            transform_time = time.time() - start_transform_time
+            logger.info(
+                f"Pipeline fit & transform completed in {transform_time:.2f}s. Output shape: {X_transformed.shape}")
+
+            # Crucially, self.is_trained is NOT set here.
+            # It will be set only after the classifier training in the .train() method succeeds.
+            return X_transformed
+
+        else:
+            # --- Evaluation/Prediction Phase: Transform Only ---
+            logger.info("Model is trained. Assuming evaluation/prediction context: Transforming data...")
+            if not self.feature_pipeline:
+                # This is an inconsistent state - model trained but no pipeline.
+                # Could happen if loading failed or save was incomplete.
+                raise RuntimeError("Model is marked as trained, but the feature pipeline is missing. Load/Save issue?")
+
+            logger.debug("Transforming data using the fitted pipeline...")
+            try:
+                # Use transform() ONLY, as the pipeline is already fitted from the training phase call.
+                extracted = self.feature_pipeline.transform(data)
+                logger.debug(f"Feature extraction (transform) successful. Output shape: {extracted.shape}")
+                return extracted
+            except Exception as e:
+                logger.error(f"Error during pipeline transform in extract_features (evaluation context): {e}",
+                             exc_info=True)
+                # Log details helpful for debugging transform issues (e.g., missing columns)
+                logger.error(f"Syntactic columns expected by pipeline: {self._syntactic_feature_columns}")
+                logger.error(f"Columns available in input data: {data.columns.tolist()}")
+                if self._syntactic_feature_columns:
+                    missing_syn = [col for col in self._syntactic_feature_columns if col not in data.columns]
+                    if missing_syn:
+                        # FeatureSelector should handle this, but log it.
+                        logger.warning(
+                            f"Input data missing expected syntactic columns during transform: {missing_syn}. FeatureSelector should add them as 0.")
+                raise  # Re-raise the exception
+
+    # In IS567FP/models/logistic_tfidf_syntactic_experiment_3.py
 
     def train(self, X: Any, y: np.ndarray) -> None:
         """
-        Trains the Logistic Regression model on the *already transformed* features.
-        Also fits the feature pipeline during the first call (implicitly via ExperimentTrainer).
+        Trains the Logistic Regression model on the *already transformed* features (X).
+        The feature pipeline fitting now happens within the `extract_features` method
+        when it's called by the ExperimentTrainer just before this `train` method.
         """
-        # In the ExperimentTrainer context, X is already transformed by extract_features,
-        # which uses the feature_pipeline fitted on the training data.
-        # So, we just need to train the self.model here.
-
         if X is None or y is None:
-            raise ValueError("Training features (X) or labels (y) are None.")
+            raise ValueError("Training features (X received from extract_features) or labels (y) are None.")
+        if X.shape[0] == 0:
+            logger.warning("Received 0 training samples (X shape is 0). Cannot train.")
+            # Or raise error depending on desired behaviour
+            # raise ValueError("Received 0 training samples.")
+            self.is_trained = False  # Ensure not marked as trained
+            return  # Exit early
         if X.shape[0] != len(y):
             raise ValueError(f"Feature/Label mismatch during training: X={X.shape}, y={len(y)}")
+        if self.is_trained:
+            # This case should ideally not happen with the standard ExperimentTrainer flow,
+            # but handle it defensively.
+            logger.warning("Model is already marked as trained. Re-training the classifier...")
+            self.is_trained = False  # Reset flag before attempting to train again
 
-        # The feature_pipeline should already be fitted by ExperimentTrainer via extract_features call before this.
-        # If this train method is called *directly*, the pipeline needs fitting first.
-        # However, the abstract method expects X, y as input, assuming X is ready.
-
-        logger.info(f"Training Logistic Regression model on data with shape: {X.shape}")
+        logger.info(f"Training Logistic Regression classifier on processed data with shape: {X.shape}")
         start_time = time.time()
-        self.model.fit(X, y)
-        self.is_trained = True  # Mark as trained AFTER successful fit
+        try:
+            # Train the actual scikit-learn Logistic Regression model
+            self.model.fit(X, y)
+            # Set the flag ONLY after successful fitting of the classifier
+            self.is_trained = True
+            logger.info(f"Logistic Regression classifier training completed successfully.")
+        except Exception as e:
+            logger.error(f"Error during Logistic Regression model fitting: {e}", exc_info=True)
+            self.is_trained = False  # Ensure flag remains False if fit fails
+            raise  # Re-raise
+
         train_time = time.time() - start_time
-        logger.info(f"Logistic Regression model training completed in {train_time:.2f}s.")
+        logger.info(f"Classifier training phase completed in {train_time:.2f}s.")
 
     def predict(self, X: Any) -> np.ndarray:
         """Predicts labels for *already transformed* feature data."""

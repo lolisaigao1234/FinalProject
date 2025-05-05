@@ -563,7 +563,7 @@ class CombinedFeatureExtractor(FeatureExtractor):
 # ... (rest of the existing code in baseline_base.py) ...
 
 # Example of how a FeatureBasedBaselineModel might look (if you don't have one already)
-class FeatureBasedBaselineModel(ABC):
+class FeatureBasedBaselineModel(NLIModel):
     """Abstract Base Class for models that operate on pre-extracted features."""
 
     def __init__(self, feature_extractor: FeatureExtractor, **kwargs):

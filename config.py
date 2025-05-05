@@ -105,6 +105,11 @@ DECISION_TREE_MIN_SAMPLES_SPLIT = 2
 DECISION_TREE_MIN_SAMPLES_LEAF = 1
 RANDOM_SEED = 42  # Set a random seed for reproducibility
 
+# Add KNN settings
+KNN_N_NEIGHBORS = 5  # Number of neighbors for KNN
+KNN_WEIGHTS = "uniform"  # Weight function used in prediction
+KNN_METRIC = "cosine"
+
 # If only using baseline models defined in this project, you might not need this dict.
 try:
     # Attempt to import dynamically if structure allows, otherwise define statically.

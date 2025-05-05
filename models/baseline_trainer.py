@@ -165,7 +165,8 @@ class BaselineTrainer:
         save_path_base = os.path.join(self.save_dir, model_filename_base)
         try:
             # Assume a save method exists that takes a base path
-            self.model.save(save_path_base)
+            # self.model.save(save_path_base)
+            self.model.save(self.save_dir, model_filename_base)
             logger.info(f"Model {self.model_key} saved with base path: {save_path_base}")
         except NotImplementedError:
              logger.error(f"Model class {self.model_cls.__name__} does not implement the 'save' method.")

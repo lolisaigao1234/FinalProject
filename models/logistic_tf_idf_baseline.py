@@ -55,7 +55,6 @@ class TFIDFExtractor(TextFeatureExtractorBase):
 
     # fit and fit_transform are inherited from TextFeatureExtractorBase
 
-
 class LogisticTFIDFBaseline(TextBaselineModel):
     """Baseline NLI model using Logistic Regression with TF-IDF features."""
     MODEL_NAME = "Logistic_TF-IDF_Baseline"
@@ -103,7 +102,6 @@ class LogisticTFIDFBaseline(TextBaselineModel):
     # --- END OF ADDED METHOD ---
 
     # --- ADD TRAIN METHOD ---
-        # --- 添加/修改 train 方法 ---
     def train(self, train_dataset: str, train_split: str, train_suffix: str,
               val_dataset: Optional[str] = None, val_split: Optional[str] = None, val_suffix: Optional[str] = None,
               **kwargs) -> Optional[Dict[str, Any]]:

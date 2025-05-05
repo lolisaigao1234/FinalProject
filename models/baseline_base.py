@@ -5,7 +5,7 @@ from abc import abstractmethod, ABC
 import joblib
 import pandas as pd
 import numpy as np
-from typing import Tuple, Optional, Dict, Any, List # Added Dict, Any, List
+from typing import Tuple, Optional, Dict, Any, List  # Added Dict, Any, List
 import time
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 
@@ -15,6 +15,7 @@ from utils.database import DatabaseHandler
 from config import MODELS_DIR, DATA_DIR
 
 logger = logging.getLogger(__name__)
+
 
 # --- Helper Functions (Keep existing _handle_nan_values, prepare_labels, etc.) ---
 
@@ -31,14 +32,14 @@ def _handle_nan_values(df: pd.DataFrame, context: str = "processing") -> pd.Data
     """
     if df is None or df.empty:
         logger.warning(f"DataFrame is None or empty in _handle_nan_values ({context}).")
-        return df # Return as is if empty or None
+        return df  # Return as is if empty or None
 
     # Select only numeric columns for NaN check/fill
     numeric_cols = df.select_dtypes(include=np.number).columns.tolist()
 
     if not numeric_cols:
         logger.debug(f"No numeric columns found to check for NaNs ({context}).")
-        return df # Return original if no numeric columns
+        return df  # Return original if no numeric columns
 
     nan_check = df[numeric_cols].isnull().sum()
     total_nans = nan_check.sum()
@@ -67,13 +68,12 @@ def prepare_labels(labels, label_map=None):
     if not isinstance(labels, pd.Series):
         labels = pd.Series(labels)
 
-
     if labels.dtype == object:
         # Handle potential NaNs introduced before conversion
-        labels = labels.fillna('unknown') # Or dropna() depending on desired behavior
+        labels = labels.fillna('unknown')  # Or dropna() depending on desired behavior
         # Use numpy's vectorize for potentially faster mapping on large arrays
         vectorized_map = np.vectorize(lambda label: label_map.get(label, -1))
-        return vectorized_map(labels.astype(str)) # Ensure string type before mapping
+        return vectorized_map(labels.astype(str))  # Ensure string type before mapping
         # return np.array([label_map.get(label, -1) for label in labels]) # Original list comprehension
     elif pd.api.types.is_numeric_dtype(labels):
         # Ensure numeric labels are integers and handle potential floats/NaNs
@@ -85,10 +85,10 @@ def prepare_labels(labels, label_map=None):
         return labels.astype(int).values
     except Exception as e:
         logger.error(f"Could not convert labels to integer array: {e}. Returning original.")
-        return labels # Return original array if conversion fails
+        return labels  # Return original array if conversion fails
 
 
-def get_label_column(df: pd.DataFrame) -> Tuple[str, pd.Series]: # Return Series for consistency
+def get_label_column(df: pd.DataFrame) -> Tuple[str, pd.Series]:  # Return Series for consistency
     """Extract label column name and values from dataframe"""
     if 'gold_label' in df.columns:
         return 'gold_label', df['gold_label']
@@ -108,10 +108,10 @@ def clean_dataset(df: pd.DataFrame) -> Optional[Tuple[pd.DataFrame, np.ndarray]]
         label_col, labels_series = get_label_column(df)
     except ValueError as e:
         logger.error(f"Error getting label column: {e}")
-        return None # Cannot proceed without labels
+        return None  # Cannot proceed without labels
 
     # Convert labels to integers and handle unknowns (-1)
-    int_labels = prepare_labels(labels_series) # Pass the Series
+    int_labels = prepare_labels(labels_series)  # Pass the Series
 
     # Filter out invalid labels BEFORE trying to index the DataFrame
     valid_mask = int_labels != -1
@@ -125,13 +125,13 @@ def clean_dataset(df: pd.DataFrame) -> Optional[Tuple[pd.DataFrame, np.ndarray]]
             if not df.index.equals(pd.RangeIndex(start=0, stop=len(df), step=1)):
                 logger.debug("DataFrame index is non-standard. Aligning mask.")
                 valid_mask_aligned = pd.Series(valid_mask, index=df.index)
-                df_cleaned = df.loc[valid_mask_aligned] # Use boolean Series on original index
+                df_cleaned = df.loc[valid_mask_aligned]  # Use boolean Series on original index
             else:
-                df_cleaned = df[valid_mask].reset_index(drop=True) # Direct boolean mask ok
+                df_cleaned = df[valid_mask].reset_index(drop=True)  # Direct boolean mask ok
             int_labels_cleaned = int_labels[valid_mask]
-        else: # Should not happen if num_invalid > 0, but safe check
-             df_cleaned = df
-             int_labels_cleaned = int_labels
+        else:  # Should not happen if num_invalid > 0, but safe check
+            df_cleaned = df
+            int_labels_cleaned = int_labels
     else:
         # No invalid labels found
         df_cleaned = df
@@ -144,7 +144,8 @@ def clean_dataset(df: pd.DataFrame) -> Optional[Tuple[pd.DataFrame, np.ndarray]]
     return df_cleaned, int_labels_cleaned
 
 
-def _evaluate_model_performance(model: NLIModel, X_val: np.ndarray, y_val: np.ndarray) -> Tuple[float, Dict[str, float]]:
+def _evaluate_model_performance(model: NLIModel, X_val: np.ndarray, y_val: np.ndarray) -> Tuple[
+    float, Dict[str, float]]:
     """Evaluate model performance on validation/test data. (Internal helper)"""
     # Ensure y_val is not empty
     if y_val is None or len(y_val) == 0:
@@ -156,9 +157,9 @@ def _evaluate_model_performance(model: NLIModel, X_val: np.ndarray, y_val: np.nd
         return 0.0, {'accuracy': 0.0, 'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
     # Check for consistent number of samples
     if X_val.shape[0] != len(y_val):
-         logger.error(f"Feature/Label mismatch for evaluation: X_val has {X_val.shape[0]} samples, y_val has {len(y_val)} labels.")
-         return 0.0, {'accuracy': 0.0, 'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
-
+        logger.error(
+            f"Feature/Label mismatch for evaluation: X_val has {X_val.shape[0]} samples, y_val has {len(y_val)} labels.")
+        return 0.0, {'accuracy': 0.0, 'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
 
     logger.info(f"Evaluating model on {X_val.shape[0]} samples...")
     start_time = time.time()
@@ -177,7 +178,6 @@ def _evaluate_model_performance(model: NLIModel, X_val: np.ndarray, y_val: np.nd
         logger.error(f"Prediction length mismatch: y_pred ({pred_len}) vs y_val ({len(y_val)})")
         return eval_time, {'accuracy': 0.0, 'precision': 0.0, 'recall': 0.0, 'f1': 0.0}
 
-
     accuracy = accuracy_score(y_val, y_pred)
     # Use zero_division=0 to handle cases with no predicted/true samples for a class
     precision, recall, f1, _ = precision_recall_fscore_support(
@@ -190,12 +190,14 @@ def _evaluate_model_performance(model: NLIModel, X_val: np.ndarray, y_val: np.nd
         'recall': recall,
         'f1': f1
     }
-    logger.info(f"Evaluation Metrics - Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
+    logger.info(
+        f"Evaluation Metrics - Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
     return eval_time, metrics
 
 
 class TextFeatureExtractorBase:
     """Base class for TF-IDF and BoW extractors."""
+
     def __init__(self, vectorizer_class, **kwargs):
         self.vectorizer = vectorizer_class(**kwargs)
         self.is_fitted = False
@@ -229,11 +231,12 @@ class TextFeatureExtractorBase:
         # We need to know the original vectorizer class to instantiate correctly.
         # This might require storing the class name or passing it.
         # For now, assume the loading logic knows the class or handle outside.
-        instance = cls.__new__(cls) # Create instance without calling __init__
+        instance = cls.__new__(cls)  # Create instance without calling __init__
         instance.vectorizer = vectorizer
         instance.is_fitted = True
         logger.info(f"{vectorizer.__class__.__name__} vectorizer loaded from {filepath}")
         return instance
+
 
 # Abstract Base Class for Text-Based NLI Baselines (TF-IDF, BoW)
 class TextBaselineModel(NLIModel):
@@ -241,13 +244,14 @@ class TextBaselineModel(NLIModel):
     Abstract Base Class for NLI models working directly on text (TF-IDF, BoW).
     Requires subclasses to implement model training and feature extraction details.
     """
+
     def __init__(self, extractor: TextFeatureExtractorBase, model_instance: Any):
         self.extractor = extractor
         self.model = model_instance
         self.is_trained = False
 
     @abstractmethod
-    def extract_features(self, data: pd.DataFrame) -> Any: # Return type can be sparse or dense
+    def extract_features(self, data: pd.DataFrame) -> Any:  # Return type can be sparse or dense
         """Extracts features using the assigned extractor."""
         pass
 
@@ -267,18 +271,17 @@ class TextBaselineModel(NLIModel):
         logger.debug("Prediction finished.")
         return predictions
 
-    def save(self, directory: str, model_name: str) -> None:
+    def save(self, filepath: str, model_name) -> None:
         """Saves the trained model and the feature extractor."""
         os.makedirs(directory, exist_ok=True)
         model_path = os.path.join(directory, f"{model_name}_model.joblib")
-        extractor_path = os.path.join(directory, f"{model_name}_extractor.joblib") # Save extractor
+        extractor_path = os.path.join(directory, f"{model_name}_extractor.joblib")  # Save extractor
 
         joblib.dump(self.model, model_path)
         # Save the extractor instance, not just the vectorizer
         joblib.dump(self.extractor, extractor_path)
         logger.info(f"{self.model.__class__.__name__} model saved to {model_path}")
         logger.info(f"Feature extractor ({self.extractor.__class__.__name__}) saved to {extractor_path}")
-
 
     @classmethod
     def load(cls, directory: str, model_name: str) -> 'TextBaselineModel':
@@ -287,10 +290,11 @@ class TextBaselineModel(NLIModel):
         extractor_path = os.path.join(directory, f"{model_name}_extractor.joblib")
 
         if not os.path.exists(model_path) or not os.path.exists(extractor_path):
-            raise FileNotFoundError(f"Model or extractor file not found in directory: {directory} for base name {model_name}")
+            raise FileNotFoundError(
+                f"Model or extractor file not found in directory: {directory} for base name {model_name}")
 
         loaded_model = joblib.load(model_path)
-        loaded_extractor = joblib.load(extractor_path) # Load the extractor object
+        loaded_extractor = joblib.load(extractor_path)  # Load the extractor object
 
         # --- MODIFICATION START ---
         # Instantiate the class (using defaults or loaded metadata if available later)
@@ -298,27 +302,31 @@ class TextBaselineModel(NLIModel):
         # TODO: Enhance this by saving/loading hyperparameters (e.g., alpha, max_features)
         #       and passing them to cls() here.
         try:
-             instance = cls() # Instantiate the specific class (e.g., MultinomialNaiveBayesBaseline)
+            instance = cls()  # Instantiate the specific class (e.g., MultinomialNaiveBayesBaseline)
         except Exception as e:
-             logger.error(f"Failed to instantiate {cls.__name__} with default arguments during load: {e}. Check its __init__ method.", exc_info=True)
-             raise TypeError(f"Cannot auto-instantiate {cls.__name__} during load. Requires specific hyperparameters.") from e
+            logger.error(
+                f"Failed to instantiate {cls.__name__} with default arguments during load: {e}. Check its __init__ method.",
+                exc_info=True)
+            raise TypeError(
+                f"Cannot auto-instantiate {cls.__name__} during load. Requires specific hyperparameters.") from e
 
         # Assign the loaded components
         instance.model = loaded_model
         instance.extractor = loaded_extractor
-        instance.is_trained = True # Assume loaded model is trained
+        instance.is_trained = True  # Assume loaded model is trained
         # --- MODIFICATION END ---
 
         logger.info(f"{cls.__name__} loaded from {directory} using base name {model_name}")
         return instance
 
     @staticmethod
-    def load_raw_text_data(dataset_name: str, split: str, suffix: str, db_handler: DatabaseHandler) -> Optional[pd.DataFrame]:
+    def load_raw_text_data(dataset_name: str, split: str, suffix: str, db_handler: DatabaseHandler) -> Optional[
+        pd.DataFrame]:
         """
         Loads raw text data by merging intermediate 'pairs' and 'sentences' files.
         Falls back to original data loader if intermediates are not found.
         """
-        from data.data_loader import DatasetLoader # Import locally if needed
+        from data.data_loader import DatasetLoader  # Import locally if needed
         logger.info(f"Attempting to load intermediate raw text data: {dataset_name}/{split}/{suffix}")
         pairs_table = f"pairs_{suffix}"
         sentences_table = f"sentences_{suffix}"
@@ -335,18 +343,21 @@ class TextBaselineModel(NLIModel):
                 # Check if columns exist before trying to convert type
                 if 'id' in pairs_df.columns: pairs_df['id'] = pairs_df['id'].astype(str)
                 if 'premise_id' in pairs_df.columns: pairs_df['premise_id'] = pairs_df['premise_id'].astype(str)
-                if 'hypothesis_id' in pairs_df.columns: pairs_df['hypothesis_id'] = pairs_df['hypothesis_id'].astype(str)
+                if 'hypothesis_id' in pairs_df.columns: pairs_df['hypothesis_id'] = pairs_df['hypothesis_id'].astype(
+                    str)
                 if 'id' in sentences_df.columns: sentences_df['id'] = sentences_df['id'].astype(str)
 
-
                 sentences_premise = sentences_df[['id', 'text']].rename(columns={'text': 'premise_text', 'id': 'p_id'})
-                sentences_hypothesis = sentences_df[['id', 'text']].rename(columns={'text': 'hypothesis_text', 'id': 'h_id'})
-                pairs_essential = pairs_df[['id', 'premise_id', 'hypothesis_id', 'label']].rename(columns={'id': 'pair_id'})
+                sentences_hypothesis = sentences_df[['id', 'text']].rename(
+                    columns={'text': 'hypothesis_text', 'id': 'h_id'})
+                pairs_essential = pairs_df[['id', 'premise_id', 'hypothesis_id', 'label']].rename(
+                    columns={'id': 'pair_id'})
 
                 # Perform merges
-                merged_df_temp1 = pd.merge(pairs_essential, sentences_premise, left_on='premise_id', right_on='p_id', how='left')
-                merged_df = pd.merge(merged_df_temp1, sentences_hypothesis, left_on='hypothesis_id', right_on='h_id', how='left')
-
+                merged_df_temp1 = pd.merge(pairs_essential, sentences_premise, left_on='premise_id', right_on='p_id',
+                                           how='left')
+                merged_df = pd.merge(merged_df_temp1, sentences_hypothesis, left_on='hypothesis_id', right_on='h_id',
+                                     how='left')
 
                 # Select and rename final columns, handle potential missing text after merge
                 final_cols = ['pair_id', 'premise_text', 'hypothesis_text', 'label']
@@ -362,20 +373,23 @@ class TextBaselineModel(NLIModel):
                     premise_nan_count = merged_df['premise_text'].isnull().sum()
                     hyp_nan_count = merged_df['hypothesis_text'].isnull().sum()
                     if premise_nan_count > 0 or hyp_nan_count > 0:
-                         logger.warning(f"Found {premise_nan_count} NaN premises and {hyp_nan_count} NaN hypotheses after merge. Filling with empty string.")
-                         merged_df['premise_text'] = merged_df['premise_text'].fillna('')
-                         merged_df['hypothesis_text'] = merged_df['hypothesis_text'].fillna('')
+                        logger.warning(
+                            f"Found {premise_nan_count} NaN premises and {hyp_nan_count} NaN hypotheses after merge. Filling with empty string.")
+                        merged_df['premise_text'] = merged_df['premise_text'].fillna('')
+                        merged_df['hypothesis_text'] = merged_df['hypothesis_text'].fillna('')
 
                     # Drop rows where label is still NaN (should be handled by clean_dataset later, but good check)
                     label_nan_count = merged_df['label'].isnull().sum()
                     if label_nan_count > 0:
-                         logger.warning(f"Found {label_nan_count} NaN labels after merge. Dropping these rows.")
-                         merged_df.dropna(subset=['label'], inplace=True)
+                        logger.warning(f"Found {label_nan_count} NaN labels after merge. Dropping these rows.")
+                        merged_df.dropna(subset=['label'], inplace=True)
 
-                    logger.info(f"Successfully loaded and merged intermediate data. Shape after merge: {merged_df.shape}")
+                    logger.info(
+                        f"Successfully loaded and merged intermediate data. Shape after merge: {merged_df.shape}")
 
             else:
-                logger.warning(f"Intermediate data ({pairs_table} or {sentences_table}) not found or empty. Falling back to original data loader.")
+                logger.warning(
+                    f"Intermediate data ({pairs_table} or {sentences_table}) not found or empty. Falling back to original data loader.")
                 merged_df = None
 
         except Exception as e:
@@ -388,7 +402,7 @@ class TextBaselineModel(NLIModel):
             try:
                 loader = DatasetLoader(db_handler)
                 # Assume load_dataset returns the required columns directly or adapt here
-                raw_df = loader.load_dataset(dataset_name, split=split) # Load specific split
+                raw_df = loader.load_dataset(dataset_name, split=split)  # Load specific split
                 if raw_df.empty:
                     logger.error("Fallback data loading returned empty DataFrame.")
                     return None
@@ -402,11 +416,12 @@ class TextBaselineModel(NLIModel):
 
                 # Add a pair_id if missing (using index, ensure it's unique)
                 if 'pair_id' not in raw_df.columns:
-                     if 'id' in raw_df.columns: # Use existing 'id' if available
-                          raw_df = raw_df.rename(columns={'id':'pair_id'}, errors='ignore')
-                     else: # Create from index
-                          raw_df.reset_index(inplace=True)
-                          raw_df = raw_df.rename(columns={'index': 'pair_id'}, errors='ignore') # Rename index if it becomes a column
+                    if 'id' in raw_df.columns:  # Use existing 'id' if available
+                        raw_df = raw_df.rename(columns={'id': 'pair_id'}, errors='ignore')
+                    else:  # Create from index
+                        raw_df.reset_index(inplace=True)
+                        raw_df = raw_df.rename(columns={'index': 'pair_id'},
+                                               errors='ignore')  # Rename index if it becomes a column
 
                 # Final check for required columns after fallback
                 required_cols = ['pair_id', 'premise_text', 'hypothesis_text', 'label']
@@ -428,8 +443,9 @@ class TextBaselineModel(NLIModel):
 
 # --- START: Code moved from svm_bow_baseline.py ---
 
-class FeatureExtractor(ABC): # Changed to ABC for clarity
+class FeatureExtractor(ABC):  # Changed to ABC for clarity
     """Base class for feature extraction from feature DataFrames."""
+
     @abstractmethod
     def extract(self, data: pd.DataFrame, feature_cols: List[str] = None) -> np.ndarray:
         """Extracts features into a numpy array."""
@@ -440,25 +456,31 @@ class FeatureExtractor(ABC): # Changed to ABC for clarity
         """Gets the list of feature column names from the data."""
         raise NotImplementedError
 
+
 def _feature_return_helper(df: pd.DataFrame, feature_cols: List[str]) -> pd.DataFrame:
     """Helper to select feature columns and essential ID/label columns."""
-    cols_to_keep = feature_cols[:] # Create a copy
-    if 'label' in df.columns: cols_to_keep.append('label')
-    elif 'gold_label' in df.columns: cols_to_keep.append('gold_label')
+    cols_to_keep = feature_cols[:]  # Create a copy
+    if 'label' in df.columns:
+        cols_to_keep.append('label')
+    elif 'gold_label' in df.columns:
+        cols_to_keep.append('gold_label')
     if 'pair_id' in df.columns: cols_to_keep.append('pair_id')
     # Ensure only existing columns are selected
     existing_cols_to_keep = [col for col in cols_to_keep if col in df.columns]
     # logger.debug(f"Selecting columns for feature set: {existing_cols_to_keep}")
     return df[existing_cols_to_keep]
 
+
 def filter_syntactic_features(df: pd.DataFrame) -> List[str]:
     """Return list of syntactic feature column names."""
     # Define prefixes or patterns that identify syntactic features
     # Adjust these based on your actual feature naming convention
     syntax_cols = [col for col in df.columns if any(prefix in col for prefix in
-                                                    ['_const_', '_dep_', 'diff_const_', 'diff_dep_', 'deprel_', 'pos_'])]
+                                                    ['_const_', '_dep_', 'diff_const_', 'diff_dep_', 'deprel_',
+                                                     'pos_'])]
     # logger.debug(f"Identified {len(syntax_cols)} syntactic columns.")
     return syntax_cols
+
 
 def filter_lexical_features(df: pd.DataFrame) -> List[str]:
     """Return list of lexical/statistical feature column names."""
@@ -466,15 +488,18 @@ def filter_lexical_features(df: pd.DataFrame) -> List[str]:
     # Adjust these based on your actual feature naming convention
     # Example: '_bert_' might be embeddings, '_length' simple stats, 'overlap' specific lexical metric
     lexical_cols = [col for col in df.columns if any(prefix in col for prefix in
-                                                     ['_bert_', '_length', 'length_', 'overlap', '_tfidf_', '_bow_'])] # Added tfidf/bow common patterns
+                                                     ['_bert_', '_length', 'length_', 'overlap', '_tfidf_',
+                                                      '_bow_'])]  # Added tfidf/bow common patterns
     # logger.debug(f"Identified {len(lexical_cols)} lexical/stat columns.")
     return lexical_cols
+
 
 # --- Feature Extractors using precomputed/existing features ---
 # These assume features are already calculated and present in the DataFrame
 
 class LexicalFeatureExtractor(FeatureExtractor):
     """Extracts precomputed lexical/statistical features from a DataFrame."""
+
     def get_feature_columns(self, data: pd.DataFrame) -> List[str]:
         return filter_lexical_features(data)
 
@@ -490,8 +515,10 @@ class LexicalFeatureExtractor(FeatureExtractor):
             return data_copy[target_cols].values
         return data[target_cols].values
 
+
 class SyntacticFeatureExtractor(FeatureExtractor):
     """Extracts precomputed syntactic features from a DataFrame."""
+
     def get_feature_columns(self, data: pd.DataFrame) -> List[str]:
         return filter_syntactic_features(data)
 
@@ -505,8 +532,10 @@ class SyntacticFeatureExtractor(FeatureExtractor):
             return data_copy[target_cols].values
         return data[target_cols].values
 
+
 class CombinedFeatureExtractor(FeatureExtractor):
     """Extracts all precomputed features (lexical + syntactic) from a DataFrame."""
+
     def get_feature_columns(self, data: pd.DataFrame) -> List[str]:
         lexical = filter_lexical_features(data)
         syntactic = filter_syntactic_features(data)
@@ -523,6 +552,7 @@ class CombinedFeatureExtractor(FeatureExtractor):
             return data_copy[target_cols].values
         return data[target_cols].values
 
+
 # --- END: Code moved from svm_bow_baseline.py ---
 
 # ... (rest of the existing code in baseline_base.py) ...
@@ -530,13 +560,14 @@ class CombinedFeatureExtractor(FeatureExtractor):
 # Example of how a FeatureBasedBaselineModel might look (if you don't have one already)
 class FeatureBasedBaselineModel(ABC):
     """Abstract Base Class for models that operate on pre-extracted features."""
+
     def __init__(self, feature_extractor: FeatureExtractor, **kwargs):
         if feature_extractor is None:
-             raise ValueError(f"{self.__class__.__name__} requires a FeatureExtractor instance.")
+            raise ValueError(f"{self.__class__.__name__} requires a FeatureExtractor instance.")
         self.feature_extractor = feature_extractor
-        self.model = None # The actual sklearn or similar model
+        self.model = None  # The actual sklearn or similar model
         self.is_trained = False
-        self.feature_cols = None # Stores feature names used during training
+        self.feature_cols = None  # Stores feature names used during training
 
     @abstractmethod
     def train(self, X: np.ndarray, y: np.ndarray) -> None:
@@ -575,28 +606,12 @@ class FeatureBasedBaselineModel(ABC):
         """Load the model state."""
         raise NotImplementedError
 
-# # You might also move clean_dataset and _evaluate_model_performance here if they aren't already.
-# def clean_dataset(df: pd.DataFrame) -> pd.DataFrame:
-#     """Cleans the dataset by removing rows with label -1."""
-#     initial_count = len(df)
-#     df_cleaned = df[df['label'] != -1].copy()
-#     removed_count = initial_count - len(df_cleaned)
-#     if removed_count > 0:
-#         logger.info(f"Removed {removed_count} entries with label -1.")
-#     return df_cleaned
-#
-# def _evaluate_model_performance(y_true: np.ndarray, y_pred: np.ndarray, model_name: str) -> Dict[str, Any]:
-#     """Evaluates the model and returns performance metrics."""
-#     accuracy = accuracy_score(y_true, y_pred)
-#     precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average='weighted')
-#     logger.info(f"{model_name} - Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1: {f1:.4f}")
-#     return {'accuracy': accuracy, 'precision': precision, 'recall': recall, 'f1': f1}
 
 class SimpleParquetLoader:
     def load_data(self, dataset_name, split, suffix):
         # Construct path - adjust based on where parquet files are stored
-        cache_dir = os.path.join(DATA_DIR, 'cache', 'parquet')  # Example cache dir
-        filename = f"{dataset_name}_{split}_{suffix}.parquet"
+        cache_dir = os.path.join('cache', 'parquet', dataset_name, split)  # Example cache dir
+        filename = f"raw_data_full.parquet"
         filepath = os.path.join(cache_dir, filename)
         logger.info(f"Attempting to load parquet data from: {filepath}")
         if not os.path.exists(filepath):
@@ -611,6 +626,7 @@ class SimpleParquetLoader:
         logger.info(f"Loaded {len(df)} rows from {filepath}")
         req_cols = ['premise_text', 'hypothesis_text', 'label']  # Example, adjust if needed
         if not all(col in df.columns for col in req_cols):
-            logger.error(f"Loaded parquet file {filepath} is missing required columns ({req_cols}). Available: {df.columns.tolist()}")
+            logger.error(
+                f"Loaded parquet file {filepath} is missing required columns ({req_cols}). Available: {df.columns.tolist()}")
             raise ValueError(f"Missing required columns in {filepath}")
         return df

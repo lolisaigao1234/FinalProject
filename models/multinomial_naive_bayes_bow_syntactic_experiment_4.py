@@ -316,7 +316,7 @@ class MultinomialNaiveBayesBowSyntacticExperiment4(NLIModel):
          X_transformed = self.extract_features(data_df)
          return self.predict(X_transformed)
 
-    def save(self, filepath: str) -> None:
+    def save(self, filepath: str, model_name) -> None:
         if not self.is_trained or not self.feature_pipeline:
             logger.warning("Attempting to save an untrained model or unfitted pipeline.")
             return

@@ -100,7 +100,7 @@ class NLIModel(ABC):
         pass
 
     @abstractmethod
-    def save(self, filepath: str) -> None:
+    def save(self, filepath: str, model_name) -> None:
         """Save model to disk."""
         pass
 

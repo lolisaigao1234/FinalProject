@@ -308,7 +308,7 @@ class GradientBoostingTFIDFSyntacticExperiment6(NLIModel):
          X_transformed = self.extract_features(data_df)
          return self.predict(X_transformed)
 
-    def save(self, filepath: str) -> None:
+    def save(self, filepath: str, model_name) -> None:
         """Saves the model, pipeline, and metadata."""
         if not self.is_trained or not self.feature_pipeline:
             logger.warning("Untrained model/pipeline, skipping save.")

@@ -105,7 +105,8 @@ class DecisionTreeBowBaseline(NLIModel):  # Inherits NLIModel
             df_val = None
             if val_dataset and val_split and val_suffix:
                 df_val = self.loader.load_data(val_dataset, val_split, val_suffix)
-                df_val = clean_dataset(df_val)
+                if df_val is not None:  # Add a check here
+                    df_val = clean_dataset(df_val)
             else:
                 logger.info("No validation dataset/split/suffix provided for evaluation during training.")
 
@@ -116,15 +117,18 @@ class DecisionTreeBowBaseline(NLIModel):  # Inherits NLIModel
             logger.error(f"Error loading data: {e}")
             return None
 
-        df_train = clean_dataset(df_train)
-
-        if df_train.empty:
-            logger.error("Training data is empty after cleaning.")
+        if df_train is not None:  # Changed this line
+            df_train, y_train = clean_dataset(df_train)  # Modified this line
+        else:
+            logger.error("Training data could not be loaded.")
             return None
 
+        if df_train is None or df_train.empty:  # Modified this line
+            logger.error("Training data is empty after cleaning.")
+            return None
         # Use extract_features with fit=True for training data
         X_train = self.extract_features(df_train, fit=True)
-        y_train = df_train['label'].values
+        # y_train = df_train['label'].values
 
         if X_train is None:
             logger.error("Feature preparation failed for training data.")
@@ -221,7 +225,7 @@ class DecisionTreeBowBaseline(NLIModel):  # Inherits NLIModel
         logger.info(f"Evaluation metrics for {split}: {eval_metrics}")
         return eval_metrics
 
-    def save(self, path_prefix: str) -> None:
+    def save(self, filepath: str, model_name) -> None:
         """Saves the vectorizer and the trained model."""
         if not self.is_trained:
             logger.warning(f"Attempting to save an untrained {self.MODEL_NAME}.")

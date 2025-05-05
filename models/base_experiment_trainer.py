@@ -126,7 +126,7 @@ class ExperimentTrainer:
                 # Try loading based on dataset, split, suffix.
                 # The loader should ideally find the comprehensive feature file.
                 logger.info(f"Attempting to load feature file matching: dataset='{self.dataset_name}', split='train', suffix='{self.suffix}'")
-                features_df = loader.load_data(self.dataset_name, 'train', self.suffix)
+                features_df = loader.load_data(self, self.dataset_name, 'train', self.suffix)
 
                 # Check if essential columns exist (adapt based on actual needs)
                 # 'pair_id' and 'label' are crucial. Feature columns depend on the experiment.

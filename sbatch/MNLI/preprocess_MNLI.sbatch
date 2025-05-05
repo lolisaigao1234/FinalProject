@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=preprocess_MNLI # Changed job name
-#SBATCH --partition=IllinoisComputes
+#SBATCH --partition=IllinoisComputes-GPU
 #SBATCH --time=72:00:00             # Might be long for preprocessing, adjust if needed
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1

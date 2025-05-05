@@ -16,30 +16,45 @@ from utils.common import NLIModel
 from utils.database import DatabaseHandler
 
 # Import base utilities
-from .baseline_base import clean_dataset, _evaluate_model_performance, SimpleParquetLoader  # Import SimpleParquetLoader
+from .baseline_base import TextBaselineModel, clean_dataset, _evaluate_model_performance, SimpleParquetLoader, \
+    TextFeatureExtractorBase  # <--- 确保 TextBaselineModel 在这里
 
 logger = logging.getLogger(__name__)
 
 
-class DecisionTreeBowBaseline(NLIModel):  # Inherits NLIModel
+class DecisionTreeBowBaseline(TextBaselineModel):  # Inherits NLIModel
     """Decision Tree baseline using Bag-of-Words features."""
     MODEL_NAME = "DecisionTree_BoW_Baseline"
 
-    def __init__(self, args: Optional[object] = None, max_features: int = 10000, max_depth: Optional[int] = None,
-                 random_state: int = 42, **kwargs):
+    def __init__(self, extractor: TextFeatureExtractorBase, model_instance: Any, args: Optional[object] = None,
+                 max_features: int = 10000, max_depth: Optional[int] = None, random_state: int = 42, **kwargs):
         # Handle args object if passed
+        super().__init__(extractor, model_instance)
         if args:
-            # Use bow_max_features specific arg if available, else fallback
             max_features = getattr(args, 'bow_max_features', getattr(args, 'max_features', max_features))
             max_depth = getattr(args, 'max_depth', max_depth)
             random_state = getattr(args, 'random_state', random_state)
 
-        self.vectorizer = CountVectorizer(max_features=max_features, lowercase=True, ngram_range=(1, 1))
-        self.model = DecisionTreeClassifier(max_depth=max_depth, random_state=random_state)
+        # Create the Scikit-learn vectorizer and model instances
+        self._vectorizer = CountVectorizer(max_features=max_features, lowercase=True, ngram_range=(1, 1))
+        self._model = DecisionTreeClassifier(max_depth=max_depth, random_state=random_state)
+
+        # Initialize the TextBaselineModel parent class
+        # TextBaselineModel 需要 extractor 和 model_instance
+        # 注意：这里的 extractor 概念可能与 DecisionTreeBowBaseline 内部的 _vectorizer 不同。
+        # TextBaselineModel 的 extractor 预期是一个有 fit/transform/save/load 的对象。
+        # 你可能需要创建一个简单的包装器或者调整 TextBaselineModel。
+        # **一个简化的方法是，暂时不调用 super().__init__，并直接管理 self._vectorizer 和 self._model。**
+        # super().__init__(extractor=???, model_instance=self._model) # <--- 如何提供 extractor?
+
         self.is_trained = False
-        # Use the simple loader for demonstration. Replace with DB Handler if appropriate
-        self.loader = SimpleParquetLoader()
-        self.db_handler = DatabaseHandler() # Or use DB Handler if needed
+        # self.loader = SimpleParquetLoader() # 这些可以在子类中保留或删除，取决于是否使用父类逻辑
+        # self.db_handler = DatabaseHandler()
+
+        # --- 重要: TextBaselineModel 期望有 self.extractor 和 self.model ---
+        # 为了兼容性，可以这样设置：
+        self.extractor = self._vectorizer  # 将内部 vectorizer 赋值给父类期望的属性名
+        self.model = self._model  # 将内部 model 赋值给父类期望的属性名
 
     def _prepare_features(self, df: pd.DataFrame, fit_vectorizer: bool = False) -> Optional[np.ndarray]:
         """Prepares BoW features from premise and hypothesis."""
@@ -76,107 +91,105 @@ class DecisionTreeBowBaseline(NLIModel):  # Inherits NLIModel
             return None
 
     # --- Method to satisfy NLIModel ABC ---
-    def extract_features(self, data: pd.DataFrame, fit: bool = False) -> Optional[np.ndarray]:
-        """
-        Implementation of the abstract extract_features method.
-        Delegates to _prepare_features. Handles fitting the vectorizer if fit=True.
-        """
-        if not isinstance(data, pd.DataFrame):
-            logger.error("extract_features requires a pandas DataFrame input.")
-            return None
-        logger.info(f"Extracting features (fit={fit})...")
-        # Determine if fitting is needed based on 'fit' flag AND if the model isn't already trained
-        # This logic assumes 'fit=True' is only passed during the training phase.
-        should_fit_vectorizer = fit and not self.is_trained
-        features = self._prepare_features(data, fit_vectorizer=should_fit_vectorizer)
-        # Crucially, if fitting occurred, mark the vectorizer part as ready (model itself isn't trained yet)
-        # The main `train` method will handle setting `self.is_trained` after model.fit()
-        return features
+    def extract_features(self, data: pd.DataFrame) -> Optional[np.ndarray]:
+        """Extracts features using the assigned extractor (CountVectorizer)."""
+        logger.info(f"Extracting BoW features...")
+        # TextBaselineModel 的 train 方法会先调用 extract_features
+        # 因此，拟合 (fit) 应该在 train 方法调用之前，在 BaselineTrainer 中完成。
+        # DecisionTreeBowBaseline 的 train 方法需要调整，不再自己 fit_transform
+        # 或者 BaselineTrainer 需要调整为先 fit extractor，再调用 train
+        if not hasattr(self.extractor, 'vocabulary_') or not self.extractor.vocabulary_:
+            # 在 BaselineTrainer 中，extractor 应该已经被 fit 过了
+            logger.error("Vectorizer (extractor) has not been fitted.")
+            raise RuntimeError("Vectorizer (extractor) must be fitted before calling extract_features.")
 
-    def train(self, train_dataset: str, train_split: str, train_suffix: str,
-              val_dataset: str, val_split: str, val_suffix: str, **kwargs) -> Optional[Dict[str, Any]]:
-        """Train the Decision Tree model."""
-        logger.info(f"Starting training for {self.MODEL_NAME} on {train_dataset}/{train_split} ({train_suffix})")
-        # Load data
-        try:
-            # Use self.loader to get data
-            df_train = self.loader.load_data(train_dataset, train_split, train_suffix)
-            # Load validation data if split/suffix specify it
-            df_val = None
-            if val_dataset and val_split and val_suffix:
-                df_val = self.loader.load_data(val_dataset, val_split, val_suffix)
-                if df_val is not None:  # Add a check here
-                    df_val = clean_dataset(df_val)
-            else:
-                logger.info("No validation dataset/split/suffix provided for evaluation during training.")
+        premise_col = 'premise' if 'premise' in data.columns else 'premise_text'
+        hypothesis_col = 'hypothesis' if 'hypothesis' in data.columns else 'hypothesis_text'
+        # ... (与 _prepare_features 类似的文本组合和转换逻辑) ...
+        combined_text = data[premise_col].fillna('') + " " + data[hypothesis_col].fillna('')
+        features = self.extractor.transform(combined_text)
+        return features.toarray()  # 返回适合 Decision Tree 的密集数组
 
-        except FileNotFoundError as e:
-            logger.error(f"Required data not found: {e}")
-            return None
-        except ValueError as e:  # Catch missing columns error from loader
-            logger.error(f"Error loading data: {e}")
-            return None
-
-        if df_train is not None:  # Changed this line
-            df_train, y_train = clean_dataset(df_train)  # Modified this line
-        else:
-            logger.error("Training data could not be loaded.")
-            return None
-
-        if df_train is None or df_train.empty:  # Modified this line
-            logger.error("Training data is empty after cleaning.")
-            return None
-        # Use extract_features with fit=True for training data
-        X_train = self.extract_features(df_train, fit=True)
-        # y_train = df_train['label'].values
-
-        if X_train is None:
-            logger.error("Feature preparation failed for training data.")
-            return None
-
+    def train(self, X: Any, y: np.ndarray) -> None:
+        """Trains the internal Decision Tree model."""
+        if X is None or y is None:
+            raise ValueError("Features (X) or labels (y) are None.")
         logger.info(f"Training Decision Tree model (max_depth={self.model.max_depth})...")
         start_time = time.time()
-        self.model.fit(X_train, y_train)
-        self.is_trained = True  # Model is now trained
+        self.model.fit(X, y)  # 直接使用传入的 X, y
+        self.is_trained = True
         train_time = time.time() - start_time
         logger.info(f"Training finished in {train_time:.2f}s.")
 
-        # Evaluate on validation set if available
-        val_metrics = {}
-        if df_val is not None and not df_val.empty:
-            logger.info("Evaluating on validation set...")
-            # Use extract_features with fit=False for validation data
-            X_val = self.extract_features(df_val, fit=False)
-            y_val = df_val['label'].values
-            if X_val is not None:
-                y_pred_val = self.predict(df_val)  # Use predict which calls extract_features internally
-                val_metrics = _evaluate_model_performance(y_val, y_pred_val, f"{self.MODEL_NAME} Validation")
-                val_metrics['validation_time'] = time.time() - (start_time + train_time)
-            else:
-                logger.warning("Could not prepare features for validation set.")
-        elif df_val is not None and df_val.empty:
-            logger.warning("Validation data was empty after cleaning.")
-        else:
-            logger.info("No validation data to evaluate.")
-
-        # Return combined results
-        results = {'train_time': train_time}
-        results.update(val_metrics)
-        return results
-
-    def predict(self, data: Any) -> np.ndarray:
-        """Make predictions (expects a DataFrame)."""
+    def predict(self, X: Any) -> np.ndarray:
+        """Makes predictions using the trained model."""
         if not self.is_trained:
             raise RuntimeError(f"{self.MODEL_NAME} has not been trained yet.")
-        if not isinstance(data, pd.DataFrame):
-            raise TypeError(f"Input 'data' for {self.MODEL_NAME}.predict must be a pandas DataFrame.")
-
-        # Use extract_features with fit=False for prediction
-        X = self.extract_features(data, fit=False)
         if X is None:
-            raise ValueError("Failed to prepare features for prediction.")
+            raise ValueError("Input features (X) for prediction are None.")
         logger.info(f"Predicting with {self.MODEL_NAME} on {X.shape[0]} samples...")
-        return self.model.predict(X)
+        predictions = self.model.predict(X)  # 直接使用传入的 X
+        logger.debug("Prediction finished.")
+        return predictions
+
+    def save(self, directory: str, model_name: str) -> None:
+        """Saves the trained model and the feature extractor (vectorizer)."""
+        if not self.is_trained and not hasattr(self.extractor, 'vocabulary_'):
+            logger.warning(f"Attempting to save {self.MODEL_NAME} where neither model nor vectorizer is fitted.")
+            return
+
+        os.makedirs(directory, exist_ok=True)
+        model_path = os.path.join(directory, f"{model_name}_model.joblib")
+        extractor_path = os.path.join(directory, f"{model_name}_extractor.joblib")
+
+        if self.is_trained:
+            try:
+                logger.info(f"Saving model to {model_path}")
+                joblib.dump(self.model, model_path)
+            except Exception as e:
+                logger.error(f"Failed to save model: {e}", exc_info=True)
+        else:
+            logger.warning("Model is not trained, skipping model save.")
+
+        # 总是尝试保存 extractor (vectorizer)，因为它可能已拟合
+        if hasattr(self.extractor, 'vocabulary_') and self.extractor.vocabulary_:
+            try:
+                logger.info(f"Saving vectorizer (extractor) to {extractor_path}")
+                joblib.dump(self.extractor, extractor_path)
+            except Exception as e:
+                logger.error(f"Failed to save vectorizer (extractor): {e}", exc_info=True)
+        else:
+            logger.warning("Vectorizer (extractor) is not fitted, skipping extractor save.")
+
+    @classmethod
+    def load(cls, directory: str, model_name: str) -> 'DecisionTreeBowBaseline':
+        """Loads the model and extractor."""
+        model_path = os.path.join(directory, f"{model_name}_model.joblib")
+        extractor_path = os.path.join(directory, f"{model_name}_extractor.joblib")
+
+        if not os.path.exists(model_path) or not os.path.exists(extractor_path):
+            raise FileNotFoundError(
+                f"Model or extractor file not found in directory: {directory} for base name {model_name}")
+
+        loaded_model = joblib.load(model_path)
+        loaded_extractor = joblib.load(extractor_path)
+
+        # 实例化类，需要传递加载的参数
+        try:
+            # 假设 DecisionTreeClassifier 有 max_depth 和 random_state 属性
+            instance = cls(max_depth=getattr(loaded_model, 'max_depth', None),
+                           random_state=getattr(loaded_model, 'random_state', 42))
+        except Exception as e:
+            logger.warning(f"Could not instantiate {cls.__name__} with loaded params: {e}. Trying default init.")
+            instance = cls()  # 回退到默认
+
+        instance.model = loaded_model
+        instance.extractor = loaded_extractor  # 赋值给 extractor
+        instance._model = loaded_model  # 也更新内部属性
+        instance._vectorizer = loaded_extractor  # 也更新内部属性
+        instance.is_trained = True
+        logger.info(f"{cls.MODEL_NAME} loaded from {directory} using base name {model_name}")
+        return instance
 
     # --- Method to satisfy NLIModel ABC ---
     def evaluate(self, dataset_name: str, split: str, suffix: str) -> Optional[Dict[str, Any]]:
@@ -224,66 +237,3 @@ class DecisionTreeBowBaseline(NLIModel):  # Inherits NLIModel
 
         logger.info(f"Evaluation metrics for {split}: {eval_metrics}")
         return eval_metrics
-
-    def save(self, filepath: str, model_name) -> None:
-        """Saves the vectorizer and the trained model."""
-        if not self.is_trained:
-            logger.warning(f"Attempting to save an untrained {self.MODEL_NAME}.")
-            # Decide if saving should be allowed even if not trained (e.g., save fitted vectorizer)
-            # For safety, often better to prevent saving untrained models fully.
-            # return # Uncomment to prevent saving untrained models
-
-        # Ensure directory exists (path_prefix might contain directory path)
-        save_dir = os.path.dirname(path_prefix)
-        if save_dir:  # Only create if path_prefix includes a directory
-            os.makedirs(save_dir, exist_ok=True)
-
-        vectorizer_path = f"{path_prefix}_vectorizer.joblib"
-        model_path = f"{path_prefix}_model.joblib"
-
-        try:
-            logger.info(f"Saving vectorizer to {vectorizer_path}")
-            joblib.dump(self.vectorizer, vectorizer_path)
-        except Exception as e:
-            logger.error(f"Failed to save vectorizer: {e}", exc_info=True)
-
-        try:
-            logger.info(f"Saving model to {model_path}")
-            joblib.dump(self.model, model_path)
-        except Exception as e:
-            logger.error(f"Failed to save model: {e}", exc_info=True)
-
-    @classmethod
-    def load(cls, path_prefix: str) -> 'DecisionTreeBowBaseline':
-        """Loads the vectorizer and the trained model."""
-        vectorizer_path = f"{path_prefix}_vectorizer.joblib"
-        model_path = f"{path_prefix}_model.joblib"
-
-        # Check if files exist before attempting load
-        if not os.path.exists(vectorizer_path):
-            raise FileNotFoundError(f"Vectorizer file not found at {vectorizer_path}")
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"Model file not found at {model_path}")
-
-        logger.info(f"Loading vectorizer from {vectorizer_path}")
-        vectorizer = joblib.load(vectorizer_path)
-        logger.info(f"Loading model from {model_path}")
-        model = joblib.load(model_path)
-
-        # Recreate instance - pass necessary params if __init__ requires them
-        # Here, assuming defaults or that params are implicitly handled/not needed for load
-        # If __init__ requires 'args', loading becomes complex as 'args' isn't saved.
-        # Consider saving essential params (max_depth, random_state) in save()
-        # Or modify __init__ to have None defaults if args isn't passed.
-        try:
-            instance = cls(max_depth=model.max_depth, random_state=model.random_state)  # Pass loaded params
-        except Exception as e:
-            logger.warning(
-                f"Could not instantiate {cls.__name__} with loaded params during load: {e}. Trying default init.")
-            instance = cls()  # Fallback to default init
-
-        instance.vectorizer = vectorizer
-        instance.model = model
-        instance.is_trained = True  # Assume loaded model is trained
-        logger.info(f"{cls.MODEL_NAME} loaded successfully.")
-        return instance

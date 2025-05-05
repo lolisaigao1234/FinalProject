@@ -188,6 +188,20 @@ def parse_args():
         help="Device to use for computation ('auto', 'cuda', 'mps', 'cpu')"
     )
 
+    parser.add_argument(
+        "--evaluate_after_train",
+        type=bool,
+        default=False,
+        help="Evaluate the model after training on the test set"
+    )
+
+    parser.add_argument(
+        "--eval_split",
+        type=str,
+        default="test",
+        choices=["train", "dev", "test"],
+    )
+
     # --- Neural Model Selection (If using neural models - kept for potential future use) ---
     # Assuming HF_MODEL_IDENTIFIERS is defined earlier in config.py
     # HF_MODEL_IDENTIFIERS = { "bert-base-uncased": "bert-base-uncased"} # Example placeholder

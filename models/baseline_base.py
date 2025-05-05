@@ -612,24 +612,60 @@ class FeatureBasedBaselineModel(ABC):
         raise NotImplementedError
 
 
-class SimpleParquetLoader:
-    def load_data(self, dataset_name, split, suffix):
-        # Construct path - adjust based on where parquet files are stored
-        cache_dir = os.path.join('cache', 'parquet', dataset_name, split)  # Example cache dir
-        filename = f"raw_data_full.parquet"
-        filepath = os.path.join(cache_dir, filename)
-        logger.info(f"Attempting to load parquet data from: {filepath}")
-        if not os.path.exists(filepath):
-            alt_filename = f"{dataset_name}_{split}_features_{suffix}.parquet"
-            alt_filepath = os.path.join(cache_dir, alt_filename)
-            if not os.path.exists(alt_filepath):
-                raise FileNotFoundError(f"Could not find parquet data at {filepath} or {alt_filepath}")
-            else:
-                filepath = alt_filepath
+# Inside IS567FP/models/baseline_base.py
 
+class SimpleParquetLoader:
+    @staticmethod
+    def load_data(self, dataset_name, split, suffix):
+        # Construct base cache directory
+        cache_dir = os.path.join('cache', 'parquet', dataset_name, split)
+
+        feature_types = ["lexical", "syntactic"]
+        feature_name_part = "_".join(sorted(feature_types))
+        feature_filename = f"{dataset_name}_{split}_features_{feature_name_part}_{suffix}.parquet"
+        feature_filepath = os.path.join(cache_dir, feature_filename)
+
+        logger.info(f"Attempting to load feature file first: {feature_filepath}")
+        if os.path.exists(feature_filepath):
+            filepath = feature_filepath
+        else:
+            # Fallback to the raw_data file name (or other patterns if necessary)
+            logger.warning(f"Feature file '{feature_filename}' not found. Falling back...")
+            fallback_filename = f"raw_data_{suffix}.parquet"  # Adjusted fallback name pattern slightly
+            # Original fallback: fallback_filename = f"raw_data_full.parquet" # Keep if this is intended
+            fallback_filepath = os.path.join(cache_dir, fallback_filename)
+            logger.info(f"Attempting fallback load from: {fallback_filepath}")
+            if not os.path.exists(fallback_filepath):
+                # Final fallback to original raw_data_full (less likely to be correct for features)
+                final_fallback_filename = "raw_data_full.parquet"
+                final_fallback_filepath = os.path.join(cache_dir, final_fallback_filename)
+                logger.warning(
+                    f"Fallback '{fallback_filename}' not found. Trying final fallback: {final_fallback_filepath}")
+                if not os.path.exists(final_fallback_filepath):
+                    raise FileNotFoundError(
+                        f"Could not find feature parquet data at {feature_filepath}, {fallback_filepath}, or {final_fallback_filepath}")
+                else:
+                    filepath = final_fallback_filepath
+            else:
+                filepath = fallback_filepath
+
+        logger.info(f"Loading final features from: {filepath}")  # Log which file is actually being loaded
         df = pd.read_parquet(filepath)
         logger.info(f"Loaded {len(df)} rows from {filepath}")
-        req_cols = ['premise_text', 'hypothesis_text', 'label']  # Example, adjust if needed
+
+        # --- START MODIFICATION: Check for pair_id AFTER loading ---
+        # This check is now redundant here as it's done in the trainer, but good for debugging
+        required_base_cols = ['pair_id', 'label'] # Essential cols for the trainer
+        if not all(col in df.columns for col in required_base_cols):
+             missing = [col for col in required_base_cols if col not in df.columns]
+             logger.error(f"Loaded DataFrame from {filepath} is missing essential columns: {missing}")
+             raise ValueError(f"Missing essential columns ({missing}) in loaded file {filepath}")
+        else:
+             logger.debug(f"Essential columns {required_base_cols} found in {filepath}.")
+        # --- END MODIFICATION ---
+
+        # Original required cols check (might be less strict than the trainer's)
+        req_cols = ['premise_text', 'hypothesis_text', 'label'] # Example, adjust if needed
         if not all(col in df.columns for col in req_cols):
             logger.error(
                 f"Loaded parquet file {filepath} is missing required columns ({req_cols}). Available: {df.columns.tolist()}")

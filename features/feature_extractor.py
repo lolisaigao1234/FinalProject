@@ -229,7 +229,7 @@ class FeatureExtractor:
         """
         # Define features being extracted for filename
         feature_name_part = "stats_syntactic" # Reflects the simplified features
-        final_feature_table_name = f"{dataset_name}_{split}_features_{feature_name_part}_{suffix}.parquet"
+        final_feature_table_name = f"{dataset_name}_{split}_features_{feature_name_part}_{suffix}"
 
         logger.info(f"Starting feature extraction for: {dataset_name}/{split}/{suffix}")
         logger.info(f"Features requested: Text Statistics, Syntactic")

@@ -4,7 +4,6 @@
 #SBATCH --time=72:00:00             # Might be long for preprocessing, adjust if needed
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --gres=gpu:A100:1           # Explicitly request A100
 #SBATCH --cpus-per-task=64           # Kept from original, consider reducing (e.g., 8 or 16) if data loading isn't bottleneck
 #SBATCH --mem=64G                   # Request sufficient RAM
 #SBATCH --account=jywu3-ic          # <<< YOUR ACCOUNT HERE >>>

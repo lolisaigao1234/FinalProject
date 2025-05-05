@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=train_nli_models_parallel # Updated job name slightly
-#SBATCH --partition=IllinoisComputes        # Correct partition
+#SBATCH --partition=IllinoisComputes-GPU        # Correct partition
 #SBATCH --time=72:00:00                     # Max time (3 days) - Adjust if needed
 #SBATCH --nodes=1                           # Each array task runs on a single node
 #SBATCH --ntasks-per-node=1                 # One Python process per task/node
@@ -80,6 +80,7 @@ START_TIME=$(date +%s)
 # Load modules
 module purge
 module load anaconda3/2024.10 # Or your specific Anaconda/Python module
+module load cuda/12.6 # Ensure this matches your environment's CUDA version
 echo "Modules loaded."
 
 # Activate Conda environment
@@ -114,7 +115,9 @@ echo "Starting Python script for $CURRENT_DATASET / $CURRENT_EXPERIMENT (Task ID
 python -u main.py \
   --dataset "$CURRENT_DATASET" \
   --mode train \
-  --model_type "$CURRENT_EXPERIMENT"
+  --model_type "$CURRENT_EXPERIMENT" \
+  --fp16 \
+  --force_reprocess
   # Add other arguments from config.py here IF you need to override defaults for specific runs
   # e.g. --n_estimators 200 --max_depth 10 (if $CURRENT_EXPERIMENT == "experiment-5")
   # Generally, rely on config.py defaults unless necessary.

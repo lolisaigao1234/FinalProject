@@ -203,7 +203,7 @@ class LogisticTFIDFBaseline(TextBaselineModel):
         logger.info(f"Evaluating {self.MODEL_NAME} on {dataset_name}/{split} ({suffix})")
         # Load test data using self.loader
         try:
-            df_eval = self.loader.load_data(dataset_name, split, suffix)
+            df_eval_raw = self.loader.load_data(dataset_name, split, suffix)  # Use a temporary variable
         except FileNotFoundError as e:
             logger.error(f"Evaluation data not found: {e}")
             return None
@@ -211,29 +211,42 @@ class LogisticTFIDFBaseline(TextBaselineModel):
             logger.error(f"Error loading evaluation data: {e}")
             return None
 
-        df_eval = clean_dataset(df_eval)
-        if df_eval.empty:
-            logger.error(f"Evaluation data for {split} is empty after cleaning.")
+        # --- FIX START ---
+        # Clean the data and handle the tuple return value
+        cleaned_data_result = clean_dataset(df_eval_raw)
+        if cleaned_data_result is None:
+            logger.error(f"Evaluation data for {split} is invalid or None after cleaning.")
             return None
 
-        # Extract features (fit=False) - This is done inside predict
-        y_true = df_eval['label'].values
+        # Unpack the tuple
+        df_eval_cleaned, y_true = cleaned_data_result
 
-        # Make predictions
+        # Check if the *cleaned DataFrame* is empty
+        if df_eval_cleaned.empty:
+            logger.error(f"Evaluation data for {split} is empty after cleaning labels.")
+            return None
+        # --- FIX END ---
+
+        # --- FIX: Update evaluation call ---
+        logger.info("Extracting features for evaluation...")
         try:
-            start_time = time.time()
-            # Predict calls extract_features(fit=False) internally via TextBaselineModel's predict
-            y_pred = self.predict(df_eval)
-            eval_time = time.time() - start_time
+            X_eval = self.extract_features(df_eval_cleaned, fit=False)  # Extract features from cleaned data
         except Exception as e:
-            logger.error(f"Error during prediction in evaluation: {e}", exc_info=True)
+            logger.error(f"Error extracting features during evaluation: {e}", exc_info=True)
             return None
 
-        # Calculate metrics using the helper from baseline_base
-        eval_metrics = _evaluate_model_performance(y_true, y_pred, f"{self.MODEL_NAME} {split.capitalize()}")
-        eval_metrics['eval_time'] = eval_time
+        logger.info("Calculating evaluation metrics...")
+        eval_start_time = time.time()
+        # Pass the internal sklearn model instance, extracted features, and true labels
+        _, eval_metrics = _evaluate_model_performance(self.model, X_eval, y_true)  # Call the helper correctly
+        eval_calc_time = time.time() - eval_start_time
+        # --- END FIX ---
+
+        # Combine timings if needed, or just use the metric calculation time
+        eval_metrics['eval_time'] = eval_time  # Keep prediction time, or combine?
         eval_metrics['eval_split'] = split  # Add split info
 
+        logger.info(f"Evaluation metrics calculation finished in {eval_calc_time:.2f}s")
         logger.info(f"Evaluation metrics for {split}: {eval_metrics}")
         return eval_metrics
 

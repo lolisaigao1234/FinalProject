@@ -11,36 +11,42 @@ from scipy.sparse import hstack, csr_matrix
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline, FeatureUnion
-from sklearn.preprocessing import StandardScaler, MinMaxScaler # Import MinMaxScaler for non-negative scaling
+from sklearn.preprocessing import StandardScaler, MinMaxScaler  # Import MinMaxScaler for non-negative scaling
 from sklearn.base import BaseEstimator, TransformerMixin
 
 # Import base classes and helpers from the project structure
 from utils.common import NLIModel
 from utils.database import DatabaseHandler
 # Import helpers specifically used for baseline models
-from .baseline_base import clean_dataset, _evaluate_model_performance # Use existing helpers
+from .baseline_base import clean_dataset, _evaluate_model_performance, _handle_nan_values, \
+    filter_syntactic_features, SimpleParquetLoader  # Use existing helpers
 
 logger = logging.getLogger(__name__)
+
 
 # --- Helper Transformers (copied from Experiment 3) ---
 class TextSelector(BaseEstimator, TransformerMixin):
     def __init__(self, key):
         self.key = key
+
     def fit(self, X, y=None):
         return self
+
     def transform(self, X):
         return X[self.key]
+
 
 class FeatureSelector(BaseEstimator, TransformerMixin):
     def __init__(self, column_names):
         self.column_names = column_names
-        self.selected_columns_ = [] # Initialize here
+        self.selected_columns_ = []  # Initialize here
 
     def fit(self, X, y=None):
         missing = [col for col in self.column_names if col not in X.columns]
         self.selected_columns_ = [col for col in self.column_names if col in X.columns]
         if missing:
-            logger.warning(f"FeatureSelector: Columns {missing} not found during fit. Using only existing: {self.selected_columns_}")
+            logger.warning(
+                f"FeatureSelector: Columns {missing} not found during fit. Using only existing: {self.selected_columns_}")
         return self
 
     def transform(self, X):
@@ -55,6 +61,7 @@ class FeatureSelector(BaseEstimator, TransformerMixin):
             return X_copy[self.selected_columns_]
         return X[self.selected_columns_]
 
+
 class SparseScaler(BaseEstimator, TransformerMixin):
     def __init__(self, scaler=MinMaxScaler()):
         # Default to MinMaxScaler as MNB requires non-negative features
@@ -63,11 +70,11 @@ class SparseScaler(BaseEstimator, TransformerMixin):
     def fit(self, X, y=None):
         # Check if input is sparse, handle appropriately
         if isinstance(X, csr_matrix):
-             # MinMaxScaler can handle sparse data directly
-             self.scaler.fit(X)
+            # MinMaxScaler can handle sparse data directly
+            self.scaler.fit(X)
         elif isinstance(X, pd.DataFrame) or isinstance(X, np.ndarray):
-             # If dense, standard fit
-             self.scaler.fit(X)
+            # If dense, standard fit
+            self.scaler.fit(X)
         else:
             raise TypeError(f"Unsupported data type for SparseScaler fit: {type(X)}")
         return self
@@ -75,11 +82,12 @@ class SparseScaler(BaseEstimator, TransformerMixin):
     def transform(self, X):
         return self.scaler.transform(X)
 
+
 # --- Experiment 4 Model Class ---
 class MultinomialNaiveBayesBowSyntacticExperiment4(NLIModel):
     def __init__(self, alpha: float = 1.0,
                  bow_max_features: Optional[int] = 10000, bow_ngram_range: Tuple[int, int] = (1, 1),
-                 scale_syntactic: bool = True): # Option to scale syntactic features
+                 scale_syntactic: bool = True):  # Option to scale syntactic features
         self.alpha = alpha
         self.bow_max_features = bow_max_features
         self.bow_ngram_range = bow_ngram_range
@@ -91,33 +99,38 @@ class MultinomialNaiveBayesBowSyntacticExperiment4(NLIModel):
         self._syntactic_feature_columns: Optional[List[str]] = None
 
     # Data loading and preparation (similar to Experiment 3)
-    def _load_and_prepare_data(self, dataset: str, split: str, suffix: str) -> Optional[Tuple[pd.DataFrame, np.ndarray]]:
+    def _load_and_prepare_data(self, dataset: str, split: str, suffix: str) -> Optional[
+        Tuple[pd.DataFrame, np.ndarray]]:
         logger.info(f"Exp4: Loading data for {dataset}/{split} (suffix: {suffix})")
 
         # 1. Load raw text data (premise, hypothesis, pair_id, label)
         try:
-             pairs_table = f"pairs_{suffix}"
-             sentences_table = f"sentences_{suffix}"
-             pairs_df = self.db_handler.load_dataframe(dataset, split, pairs_table)
-             sentences_df = self.db_handler.load_dataframe(dataset, split, sentences_table)
-             if pairs_df.empty or sentences_df.empty: raise ValueError("Intermediate data missing")
+            pairs_table = f"pairs_{suffix}"
+            sentences_table = f"sentences_{suffix}"
+            pairs_df = self.db_handler.load_dataframe(dataset, split, pairs_table)
+            sentences_df = self.db_handler.load_dataframe(dataset, split, sentences_table)
+            if pairs_df.empty or sentences_df.empty: raise ValueError("Intermediate data missing")
 
-             sentences_premise = sentences_df[['id', 'text']].rename(columns={'text': 'premise_text', 'id': 'p_id'})
-             sentences_hypothesis = sentences_df[['id', 'text']].rename(columns={'text': 'hypothesis_text', 'id': 'h_id'})
-             pairs_essential = pairs_df[['id', 'premise_id', 'hypothesis_id', 'label']].rename(columns={'id': 'pair_id'})
+            sentences_premise = sentences_df[['id', 'text']].rename(columns={'text': 'premise_text', 'id': 'p_id'})
+            sentences_hypothesis = sentences_df[['id', 'text']].rename(
+                columns={'text': 'hypothesis_text', 'id': 'h_id'})
+            pairs_essential = pairs_df[['id', 'premise_id', 'hypothesis_id', 'label']].rename(columns={'id': 'pair_id'})
 
-             text_df = pd.merge(pairs_essential, sentences_premise, left_on='premise_id', right_on='p_id', how='left').drop('p_id', axis=1, errors='ignore')
-             text_df = pd.merge(text_df, sentences_hypothesis, left_on='hypothesis_id', right_on='h_id', how='left').drop('h_id', axis=1, errors='ignore')
+            text_df = pd.merge(pairs_essential, sentences_premise, left_on='premise_id', right_on='p_id',
+                               how='left').drop('p_id', axis=1, errors='ignore')
+            text_df = pd.merge(text_df, sentences_hypothesis, left_on='hypothesis_id', right_on='h_id',
+                               how='left').drop('h_id', axis=1, errors='ignore')
 
-             final_text_cols = ['pair_id', 'premise_text', 'hypothesis_text', 'label']
-             if not all(col in text_df.columns for col in final_text_cols):
-                 missing = [col for col in final_text_cols if col not in text_df.columns]
-                 raise ValueError(f"Columns missing after text merge: {missing}.")
-             text_df = text_df[final_text_cols].fillna('')
-             logger.info(f"Exp4: Successfully loaded and merged text data. Shape: {text_df.shape}")
+            final_text_cols = ['pair_id', 'premise_text', 'hypothesis_text', 'label']
+            if not all(col in text_df.columns for col in final_text_cols):
+                missing = [col for col in final_text_cols if col not in text_df.columns]
+                raise ValueError(f"Columns missing after text merge: {missing}.")
+            text_df = text_df[final_text_cols].fillna('')
+            logger.info(f"Exp4: Successfully loaded and merged text data. Shape: {text_df.shape}")
 
         except Exception as e:
-            logger.error(f"Exp4: Error loading/merging intermediate text data for {dataset}/{split}/{suffix}: {e}", exc_info=True)
+            logger.error(f"Exp4: Error loading/merging intermediate text data for {dataset}/{split}/{suffix}: {e}",
+                         exc_info=True)
             return None
 
         # 2. Load precomputed features (lexical+syntactic needed to filter syntactic)
@@ -128,7 +141,8 @@ class MultinomialNaiveBayesBowSyntacticExperiment4(NLIModel):
             if 'pair_id' not in features_df.columns: raise ValueError("'pair_id' missing.")
             logger.info(f"Exp4: Successfully loaded precomputed features. Shape: {features_df.shape}")
         except Exception as e:
-            logger.error(f"Exp4: Error loading precomputed features from {precomputed_feature_table_name}: {e}", exc_info=True)
+            logger.error(f"Exp4: Error loading precomputed features from {precomputed_feature_table_name}: {e}",
+                         exc_info=True)
             return None
 
         # 3. Clean and Align
@@ -136,7 +150,7 @@ class MultinomialNaiveBayesBowSyntacticExperiment4(NLIModel):
         if not clean_text_result: logger.error("Text data invalid after cleaning."); return None
         text_df_clean, y = clean_text_result
 
-        clean_feat_result = clean_dataset(features_df) # Clean features df too
+        clean_feat_result = clean_dataset(features_df)  # Clean features df too
         if not clean_feat_result: logger.error("Feature data invalid after cleaning."); return None
         features_df_clean, _ = clean_feat_result
 
@@ -159,7 +173,7 @@ class MultinomialNaiveBayesBowSyntacticExperiment4(NLIModel):
         # Re-align labels 'y'
         final_pair_ids = combined_df['pair_id'].tolist()
         label_map = dict(zip(text_df_clean['pair_id'], y))
-        final_y = np.array([label_map.get(pid) for pid in final_pair_ids if pid in label_map]) # Ensure pid exists
+        final_y = np.array([label_map.get(pid) for pid in final_pair_ids if pid in label_map])  # Ensure pid exists
 
         if len(final_y) != num_merged: logger.error("Label alignment failed after merge."); return None
 
@@ -196,35 +210,33 @@ class MultinomialNaiveBayesBowSyntacticExperiment4(NLIModel):
                                     ngram_range=self.bow_ngram_range, stop_words='english', binary=False))
         ])
 
-
         # 2. Syntactic features pipeline
         # Ensure syntactic columns are known (should be set during _load_and_prepare_data)
         if self._syntactic_feature_columns is None:
             if sample_df_for_fitting is None:
-                 raise RuntimeError("Syntactic features missing and no sample data provided to infer them.")
+                raise RuntimeError("Syntactic features missing and no sample data provided to infer them.")
             logger.warning("Re-inferring syntactic columns during pipeline build.")
             self._syntactic_feature_columns = filter_syntactic_features(sample_df_for_fitting)
 
         syntactic_steps = [('selector', FeatureSelector(column_names=self._syntactic_feature_columns))]
         if self.scale_syntactic:
-             # Use MinMaxScaler to ensure non-negativity for MNB
-             syntactic_steps.append(('scaler', SparseScaler(scaler=MinMaxScaler())))
-             logger.info("Adding MinMaxScaler for syntactic features.")
+            # Use MinMaxScaler to ensure non-negativity for MNB
+            syntactic_steps.append(('scaler', SparseScaler(scaler=MinMaxScaler())))
+            logger.info("Adding MinMaxScaler for syntactic features.")
         else:
-             # MNB needs non-negative features. If raw syntactic features can be negative,
-             # scaling or binning is essential. We assume for now they are non-negative or
-             # scale_syntactic=True is used. If not scaling, need to ensure non-negativity.
-             # We could add a check or a transformer to clip negative values to 0.
-             logger.warning("Not scaling syntactic features. Ensure they are non-negative for MNB.")
-             # Example clipping (add this step if needed and not scaling):
-             # class ClipNegative(BaseEstimator, TransformerMixin):
-             #     def fit(self, X, y=None): return self
-             #     def transform(self, X):
-             #         if isinstance(X, csr_matrix): X.data[X.data < 0] = 0
-             #         else: X[X < 0] = 0
-             #         return X
-             # syntactic_steps.append(('clipper', ClipNegative()))
-
+            # MNB needs non-negative features. If raw syntactic features can be negative,
+            # scaling or binning is essential. We assume for now they are non-negative or
+            # scale_syntactic=True is used. If not scaling, need to ensure non-negativity.
+            # We could add a check or a transformer to clip negative values to 0.
+            logger.warning("Not scaling syntactic features. Ensure they are non-negative for MNB.")
+            # Example clipping (add this step if needed and not scaling):
+            # class ClipNegative(BaseEstimator, TransformerMixin):
+            #     def fit(self, X, y=None): return self
+            #     def transform(self, X):
+            #         if isinstance(X, csr_matrix): X.data[X.data < 0] = 0
+            #         else: X[X < 0] = 0
+            #         return X
+            # syntactic_steps.append(('clipper', ClipNegative()))
 
         syntactic_pipe = Pipeline(syntactic_steps)
 
@@ -245,7 +257,8 @@ class MultinomialNaiveBayesBowSyntacticExperiment4(NLIModel):
 
     # Training method
     def train(self, train_dataset: str, train_split: str, train_suffix: str,
-              val_dataset: Optional[str] = None, val_split: Optional[str] = None, val_suffix: Optional[str] = None) -> Dict[str, Any]:
+              val_dataset: Optional[str] = None, val_split: Optional[str] = None, val_suffix: Optional[str] = None) -> \
+    Dict[str, Any]:
         logger.info(f"Starting Exp4 training for {train_dataset}/{train_split}/{train_suffix}")
         start_time = time.time()
 
@@ -261,7 +274,8 @@ class MultinomialNaiveBayesBowSyntacticExperiment4(NLIModel):
             X_train_transformed = self.feature_pipeline.fit_transform(X_train_df, y_train)
             # Check for negative values if not scaling syntactic features
             if not self.scale_syntactic and X_train_transformed.min() < 0:
-                 logger.warning("Negative values detected in features passed to MNB after transformation! This might cause errors. Consider scaling syntactic features.")
+                logger.warning(
+                    "Negative values detected in features passed to MNB after transformation! This might cause errors. Consider scaling syntactic features.")
             logger.info(f"Training data transformed. Shape: {X_train_transformed.shape}")
         except Exception as e:
             logger.error(f"Error fitting/transforming training data with pipeline: {e}", exc_info=True)
@@ -312,9 +326,9 @@ class MultinomialNaiveBayesBowSyntacticExperiment4(NLIModel):
 
     # Overload predict to handle DataFrame input
     def predict_on_dataframe(self, data_df: pd.DataFrame) -> np.ndarray:
-         if not isinstance(data_df, pd.DataFrame): raise ValueError("Input must be a pandas DataFrame")
-         X_transformed = self.extract_features(data_df)
-         return self.predict(X_transformed)
+        if not isinstance(data_df, pd.DataFrame): raise ValueError("Input must be a pandas DataFrame")
+        X_transformed = self.extract_features(data_df)
+        return self.predict(X_transformed)
 
     def save(self, filepath: str, model_name) -> None:
         if not self.is_trained or not self.feature_pipeline:
@@ -325,31 +339,35 @@ class MultinomialNaiveBayesBowSyntacticExperiment4(NLIModel):
         metadata_path = f"{filepath}_metadata.joblib"
         logger.info(f"Saving Exp4 model to {model_path}, pipeline to {pipeline_path}, metadata to {metadata_path}")
         metadata = {
-             'alpha': self.alpha,
-             'bow_max_features': self.bow_max_features,
-             'bow_ngram_range': self.bow_ngram_range,
-             'scale_syntactic': self.scale_syntactic,
-             '_syntactic_feature_columns': self._syntactic_feature_columns
+            'alpha': self.alpha,
+            'bow_max_features': self.bow_max_features,
+            'bow_ngram_range': self.bow_ngram_range,
+            'scale_syntactic': self.scale_syntactic,
+            '_syntactic_feature_columns': self._syntactic_feature_columns
         }
         try:
             joblib.dump(self.model, model_path)
             joblib.dump(self.feature_pipeline, pipeline_path)
             joblib.dump(metadata, metadata_path)
-        except Exception as e: logger.error(f"Error saving Exp4 artifacts: {e}", exc_info=True)
+        except Exception as e:
+            logger.error(f"Error saving Exp4 artifacts: {e}", exc_info=True)
 
     @classmethod
-    def load(cls, filepath: str, feature_extractor: Optional[Any] = None) -> 'MultinomialNaiveBayesBowSyntacticExperiment4':
+    def load(cls, filepath: str,
+             feature_extractor: Optional[Any] = None) -> 'MultinomialNaiveBayesBowSyntacticExperiment4':
         model_path = f"{filepath}_model.joblib"
         pipeline_path = f"{filepath}_pipeline.joblib"
         metadata_path = f"{filepath}_metadata.joblib"
-        logger.info(f"Loading Exp4 model from {model_path}, pipeline from {pipeline_path}, metadata from {metadata_path}")
+        logger.info(
+            f"Loading Exp4 model from {model_path}, pipeline from {pipeline_path}, metadata from {metadata_path}")
         if not all(os.path.exists(p) for p in [model_path, pipeline_path, metadata_path]):
             raise FileNotFoundError(f"Model artifacts missing for base path: {filepath}")
         try:
             loaded_model = joblib.load(model_path)
             loaded_pipeline = joblib.load(pipeline_path)
             loaded_metadata = joblib.load(metadata_path)
-        except Exception as e: logger.error(f"Error loading Exp4 artifacts: {e}", exc_info=True); raise
+        except Exception as e:
+            logger.error(f"Error loading Exp4 artifacts: {e}", exc_info=True); raise
 
         instance = cls(
             alpha=loaded_metadata.get('alpha', 1.0),
@@ -362,7 +380,124 @@ class MultinomialNaiveBayesBowSyntacticExperiment4(NLIModel):
         instance._syntactic_feature_columns = loaded_metadata.get('_syntactic_feature_columns')
         instance.is_trained = True
         if instance._syntactic_feature_columns is None:
-             logger.warning("Loaded Exp4 model metadata missing syntactic feature columns.")
+            logger.warning("Loaded Exp4 model metadata missing syntactic feature columns.")
         logger.info("Exp4 Model loaded successfully.")
         return instance
 
+    def evaluate(self, dataset_name: str, split: str, suffix: str) -> Dict[str, Any]:
+        """
+        Evaluates the trained MultinomialNB model on a given dataset split.
+        Loads pre-computed combined features (stats+syntactic), transforms them using
+        the fitted pipeline, predicts, and calculates metrics. Follows the
+        pattern from Experiment 3.
+        """
+        if not self.is_trained or not self.feature_pipeline:
+            logger.error(f"Cannot evaluate model {self.__class__.__name__}: Model or pipeline is not trained/loaded.")
+            return {'status': 'Evaluation failed: Model or pipeline not ready.'}
+
+        logger.info(f"Evaluating {self.__class__.__name__} on {dataset_name}/{split}/{suffix}...")
+        data_loader = SimpleParquetLoader()
+        eval_df = None
+        # --- Feature Loading ---
+        # Assume FeatureExtractor saves stats+syntactic together, similar to Exp3 evaluation logic
+        # Construct the expected feature filename pattern
+        feature_table_name_convention = f"{dataset_name}_{split}_features_stats_syntactic_{suffix}"  # Match expected feature output
+        logger.info(
+            f"Attempting to load evaluation features (expecting convention like: {feature_table_name_convention}.parquet)")
+
+        try:
+            # Use SimpleParquetLoader which might have its own logic to find the file
+            # based on dataset/split/suffix, possibly checking cache locations.
+            # Provide the context for logging within the loader if implemented.
+            eval_df = data_loader.load_data(dataset_name, split, suffix)  # Pass suffix
+
+            if eval_df is None or eval_df.empty:
+                # Explicitly try loading from DB if loader failed, using the expected table name
+                logger.warning(
+                    f"SimpleParquetLoader failed. Trying DB handler with table: {feature_table_name_convention}")
+                eval_df = self.db_handler.load_dataframe(dataset_name, split,
+                                                         feature_table_name_convention)  # Assuming suffix integrated into table name
+
+            if eval_df is None or eval_df.empty:
+                raise FileNotFoundError(
+                    f"Failed to load evaluation feature data for {dataset_name}/{split}/{suffix} using loader and DB ({feature_table_name_convention})")
+
+            logger.info(f"Loaded {len(eval_df)} rows for evaluation.")
+            # Handle potential NaNs in loaded features BEFORE cleaning/extraction
+            eval_df = _handle_nan_values(eval_df, context=f"evaluate_load_{split}_{suffix}")  #
+
+        except FileNotFoundError:
+            logger.error(
+                f"Evaluation feature data not found for {dataset_name}/{split}/{suffix} (tried convention: {feature_table_name_convention}). Cannot evaluate.")
+            return {'status': 'Evaluation failed: Feature file not found.'}
+        except Exception as e:
+            logger.error(f"Error loading evaluation data: {e}", exc_info=True)
+            return {'status': f'Evaluation failed: Error loading data - {e}'}
+
+        # --- Data Cleaning (Labels) ---
+        # clean_dataset primarily handles the 'label' column and removes invalid entries
+        cleaned_data = clean_dataset(eval_df)  #
+        if cleaned_data is None:
+            logger.error("Evaluation data became empty or invalid after cleaning labels.")
+            return {'status': 'Evaluation failed: Data invalid after cleaning.'}
+        df_cleaned, y_true = cleaned_data  # y_true should be numpy array of integer labels
+
+        if df_cleaned.empty or y_true is None or len(y_true) == 0:
+            logger.warning("No valid evaluation samples left after cleaning labels.")
+            return {'status': 'No valid samples after cleaning', 'accuracy': 0.0, 'f1': 0.0}  # Return zero metrics
+
+        # --- Feature Extraction (Transform ONLY) ---
+        X_eval = None
+        try:
+            logger.info(f"Transforming evaluation features using the loaded pipeline...")
+            # self.extract_features should use the *already fitted* self.feature_pipeline
+            # It requires the DataFrame to contain necessary columns (text + syntactic features)
+            # Check required columns based on the pipeline's needs
+            # Note: The feature pipeline was built with specific text and syntactic columns.
+            required_cols_for_extract = ['premise_text', 'hypothesis_text'] + (self._syntactic_feature_columns or [])
+            missing_cols = [col for col in required_cols_for_extract if col not in df_cleaned.columns]
+
+            if missing_cols:
+                # This is a critical error - the loaded feature file doesn't match what the pipeline expects
+                raise ValueError(
+                    f"Evaluation data (df_cleaned) is missing columns required by the feature pipeline: {missing_cols}. "
+                    f"Ensure the loaded file contains text and all expected syntactic features: {self._syntactic_feature_columns}")
+
+            X_eval = self.extract_features(df_cleaned)  # Should call self.feature_pipeline.transform()
+
+            # --- Alignment & Dimension Check ---
+            if X_eval.shape[0] != len(y_true):
+                raise ValueError(
+                    f"Evaluation feature/label count mismatch after transform: X_eval={X_eval.shape[0]}, y_true={len(y_true)}")
+
+            # Check feature dimensions against trained model (MultinomialNB specific check)
+            if hasattr(self.model, 'feature_count_'):  # MNB stores feature counts
+                expected_features_dim = self.model.feature_count_.shape[1]
+                if X_eval.shape[1] != expected_features_dim:
+                    raise ValueError(
+                        f"Evaluation feature dimension ({X_eval.shape[1]}) != trained model dimension ({expected_features_dim})")
+            elif hasattr(self.model, 'coef_'):  # For models like Logistic Regression
+                expected_features_dim = self.model.coef_.shape[1]
+                if X_eval.shape[1] != expected_features_dim:
+                    raise ValueError(
+                        f"Evaluation feature dimension ({X_eval.shape[1]}) != trained model dimension ({expected_features_dim})")
+            else:
+                logger.warning("Could not verify evaluation feature dimensions against trained model.")
+
+
+        except Exception as e:
+            logger.error(f"Error transforming features during evaluation: {e}", exc_info=True)
+            return {'status': f'Evaluation failed: Feature transformation error - {e}'}
+
+        # --- Calculate Metrics ---
+        # Ensure y_true is a numpy array for sklearn metrics
+        y_true_np = y_true if isinstance(y_true, np.ndarray) else np.array(y_true)
+
+        # Perform evaluation using the helper function from baseline_base
+        # It calls self.predict(X_eval) internally
+        logger.info("Calculating evaluation metrics...")
+        eval_time, metrics = _evaluate_model_performance(self, X_eval, y_true_np)  #
+        metrics['eval_time'] = eval_time  # Add timing info
+
+        logger.info(f"Evaluation complete for {self.__class__.__name__} on {split}. Metrics: {metrics}")
+        return metrics

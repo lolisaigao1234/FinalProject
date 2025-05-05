@@ -179,6 +179,15 @@ def parse_args():
     parser.add_argument("--cross_evaluate", action="store_true",
                         help="Perform cross-dataset evaluation (used by Exp 7)")
 
+    # --- Device Selection ---
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="auto",  # Default to automatic detection
+        choices=["auto", "cuda", "mps", "cpu"],
+        help="Device to use for computation ('auto', 'cuda', 'mps', 'cpu')"
+    )
+
     # --- Neural Model Selection (If using neural models - kept for potential future use) ---
     # Assuming HF_MODEL_IDENTIFIERS is defined earlier in config.py
     # HF_MODEL_IDENTIFIERS = { "bert-base-uncased": "bert-base-uncased"} # Example placeholder

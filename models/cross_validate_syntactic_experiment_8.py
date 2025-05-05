@@ -21,7 +21,8 @@ from sklearn.metrics import make_scorer, accuracy_score, precision_score, recall
 from utils.common import NLIModel
 from utils.database import DatabaseHandler
 # Import helpers from baseline_base
-from .baseline_base import clean_dataset, _handle_nan_values, prepare_labels
+from .baseline_base import clean_dataset, _handle_nan_values, prepare_labels, filter_syntactic_features
+
 # Import feature loading and filtering logic (can reuse logic from svm baseline)
 
 logger = logging.getLogger(__name__)

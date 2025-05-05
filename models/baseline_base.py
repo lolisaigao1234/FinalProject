@@ -271,11 +271,15 @@ class TextBaselineModel(NLIModel):
         logger.debug("Prediction finished.")
         return predictions
 
-    def save(self, filepath: str, model_name) -> None:
+    def save(self, filepath: str, model_name: str) -> None:  # Adjusted signature slightly if needed based on caller
         """Saves the trained model and the feature extractor."""
+        # --- MODIFICATION START ---
+        # Use 'filepath' which is passed as the directory argument
+        directory = filepath  # Assign filepath to directory variable for clarity or replace directly
         os.makedirs(directory, exist_ok=True)
         model_path = os.path.join(directory, f"{model_name}_model.joblib")
         extractor_path = os.path.join(directory, f"{model_name}_extractor.joblib")  # Save extractor
+        # --- MODIFICATION END ---
 
         joblib.dump(self.model, model_path)
         # Save the extractor instance, not just the vectorizer

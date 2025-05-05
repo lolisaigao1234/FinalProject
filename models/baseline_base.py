@@ -199,6 +199,7 @@ class TextFeatureExtractorBase:
     """Base class for TF-IDF and BoW extractors."""
 
     def __init__(self, vectorizer_class, **kwargs):
+        self.vocabulary_ = None
         self.vectorizer = vectorizer_class(**kwargs)
         self.is_fitted = False
 

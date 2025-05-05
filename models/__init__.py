@@ -70,3 +70,7 @@ __all__ = [
 
     # NOTE: Ensure the old SVM class names are removed if they were previously in __all__
 ]
+
+
+class NLIModel:
+    pass

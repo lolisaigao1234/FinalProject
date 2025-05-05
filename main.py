@@ -1,314 +1,336 @@
 # File: IS567FP/main.py
-# Updated to use ExperimentTrainer for experiments 1-6
+# Updated to handle 'predict' mode using test files as input
 
 import logging
+import time
+from typing import Optional
+
 import torch
+import os
+import pandas as pd
+import gc  # For garbage collection
 
-# Assuming config.py defines parse_args() and DEVICE
-# DEVICE is likely determined later in the script, using args.device
-from config import parse_args #, DEVICE <-- Removed DEVICE import here
+# Assuming config.py defines parse_args(), MODEL_CHOICES, PREDICT_MODEL_CHOICES, MODELS_DIR, LABEL_MAP_REVERSE, OUTPUT_DIR
+from config import parse_args, MODEL_CHOICES, PREDICT_MODEL_CHOICES, MODELS_DIR, LABEL_MAP_REVERSE, OUTPUT_DIR
+
 from data.preprocessor import TextPreprocessor
-# --- MODIFICATION START: Import both trainers ---
+from features.feature_extractor import FeatureExtractor
 from models.baseline_trainer import BaselineTrainer
-from models.base_experiment_trainer import ExperimentTrainer # Import the new trainer
-# --- MODIFICATION END ---
+from models.base_experiment_trainer import ExperimentTrainer
 
-# --- Import corrected Experiment 7 & 8 classes ---
-# Make sure these class names match exactly what's defined in the files
-try:
-    # Note: Class names in import should match the actual classes defined
-    # E.g., if the file defines SyntacticFeatureEvaluator, import that.
-    from models.cross_eval_syntactic_experiment_7 import CrossEvalSyntacticExperiment7 # Or SyntacticFeatureEvaluator if that's the class name
-except ImportError:
-    logging.error("Failed to import runner from models.cross_eval_syntactic_experiment_7")
-    # Define a dummy class to avoid crashing if the file is missing/incorrect
-    class CrossEvalSyntacticExperiment7: pass
-try:
-    # E.g., if the file defines CrossValidator, import that.
-    from models.cross_validate_syntactic_experiment_8 import CrossValidateSyntacticExperiment8 # Or CrossValidator if that's the class name
-except ImportError:
-    logging.error("Failed to import runner from models.cross_validate_syntactic_experiment_8")
-    # Define a dummy class to avoid crashing if the file is missing/incorrect
-    class CrossValidateSyntacticExperiment8: pass
-# --------------------------------------------------
-from utils.database import DatabaseHandler
-# --- MODIFICATION START: Import model registry ---
-# Needed to check if model_type is valid before dispatching
+# --- Import helpers and model classes ---
 from models import MODEL_REGISTRY
-# --- MODIFICATION END ---
-
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
+from utils.common import NLIModel
+# Import SimpleParquetLoader and clean_dataset
+from models.baseline_base import SimpleParquetLoader, clean_dataset
+from models import (
+    DecisionTreeBowBaseline, LogisticTFIDFBaseline, MultinomialNaiveBayesBaseline,
+    DecisionTreeSyntacticExperiment1, KnnBowSyntacticExperiment2,
+    LogisticTFIDFSyntacticExperiment3, MultinomialNaiveBayesBowSyntacticExperiment4,
+    RandomForestBowSyntacticExperiment5, GradientBoostingTFIDFSyntacticExperiment6,
+    CrossEvalSyntacticExperiment7, CrossValidateSyntacticExperiment8
 )
+
+# ----------------------------------------
+
+# --- Setup Logging ---
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s')
 logger = logging.getLogger(__name__)
 
 
-def preprocess_data(args):
-    """Runs the preprocessing pipeline based on arguments."""
-    logger.info(f"Preprocessing {args.dataset} dataset. Sample size: {args.sample_size or 'Full'}.")
-    db_handler = DatabaseHandler()
-    preprocessor = TextPreprocessor(db_handler) # Assuming constructor takes db_handler
-    # Check if preprocess_dataset_pipeline exists and call it
-    if hasattr(preprocessor, 'preprocess_dataset_pipeline'):
-        preprocessor.preprocess_dataset_pipeline(
-            dataset_name=args.dataset,
-            total_sample_size=args.sample_size, # Match arg name used in function
-            force_reprocess=args.force_reprocess
-        )
-    elif hasattr(preprocessor, 'preprocess_dataset'):
-         logger.warning("preprocess_dataset_pipeline not found, falling back to preprocess_dataset for train split only.")
-         # Fallback or adjust based on TextPreprocessor's available methods
-         # This might need adjustment depending on TextPreprocessor implementation
-         preprocessor.preprocess_dataset(
-             dataset_name=args.dataset,
-             split='train', # Example: only process train split
-             sample_size=args.sample_size,
-             force_reprocess=args.force_reprocess
-         )
-    else:
-        logger.error("TextPreprocessor does not have a known preprocessing method ('preprocess_dataset_pipeline' or 'preprocess_dataset').")
-
-    logger.info("Preprocessing complete (or attempted).")
+# --------------------
 
 
 def main():
-    """Main entry point."""
     args = parse_args()
-
-    # --- Determine Device (Moved from potential config import) ---
-    if args.device == 'cuda' and not torch.cuda.is_available():
-        logger.warning("CUDA device requested but not available. Falling back to CPU.")
-        args.device = 'cpu'
-    elif args.device == 'mps' and hasattr(torch.backends, 'mps') and not torch.backends.mps.is_available():
-        logger.warning("MPS device requested but not available. Falling back to CPU.")
-        args.device = 'cpu'
-    elif not args.device or args.device == 'auto':
-        if torch.cuda.is_available():
-            args.device = 'cuda'
-        # Check MPS availability properly
-        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            args.device = 'mps'
-        else:
-            args.device = 'cpu'
-    # --- Store determined device for logging ---
-    determined_device = args.device
-    # ------------------------------------------------------------
-
-    # Optional: Set benchmark/deterministic based on needs
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True # Set True for full reproducibility if needed
-
-    logger.info(f"Running in {args.mode} mode on {args.dataset} dataset")
-    logger.info(f"Using device: {determined_device}") # Use the determined device
-    logger.info(f"Selected model type / experiment key: {args.model_type}")
+    logger.info(f"Running mode: {args.mode}")
+    logger.info(f"Selected model type: {args.model_type}")
+    logger.info(f"Selected dataset: {args.dataset}")  # Note: this dataset is for train/eval mode by default
+    logger.info(f"Using device: {args.device}")
     if args.sample_size:
         logger.info(f"Using sample size: {args.sample_size}")
-    else:
-        logger.info("Processing full dataset (no sample size specified).")
 
-    # --- Validate model_type globally if needed ---
-    if args.mode in ['train', 'evaluate'] and args.model_type not in MODEL_REGISTRY:
-         # Check if it's one of the special runners if not in registry (though they should be in registry ideally)
-         special_keys = ["experiment-7", "experiment-8"] # Match keys used later
-         if args.model_type not in special_keys:
-            logger.error(f"Invalid model_type '{args.model_type}'. Not found in MODEL_REGISTRY or special runners. Available: {list(MODEL_REGISTRY.keys())}")
-            return # Exit if invalid model type
+    # Suffix for train/eval modes
+    suffix = f"sample{args.sample_size}" if args.sample_size else "full"
 
-    # --- Mode Dispatch ---
+    # --- Mode Handling ---
     if args.mode == "preprocess":
-        preprocess_data(args)
+        # (Keep preprocess logic as before)
+        logger.info("Starting preprocessing...")
+        from utils.database import DatabaseHandler
+        db_handler = DatabaseHandler()
+        preprocessor = TextPreprocessor(db_handler)
+        preprocessor.preprocess_dataset_pipeline(
+            dataset_name=args.dataset,
+            total_sample_size=args.sample_size,
+            force_reprocess=args.force_reprocess,
+        )
+        logger.info("Preprocessing finished.")
+
+    elif args.mode == "extract_features":
+        # (Keep extract_features logic as before)
+        logger.info("Starting feature extraction...")
+        from utils.database import DatabaseHandler
+        db_handler = DatabaseHandler()
+        feature_extractor = FeatureExtractor(db_handler=db_handler)
+        for split in ["train", "dev", "test"]:
+            logger.info(f"Extracting features for split: {split} (suffix: {suffix})")
+            try:
+                feature_extractor.extract_features(
+                    dataset_name=args.dataset,
+                    split=split,
+                    suffix=suffix,
+                    force_recompute=args.force_reprocess
+                )
+            except Exception as e:
+                logger.error(f"Failed to extract features for split {split}: {e}", exc_info=True)
+        logger.info("Feature extraction finished.")
 
     elif args.mode == "train":
-        # --- MODIFICATION START: Define model categories ---
-        baseline_model_types = [
-            "baseline-1",
-            "baseline-2",
-            "baseline-3",
-        ]
-        experiment_model_types_via_trainer = [
-            "experiment-1",
-            "experiment-2",
-            "experiment-3",
-            "experiment-4",
-            "experiment-5",
-            "experiment-6",
-        ]
-        # Special experiment runners (using potentially corrected class names)
-        special_experiment_runners = {
-            "experiment-7": CrossEvalSyntacticExperiment7, # Or SyntacticFeatureEvaluator
-            "experiment-8": CrossValidateSyntacticExperiment8 # Or CrossValidator
-        }
-        # --- MODIFICATION END ---
-
+        # (Keep train logic as before)
+        logger.info(f"Starting training for model: {args.model_type}")
+        if args.model_type not in MODEL_REGISTRY:
+            logger.error(f"Model type '{args.model_type}' not found.")
+            return
         trainer = None
-        results = None
-
-        # --- MODIFICATION START: Instantiate correct trainer ---
-        if args.model_type in baseline_model_types:
-            logger.info(f"Initializing BaselineTrainer for baseline: {args.model_type}, dataset: {args.dataset}")
+        model_class = MODEL_REGISTRY[args.model_type]
+        if args.model_type.startswith('experiment-') and args.model_type not in ["experiment-7", "experiment-8"]:
+            trainer = ExperimentTrainer(model_type=args.model_type, dataset_name=args.dataset, args=args)
+        elif args.model_type.startswith('baseline-'):
+            trainer = BaselineTrainer(model_type=args.model_type, dataset_name=args.dataset, args=args)
+        elif args.model_type == "experiment-7":
             try:
-                trainer = BaselineTrainer(
-                    model_type=args.model_type,
-                    dataset_name=args.dataset,
-                    args=args
-                )
+                exp7_runner = CrossEvalSyntacticExperiment7(args=args);
+                results = exp7_runner.run_experiment()
+                logger.info(f"Experiment 7 Results: {results}")
             except Exception as e:
-               logger.error(f"Failed to initialize BaselineTrainer for {args.model_type}: {e}", exc_info=True)
+                logger.error(f"Error running Experiment 7: {e}", exc_info=True)
+        elif args.model_type == "experiment-8":
+            try:
+                exp8_runner = CrossValidateSyntacticExperiment8(args=args);
+                results = exp8_runner.run_experiment()
+                logger.info(f"Experiment 8 Results: {results}")
+            except Exception as e:
+                logger.error(f"Error running Experiment 8: {e}", exc_info=True)
+        else:
+            logger.error(f"Cannot determine trainer for model type: {args.model_type}"); return
 
-        elif args.model_type in experiment_model_types_via_trainer:
-             logger.info(f"Initializing ExperimentTrainer for experiment: {args.model_type}, dataset: {args.dataset}")
-             try:
-                 trainer = ExperimentTrainer(
-                     model_type=args.model_type,
-                     dataset_name=args.dataset,
-                     args=args
-                 )
-             except Exception as e:
-                logger.error(f"Failed to initialize ExperimentTrainer for {args.model_type}: {e}", exc_info=True)
-        # --- MODIFICATION END ---
-
-        # --- Run standard trainers (if initialized) ---
         if trainer:
             try:
-                logger.info(f"Starting training process via {trainer.__class__.__name__} for {args.model_type}...")
-                results = trainer.run_training()
-                if results:
-                    logger.info(f"Training for {args.model_type} finished. Results: {results}")
-                     # Optional evaluation after training (using the same trainer instance)
+                train_results = trainer.run_training()
+                if train_results:
+                    logger.info(f"Training completed. Results: {train_results}")
                     if args.evaluate_after_train:
-                         logger.info(f"--- Starting Evaluation after Training ({args.eval_split} split) ---")
-                         eval_results = trainer.run_evaluation(eval_split=args.eval_split)
-                         if eval_results:
-                             logger.info(f"Evaluation completed for {args.model_type}. Results: {eval_results}")
-                         else:
-                             logger.warning(f"Evaluation run after training failed or produced no results for {args.model_type}.")
-                    else:
-                         logger.info("Evaluation after training not requested.")
-                else:
-                    logger.error(f"Training run for {args.model_type} failed or produced no results.")
-            except Exception as e:
-                logger.error(f"Failed during run_training for {args.model_type} with {trainer.__class__.__name__}: {e}", exc_info=True)
-
-
-        # --- Handle Special Experiments (Exp7, Exp8) ---
-        elif args.model_type in special_experiment_runners:
-            logger.info(f"Initializing special experiment runner for: {args.model_type}, dataset: {args.dataset}")
-            try:
-                ExperimentRunnerClass = special_experiment_runners[args.model_type]
-                # Basic check if the class looks like a placeholder
-                # A better check might be isinstance(ExperimentRunnerClass, type) and ExperimentRunnerClass != type(None) etc.
-                if not hasattr(ExperimentRunnerClass, '__module__') or ExperimentRunnerClass.__name__ in ['CrossEvalSyntacticExperiment7', 'CrossValidateSyntacticExperiment8']:
-                     # Check if the actual imported class has the run method
-                     if hasattr(ExperimentRunnerClass, 'run_experiment'):
-                          logger.info(f"Found runner class {ExperimentRunnerClass.__name__}")
-                     else:
-                          logger.error(f"Cannot run {args.model_type} because its class {ExperimentRunnerClass.__name__} failed to import correctly or lacks 'run_experiment' method.")
-                          ExperimentRunnerClass = None # Prevent execution
-
-                if ExperimentRunnerClass:
-                    # Assuming constructor takes args or relevant parts like dataset, device etc.
-                    # Adjust constructor call based on actual Exp7/8 runner needs
-                    experiment_runner = ExperimentRunnerClass(args=args) # Pass args, runner extracts what it needs
-                    logger.info(f"Starting {args.model_type} run...")
-                    # Assuming this method exists and performs the experiment/training/evaluation
-                    results = experiment_runner.run_experiment()
-                    if results:
-                        logger.info(f"{args.model_type} finished. Overall Results Summary:")
-                        # Log detailed results (copied existing formatting logic)
-                        if isinstance(results, dict):
-                            for config_key, metrics in results.items(): # Renamed 'config' to 'config_key'
-                                if isinstance(metrics, dict):
-                                    metrics_str = ", ".join(
-                                        [f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}" for k, v in metrics.items()])
-                                    logger.info(f"  - Config: {config_key}, Metrics: {metrics_str}")
-                                else:
-                                    logger.info(f"  - Config: {config_key}, Result: {metrics}")
+                        logger.info(f"Evaluating model {args.model_type} on '{args.eval_split}' split...")
+                        eval_results = trainer.run_evaluation(eval_split=args.eval_split)
+                        if eval_results:
+                            logger.info(f"Evaluation metrics: {eval_results.get(args.model_type)}")
                         else:
-                            logger.info(f"  Results: {results}")
-                    else:
-                        logger.error(f"{args.model_type} run failed or produced no results.")
+                            logger.error("Evaluation failed after training.")
+                else:
+                    logger.error(f"Training failed for model {args.model_type}")
             except Exception as e:
-                logger.error(f"Failed to initialize or run special experiment {args.model_type}: {e}", exc_info=True)
-
-        # --- Handle case where model_type is not recognized ---
-        # This case might be redundant if initial validation catches it, but good as a fallback.
-        elif trainer is None and args.model_type not in special_experiment_runners:
-             logger.error(f"Unknown or unsupported model type/experiment key for training: '{args.model_type}'")
-
+                logger.error(f"Error during training for {args.model_type}: {e}", exc_info=True)
 
     elif args.mode == "evaluate":
-        logger.info(f"Starting evaluation for model: {args.model_type} on dataset: {args.dataset}, split: {args.eval_split}")
-
-        # --- MODIFICATION START: Define model categories for evaluation ---
-        baseline_model_types = [ "baseline-1", "baseline-2", "baseline-3"]
-        experiment_model_types_via_trainer = [
-            "experiment-1", "experiment-2", "experiment-3",
-            "experiment-4", "experiment-5", "experiment-6"
-        ]
+        # (Keep evaluate logic as before)
+        logger.info(f"Starting evaluation for model: {args.model_type} on split: {args.eval_split}")
+        if args.model_type not in MODEL_REGISTRY: logger.error(f"Model type '{args.model_type}' not found."); return
         eval_handled_in_train = ["experiment-7", "experiment-8"]
-        # --- MODIFICATION END ---
-
         trainer = None
-        eval_results = None
+        if args.model_type.startswith('experiment-') and args.model_type not in eval_handled_in_train:
+            trainer = ExperimentTrainer(model_type=args.model_type, dataset_name=args.dataset, args=args)
+        elif args.model_type.startswith('baseline-'):
+            trainer = BaselineTrainer(model_type=args.model_type, dataset_name=args.dataset, args=args)
 
-        # --- Warn for models evaluated during training ---
-        if args.model_type in eval_handled_in_train:
-            logger.warning(f"Evaluation for {args.model_type} is performed during its 'train' mode execution. Please run with --mode train.")
-
-        # --- Instantiate correct trainer for evaluation ---
-        elif args.model_type in baseline_model_types:
-            logger.info(f"Initializing BaselineTrainer for evaluation: {args.model_type}")
-            try:
-                trainer = BaselineTrainer(
-                    model_type=args.model_type,
-                    dataset_name=args.dataset,
-                    args=args
-                )
-            except Exception as e:
-               logger.error(f"Failed to initialize BaselineTrainer for evaluation of {args.model_type}: {e}", exc_info=True)
-
-        elif args.model_type in experiment_model_types_via_trainer:
-            logger.info(f"Initializing ExperimentTrainer for evaluation: {args.model_type}")
-            try:
-                 trainer = ExperimentTrainer(
-                     model_type=args.model_type,
-                     dataset_name=args.dataset,
-                     args=args
-                 )
-            except Exception as e:
-                 logger.error(f"Failed to initialize ExperimentTrainer for evaluation of {args.model_type}: {e}", exc_info=True)
-
-        # --- Run evaluation using the instantiated trainer ---
         if trainer:
-             try:
-                 logger.info(f"Starting evaluation process via {trainer.__class__.__name__} for {args.model_type}...")
-                 # Call run_evaluation - it handles loading the MODEL.
-                 # The model's evaluate method handles loading the required DATA.
-                 eval_results = trainer.run_evaluation(eval_split=args.eval_split)
+            try:
+                eval_results = trainer.run_evaluation(eval_split=args.eval_split)
+                if eval_results:
+                    logger.info(f"Evaluation metrics: {eval_results.get(args.model_type)}")
+                else:
+                    logger.error(f"Evaluation run failed or produced no results.")
+            except Exception as e:
+                logger.error(f"Failed during run_evaluation: {e}", exc_info=True)
+        elif args.model_type not in eval_handled_in_train:
+            logger.error(f"Unknown or unsupported model type for evaluation: '{args.model_type}'")
 
-                 if eval_results:
-                     # run_evaluation returns a dict like {model_key: metrics}
-                     metrics = eval_results.get(args.model_type) # Extract metrics for the specific model
-                     if metrics:
-                          logger.info(f"Evaluation metrics for {args.model_type} on {args.eval_split} split: {metrics}")
-                     else:
-                          logger.error(f"Evaluation run completed but metrics not found in result for {args.model_type}.")
-                 else:
-                     logger.error(f"Evaluation run failed for {args.model_type} or produced no results.")
-             except Exception as e:
-                 logger.error(f"Failed during run_evaluation for {args.model_type} with {trainer.__class__.__name__}: {e}", exc_info=True)
-
-        # --- Handle unknown models for evaluation ---
-        elif args.model_type not in eval_handled_in_train: # Only show error if not handled in train mode
-            logger.error(f"Unknown or unsupported model type/experiment key for evaluation: '{args.model_type}'")
-
-
+    # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # +++                  PREDICTION MODE                   +++
+    # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     elif args.mode == "predict":
-        logger.warning("Prediction mode not fully implemented yet.")
-        # Add prediction logic here if needed
-        pass
+        logger.info(f"Starting prediction mode for model: {args.model_type}")
+        logger.info(f"Predicting on dataset: {args.predict_input_dataset}, suffix: {args.predict_input_suffix}")
+
+        # --- Validate Arguments ---
+        if args.model_type not in PREDICT_MODEL_CHOICES:
+            logger.error(
+                f"Error: Model type '{args.model_type}' is not supported for prediction (valid: {PREDICT_MODEL_CHOICES}).")
+            return
+
+        # --- Load Input Data ---
+        input_df = None
+        logger.info(
+            f"Loading input data for prediction from {args.predict_input_dataset}/test/{args.predict_input_suffix}")
+        try:
+            loader = SimpleParquetLoader()
+            # Load the 'test' split of the specified input dataset and suffix
+            # The loader should find the features_stats_syntactic file ideally
+            input_df = loader.load_data(loader, args.predict_input_dataset, 'test',
+                                        args.predict_input_suffix)  # Pass loader instance
+
+            if input_df is None or input_df.empty:
+                raise FileNotFoundError("Loaded input data is None or empty.")
+
+            logger.info(f"Loaded {len(input_df)} rows from input file.")
+
+            # Apply limit if specified
+            if args.predict_limit:
+                logger.info(f"Applying prediction limit: {args.predict_limit} rows.")
+                if args.predict_limit < len(input_df):
+                    input_df = input_df.head(args.predict_limit)
+                else:
+                    logger.warning(
+                        f"Prediction limit ({args.predict_limit}) is >= number of rows ({len(input_df)}). Predicting on all loaded rows.")
+
+        except FileNotFoundError:
+            logger.error(
+                f"Error: Input feature file not found for dataset '{args.predict_input_dataset}', split 'test', suffix '{args.predict_input_suffix}'.")
+            logger.error("Ensure features were extracted for the test set using '--mode extract_features'.")
+            return
+        except Exception as e:
+            logger.error(f"Error loading input data: {e}", exc_info=True)
+            return
+
+        # --- Load Model ---
+        loaded_model: Optional[NLIModel] = None
+        model_class = MODEL_REGISTRY.get(args.model_type)
+        if not model_class: logger.error(f"Internal Error: Model key '{args.model_type}' invalid."); return
+
+        model_save_subdir = 'baseline_models'  # Assuming models saved here
+        # Use predict_model_dataset and predict_model_suffix for loading path
+        model_dir = os.path.join(MODELS_DIR, model_save_subdir, args.predict_model_dataset, args.model_type,
+                                 args.predict_model_suffix)
+        model_base_name = f"{args.predict_model_dataset}_{args.model_type}_{args.predict_model_suffix}"
+
+        logger.info(
+            f"Attempting to load model '{args.model_type}' trained on '{args.predict_model_dataset}/{args.predict_model_suffix}'")
+        logger.info(f"Loading from directory: {model_dir} with base name: {model_base_name}")
+
+        try:
+            loaded_model = model_class.load(model_dir, model_base_name)
+            if not loaded_model: raise ValueError("Model loading returned None.")
+            logger.info(f"Model {args.model_type} loaded successfully.")
+            if not getattr(loaded_model, 'is_trained', True): logger.warning("Loaded model is not marked as trained.")
+        except FileNotFoundError:
+            logger.error(f"Error: Model artifacts not found in '{model_dir}' for base name '{model_base_name}'.")
+            return
+        except Exception as e:
+            logger.error(f"Error loading model '{args.model_type}': {e}", exc_info=True); return
+
+        # --- Prepare Data for Model ---
+        # Clean the loaded data (handles labels if present, ensures basic consistency)
+        logger.info("Cleaning loaded input data...")
+        cleaned_data_result = clean_dataset(input_df)
+        if cleaned_data_result is None:
+            logger.error("Input data became invalid after cleaning.")
+            return
+        df_cleaned, y_true_potential = cleaned_data_result  # y_true might be present, or None/empty
+        logger.info(f"{len(df_cleaned)} rows remaining after cleaning.")
+
+        if df_cleaned.empty:
+            logger.error("No valid rows remaining in input data after cleaning.")
+            return
+
+        # The df_cleaned should contain all columns needed (text, features)
+        # because it came from the feature extractor's output file.
+
+        # --- Make Predictions ---
+        predictions_int = None
+        try:
+            logger.info(f"Generating predictions for {len(df_cleaned)} samples...")
+            start_pred_time = time.time()
+
+            # Use the model's appropriate prediction method
+            if hasattr(loaded_model, 'predict_on_dataframe'):
+                predictions_int = loaded_model.predict_on_dataframe(df_cleaned)
+            elif hasattr(loaded_model, 'predict') and hasattr(loaded_model, 'extract_features'):
+                # Assumes extract_features correctly uses the already loaded+cleaned features
+                # Needs to handle potential DataFrame vs numpy array input for predict
+                features = loaded_model.extract_features(df_cleaned)
+                if features is None or features.shape[0] == 0:
+                    logger.error("Feature extraction for prediction failed or returned empty.")
+                    raise RuntimeError("Feature extraction failed during prediction.")
+                predictions_int = loaded_model.predict(features)
+            else:
+                logger.error(f"Model {args.model_type} lacks a suitable prediction method.")
+                raise NotImplementedError("Prediction method not found.")
+
+            pred_time = time.time() - start_pred_time
+            logger.info(f"Prediction finished in {pred_time:.2f} seconds.")
+
+            if predictions_int is None or len(predictions_int) != len(df_cleaned):
+                logger.error(
+                    f"Prediction resulted in unexpected number of labels (Expected: {len(df_cleaned)}, Got: {len(predictions_int) if predictions_int is not None else 'None'}).")
+                raise RuntimeError("Prediction length mismatch.")
+
+        except Exception as e:
+            logger.error(f"An error occurred during prediction: {e}", exc_info=True)
+            return
+
+        # --- Format and Save Output ---
+        try:
+            logger.info("Formatting output...")
+            # Map integer predictions to string labels
+            predictions_str = [LABEL_MAP_REVERSE.get(p, "unknown") for p in predictions_int]
+
+            # Create output DataFrame
+            output_df = pd.DataFrame({
+                'pair_id': df_cleaned['pair_id'],  # Assumes pair_id survived cleaning
+                'premise': df_cleaned['premise_text'],  # Assumes text cols are present
+                'hypothesis': df_cleaned['hypothesis_text'],
+                'predicted_label_int': predictions_int,
+                'predicted_label_str': predictions_str
+            })
+
+            # Include true label if available in the cleaned data
+            true_label_col = 'gold_label' if 'gold_label' in df_cleaned.columns else 'label'
+            if true_label_col in df_cleaned.columns:
+                # Ensure alignment if clean_dataset modified indices (shouldn't if just cleaning labels)
+                output_df['true_label_str'] = df_cleaned[true_label_col]
+                if y_true_potential is not None and len(y_true_potential) == len(output_df):
+                    output_df['true_label_int'] = y_true_potential
+                else:
+                    logger.warning("Could not align true integer labels from clean_dataset.")
+
+            # Display head
+            print("\n--- Prediction Results (Top 5) ---")
+            print(output_df.head().to_string())
+            print("-" * 30)
+
+            # Save to file
+            if args.predict_output_file:
+                try:
+                    output_dir = os.path.dirname(args.predict_output_file)
+                    if output_dir:  # Ensure directory exists if specified in path
+                        os.makedirs(output_dir, exist_ok=True)
+                    output_df.to_csv(args.predict_output_file, index=False)
+                    logger.info(f"Predictions saved successfully to: {args.predict_output_file}")
+                except Exception as e:
+                    logger.error(f"Failed to save predictions to {args.predict_output_file}: {e}", exc_info=True)
+
+        except Exception as e:
+            logger.error(f"Error formatting or saving results: {e}", exc_info=True)
+
+        # Cleanup
+        del input_df, df_cleaned, output_df, loaded_model, predictions_int, predictions_str
+        gc.collect()
+
+    # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    # +++                END PREDICTION MODE                 +++
+    # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
     else:
         logger.error(f"Unknown mode: {args.mode}")
 

@@ -620,7 +620,7 @@ class SimpleParquetLoader:
         # Construct base cache directory
         cache_dir = os.path.join('cache', 'parquet', dataset_name, split)
 
-        feature_types = ["lexical", "syntactic"]
+        feature_types = ["stats", "syntactic"]
         feature_name_part = "_".join(sorted(feature_types))
         feature_filename = f"{dataset_name}_{split}_features_{feature_name_part}_{suffix}.parquet"
         feature_filepath = os.path.join(cache_dir, feature_filename)

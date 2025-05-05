@@ -1,10 +1,9 @@
 #!/bin/bash
 #SBATCH --job-name=preprocess_ANLI # Changed job name
-#SBATCH --partition=IllinoisComputes-GPU
+#SBATCH --partition=IllinoisComputes
 #SBATCH --time=72:00:00             # Might be long for preprocessing, adjust if needed
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --gres=gpu:A100:1           # Explicitly request A100
 #SBATCH --cpus-per-task=64           # Kept from original, consider reducing (e.g., 8 or 16) if data loading isn't bottleneck
 #SBATCH --mem=64G                   # Request sufficient RAM
 #SBATCH --account=jywu3-ic          # <<< YOUR ACCOUNT HERE >>>
@@ -33,7 +32,7 @@ cd /u/jywu3/scratch/IS567FP || exit
 echo "Starting ANLI preprocessing job..."
 # Run preprocessing for ANLI dataset
 # The -u flag ensures unbuffered output, good for logging.
-python -u main.py --dataset ANLI --mode preprocess --fp16 --sample_size 10000 --force_reprocess # Added --fp16 based on config.py default
+python -u main.py --dataset ANLI --mode preprocess --fp16 --force_reprocess # Added --fp16 based on config.py default
 
 echo "ANLI preprocessing job finished."
 

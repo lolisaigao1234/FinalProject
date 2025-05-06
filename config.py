@@ -1,9 +1,10 @@
 # Modify file: IS567FP/config.py
 # Update args for 'predict' mode to use test files
 
+import argparse
 import os
 from pathlib import Path
-import argparse
+
 import torch
 
 # Project paths
@@ -31,7 +32,8 @@ DATASETS = {
     },
     "ANLI": {
         "hf_name": "facebook/anli",
-        "splits": {"train": "train_r1", "dev": "dev_r1", "test": "test_r1"},  # Example
+        # Change this line:
+        "splits": {"train": "train", "dev": "dev", "test": "test"},  # Use base names
         "text_cols": {"premise": "premise", "hypothesis": "hypothesis"}
     }
 }

@@ -33,7 +33,7 @@ cd /u/jywu3/scratch/IS567FP || exit
 echo "Starting ANLI preprocessing job..."
 # Run preprocessing for ANLI dataset
 # The -u flag ensures unbuffered output, good for logging.
-python -u main.py --dataset ANLI --mode preprocess --fp16 --sample_size 10000 --force_reprocess # Added --fp16 based on config.py default
+python -u main.py --dataset ANLI --mode preprocess --fp16 --force_reprocess # Added --fp16 based on config.py default
 
 echo "ANLI preprocessing job finished."
 

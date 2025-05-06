@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:A100:1           # Explicitly request A100
 #SBATCH --cpus-per-task=64           # Kept from original, consider reducing (e.g., 8 or 16) if data loading isn't bottleneck
-#SBATCH --mem=64G                   # Request sufficient RAM
+#SBATCH --mem=80G                   # Request sufficient RAM
 #SBATCH --account=jywu3-ic          # <<< YOUR ACCOUNT HERE >>>
 #SBATCH --output=preprocess_SNLI_%j.log # Changed output log name
 
@@ -26,4 +26,4 @@ export TF_CPP_MIN_LOG_LEVEL=3     # Reduce TensorFlow logging (if used)
 cd /u/jywu3/scratch/IS567FP || exit
 
 # Run with optimizations
-python -u main.py --dataset SNLI --mode preprocess --force_reprocess --fp16
+python -u main.py --dataset SNLI --mode preprocess --force_reprocess --fp16 --sample_size 100

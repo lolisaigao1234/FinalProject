@@ -86,7 +86,7 @@ echo "Modules loaded."
 
 # Activate Conda environment
 # <<< Make sure 'IS567' is your correct conda environment name >>>
-CONDA_ENV_NAME="IS567" # Define conda environment name variable
+CONDA_ENV_NAME="IS567FP" # Define conda environment name variable
 # Use conda run for potentially better environment isolation if source activate causes issues
 # conda run -n "$CONDA_ENV_NAME" --no-capture-output which python # Check python path
 # Or stick with source activate if it works reliably

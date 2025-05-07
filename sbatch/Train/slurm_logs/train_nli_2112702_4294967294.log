@@ -1,0 +1,35 @@
+/var/spool/slurmd/job2112702/slurm_script: line 45: [: : integer expression expected
+/var/spool/slurmd/job2112702/slurm_script: line 45: [: : integer expression expected
+------------------------------------------------
+SLURM Job ID: 2112702
+SLURM Array Job ID: 
+SLURM Array Task ID:  / 33
+Running on host: ccc0387.campuscluster.illinois.edu
+Node allocated: ccc0387
+Requested CPUs: 16
+Running Dataset: SNLI
+Running Experiment (Model Type): experiment-8
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /u/jywu3/.conda/envs/IS567/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for SNLI / experiment-8 (Task ID )...
+INFO:__main__:Running mode: train
+INFO:__main__:Selected model type: experiment-8
+INFO:__main__:Selected dataset: SNLI
+INFO:__main__:Using device: cpu
+INFO:__main__:Starting training for model: experiment-8
+INFO:models.cross_validate_syntactic_experiment_8:===== Starting Experiment 8: Syntactic Feature Cross-Validation =====
+INFO:models.cross_validate_syntactic_experiment_8:Dataset: SNLI, Suffix: full, Folds: 5
+INFO:models.cross_validate_syntactic_experiment_8:Exp8: Loading precomputed features for SNLI/train/full
+WARNING:utils.database:Final feature file not found at /scratch/jywu3/IS567FP/cache/parquet/SNLI_train_features_lexical_syntactic_full.parquet. Checking intermediate paths...
+WARNING:utils.database:No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/SNLI_train_features_lexical_syntactic_full.parquet or final path for table 'SNLI_train_features_lexical_syntactic_full'.
+ERROR:models.cross_validate_syntactic_experiment_8:Loaded empty features DataFrame for SNLI_train_features_lexical_syntactic_full.
+ERROR:models.cross_validate_syntactic_experiment_8:Failed to load training data features. Aborting Experiment 8.
+INFO:__main__:Experiment 8 Results: {'error': 'Training data features failed to load.'}
+Python script finished with exit code 0 for Task ID 
+------------------------------------------------
+Job Task  finished.
+Total Runtime: 9 seconds
+------------------------------------------------

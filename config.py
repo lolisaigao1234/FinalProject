@@ -2,8 +2,14 @@
 # Update args for 'predict' mode to use test files
 
 import argparse
+import logging
 import os
 from pathlib import Path
+
+# Set up logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s')
+logger = logging.getLogger(__name__)
 
 import torch
 

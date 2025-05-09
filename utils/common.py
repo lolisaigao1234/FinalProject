@@ -131,7 +131,7 @@ class NLIModel(ABC):
 def get_split_sizes(
         total_sample_size: Optional[int],
         train_ratio: float = 0.8,
-        val_ratio: float = 0.1,
+        val_ratio: float = 0.1
         # test_ratio is implied as 1.0 - train_ratio - val_ratio
 ) -> Tuple[Optional[int], Optional[int], Optional[int]]:
     """

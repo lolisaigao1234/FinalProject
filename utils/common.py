@@ -2,9 +2,14 @@
 import logging
 from abc import ABC, abstractmethod
 from typing import Tuple, List, Optional, Any, Dict
+
+import numpy as np
 import pandas as pd
 import torch
-import numpy as np
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class NLPBaseComponent:
@@ -121,3 +126,66 @@ class NLIModel(ABC):
         Returns optional dictionary containing evaluation metrics.
         """
         pass
+
+
+def get_split_sizes(
+        total_sample_size: Optional[int],
+        train_ratio: float = 0.8,
+        val_ratio: float = 0.1,
+        # test_ratio is implied as 1.0 - train_ratio - val_ratio
+) -> Tuple[Optional[int], Optional[int], Optional[int]]:
+    """
+    Calculates sample sizes for train, validation, and test splits from a total.
+    Ensures that the sum of split sizes equals total_sample_size.
+    Prioritizes train, then validation, then test for sample allocation in rounding.
+    Returns (train_size, val_size, test_size).
+    Returns (None, None, None) if total_sample_size is None or 0.
+    """
+    if total_sample_size is None or total_sample_size <= 0:
+        return None, None, None
+
+    train_size = int(total_sample_size * train_ratio)
+    val_size = int(total_sample_size * val_ratio)
+
+    # Ensure train and val are at least 1 if total allows, and they are > 0%
+    if train_ratio > 0 and train_size == 0:
+        train_size = 1 if total_sample_size >= 1 else 0
+
+    remaining_after_train = total_sample_size - train_size
+    if val_ratio > 0 and val_size == 0 and remaining_after_train > 0:
+        val_size = 1 if remaining_after_train >= 1 else 0
+
+    # Adjust val_size if it exceeds remaining samples
+    val_size = min(val_size, remaining_after_train)
+
+    test_size = total_sample_size - train_size - val_size
+
+    # Final check to prevent negative sizes if ratios are misconfigured or total is very small
+    if train_size < 0: train_size = 0
+    if val_size < 0: val_size = 0
+    if test_size < 0: test_size = 0
+
+    # If sum is not total due to intermediate minimums, adjust test_size (most flexible)
+    # This can happen if train_size or val_size was forced to 1.
+    current_sum = train_size + val_size + test_size
+    if current_sum != total_sample_size and total_sample_size > 0:
+        # This simple re-adjustment on test_size might not be perfect for all edge cases
+        # but aims to make the sum correct.
+        test_size = total_sample_size - train_size - val_size
+        if test_size < 0:  # Should not happen if logic above is correct
+            logger.warning(
+                f"Test size became negative ({test_size}) after adjustment. Resetting. This indicates an issue in splitting logic for total {total_sample_size}.")
+            # Fallback: re-evaluate based on remaining, could lead to val getting less if test needs some
+            # This part needs careful thought for very small numbers if all splits must exist.
+            # For now, the initial calculation is what we mostly rely on.
+            # This complex balancing is why fixed N for val/test is sometimes easier for small totals.
+            pass
+
+    logger.info(
+        f"Calculated split sizes for total {total_sample_size}: train={train_size}, val={val_size}, test={test_size}")
+    if train_size + val_size + test_size != total_sample_size and total_sample_size > 0:
+        logger.error(
+            f"CRITICAL: Split sum ({train_size + val_size + test_size}) does not equal total_sample_size ({total_sample_size})!")
+        # This indicates a flaw in the splitting logic for the given ratios and total size.
+
+    return train_size, val_size, test_size

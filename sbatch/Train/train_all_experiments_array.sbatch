@@ -81,7 +81,7 @@ START_TIME=$(date +%s)
 # Load modules
 module purge
 module load anaconda3/2024.10 # Or your specific Anaconda/Python module
-module load cuda/12.6 # Ensure this matches your environment's CUDA version
+module load cuda/12.8 # Ensure this matches your environment's CUDA version
 echo "Modules loaded."
 
 # Activate Conda environment

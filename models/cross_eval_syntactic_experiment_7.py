@@ -16,7 +16,7 @@ from sklearn.model_selection import train_test_split
 from utils.common import NLIModel
 from utils.database import DatabaseHandler
 # Import helpers from baseline_base
-from .baseline_base import clean_dataset, _evaluate_model_performance, _handle_nan_values, prepare_labels
+from .baseline_base import clean_dataset, _evaluate_model_performance, _handle_nan_values, prepare_labels, SimpleParquetLoader, filter_syntactic_features
 # Import feature loading and filtering logic (can reuse logic from svm baseline)
 
 logger = logging.getLogger(__name__)
@@ -55,6 +55,7 @@ class CrossEvalSyntacticExperiment7:
         self.save_dir = self._get_save_directory()
         os.makedirs(self.save_dir, exist_ok=True)
         self.db_handler = DatabaseHandler()
+        self.loader = SimpleParquetLoader() # Instantiate the loader
         self.results: Dict[str, Any] = {} # To store results
 
         # Hyperparameters from args
@@ -77,32 +78,92 @@ class CrossEvalSyntacticExperiment7:
         )
         return base_dir
 
-    def _load_and_prepare_features(self, split: str) -> Optional[Tuple[pd.DataFrame, np.ndarray]]:
-        """Loads precomputed features and prepares labels for a given split."""
-        logger.info(f"Exp7: Loading precomputed features for {self.dataset_name}/{split}/{self.suffix}")
-        # Load the combined lexical+syntactic features file
-        feature_type_base = f"features_lexical_syntactic_{self.suffix}"
-        feature_table_name = f"{self.dataset_name}_{split}_{feature_type_base}"
+    # def _load_and_prepare_features(self, split: str) -> Optional[Tuple[pd.DataFrame, np.ndarray]]:
+    #     """Loads precomputed features and prepares labels for a given split."""
+    #     logger.info(f"Exp7: Loading precomputed features for {self.dataset_name}/{split}/{self.suffix}")
+    #     # Load the combined lexical+syntactic features file
+    #     feature_type_base = f"features_lexical_syntactic_{self.suffix}"
+    #     feature_table_name = f"{self.dataset_name}_{split}_{feature_type_base}"
 
+    #     try:
+    #         features_df = self.db_handler.load_dataframe(self.dataset_name, split, feature_table_name)
+    #         if features_df.empty:
+    #             logger.error(f"Loaded empty features DataFrame for {feature_table_name}.")
+    #             return None
+    #         features_df = _handle_nan_values(features_df, f"{self.dataset_name}/{split} features")
+    #     except Exception as e:
+    #         logger.error(f"Failed to load features from {feature_table_name}: {e}", exc_info=True)
+    #         return None
+
+    #     # Clean dataset (handles labels)
+    #     clean_result = clean_dataset(features_df)
+    #     if not clean_result:
+    #         logger.error(f"Feature data for {split} is invalid after cleaning.")
+    #         return None
+    #     features_df_clean, y_labels = clean_result
+
+    #     return features_df_clean, y_labels
+
+    # --- NEW LOAD AND PREPARE FEATURES ---
+    def _load_and_prepare_features(self, split: str) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        """Loads precomputed features using SimpleParquetLoader, filters syntactic ones, and prepares labels."""
+        logger.info(f"Exp8: Loading precomputed features for {self.dataset_name}/{split}/{self.suffix} using SimpleParquetLoader")
+        
+        features_df = None
         try:
-            features_df = self.db_handler.load_dataframe(self.dataset_name, split, feature_table_name)
-            if features_df.empty:
-                logger.error(f"Loaded empty features DataFrame for {feature_table_name}.")
+            # Use SimpleParquetLoader instance
+            features_df = self.loader.load_data(self.dataset_name, split, self.suffix) # Pass dataset_name, split, suffix
+            
+            if features_df is None or features_df.empty: # Check if loader returned empty
+                logger.error(f"SimpleParquetLoader returned empty features DataFrame for {self.dataset_name}/{split}/{self.suffix}.")
                 return None
-            features_df = _handle_nan_values(features_df, f"{self.dataset_name}/{split} features")
+            
+            features_df = _handle_nan_values(features_df, f"Exp8 features for {self.dataset_name}/{split}")
+
+        except FileNotFoundError:
+            logger.error(f"Exp8: Feature file not found by SimpleParquetLoader for {self.dataset_name}/{split}/{self.suffix}.", exc_info=True)
+            return None
         except Exception as e:
-            logger.error(f"Failed to load features from {feature_table_name}: {e}", exc_info=True)
+            logger.error(f"Exp8: Failed to load features using SimpleParquetLoader for {self.dataset_name}/{split}/{self.suffix}: {e}", exc_info=True)
             return None
 
-        # Clean dataset (handles labels)
         clean_result = clean_dataset(features_df)
         if not clean_result:
-            logger.error(f"Feature data for {split} is invalid after cleaning.")
+            logger.error(f"Exp8: Feature data for {split} is invalid or empty after cleaning.")
             return None
         features_df_clean, y_labels = clean_result
 
-        return features_df_clean, y_labels
+        if features_df_clean.empty:
+            logger.warning(f"Exp8: No valid samples remaining after cleaning for {split}.")
+            # It's crucial for CV that X and y are not empty. filter_syntactic_features also needs a non-empty df.
+            # Returning None here to signify failure to prepare valid X, y for CV.
+            return None
 
+        # Filter ONLY syntactic features
+        # Ensure filter_syntactic_features is imported and works as expected
+        syntactic_cols = filter_syntactic_features(features_df_clean)
+        if not syntactic_cols:
+            logger.error("Exp8: No syntactic feature columns found in the data after cleaning!")
+            return None # Cannot proceed without syntactic features for this experiment
+
+        logger.info(f"Exp8: Using {len(syntactic_cols)} syntactic features for cross-validation.")
+        # Select only the syntactic features for X
+        X_syntactic = features_df_clean[syntactic_cols].values.astype(np.float32) 
+
+        # Handle potential NaNs *after* filtering and converting to numpy
+        if np.isnan(X_syntactic).any():
+            logger.warning("Exp8: NaNs detected in syntactic features AFTER filtering! Filling with 0.")
+            X_syntactic = np.nan_to_num(X_syntactic, nan=0.0, posinf=0.0, neginf=0.0) # Handle infs too
+        if not np.all(np.isfinite(X_syntactic)): # Final check
+            logger.error("Exp8: Non-finite values (NaN or Inf) remain in syntactic features after attempting to clean. Check data integrity.")
+            return None
+
+        if X_syntactic.shape[0] != len(y_labels):
+             logger.error(f"Exp8: Mismatch between syntactic features ({X_syntactic.shape[0]}) and labels ({len(y_labels)}) after processing.")
+             return None
+
+        return X_syntactic, y_labels
+    
     def _train_and_evaluate_classifier(self, model_instance: Any, X_train: np.ndarray, y_train: np.ndarray,
                                       X_val: Optional[np.ndarray], y_val: Optional[np.ndarray],
                                       model_desc: str) -> Dict[str, Any]:

@@ -88,7 +88,7 @@ class CrossValidateSyntacticExperiment8:
     def _load_and_prepare_features(self, split: str) -> Optional[Tuple[np.ndarray, np.ndarray]]:
         """Loads precomputed features, filters syntactic ones, and prepares labels."""
         logger.info(f"Exp8: Loading precomputed features for {self.dataset_name}/{split}/{self.suffix}")
-        feature_type_base = f"features_lexical_syntactic_{self.suffix}"
+        feature_type_base = f"features_stats_syntactic_{self.suffix}"
         feature_table_name = f"{self.dataset_name}_{split}_{feature_type_base}"
 
         try:

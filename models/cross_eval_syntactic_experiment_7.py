@@ -1,5 +1,4 @@
-# Create file: IS567FP/models/cross_eval_syntactic_experiment_7.py
-# --- START cross_eval_syntactic_experiment_7.py ---
+# File: IS567FP/models/cross_eval_syntactic_experiment_7.py
 import logging
 import os
 import time
@@ -13,29 +12,40 @@ from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 
 # Use NLIModel as the base type for models being evaluated internally
-from utils.common import NLIModel
+from utils.common import NLIModel  # Assuming this is not used directly by this class but good for context
 from utils.database import DatabaseHandler
 # Import helpers from baseline_base
-from .baseline_base import clean_dataset, _evaluate_model_performance, _handle_nan_values, prepare_labels, SimpleParquetLoader, filter_syntactic_features
+from .baseline_base import clean_dataset, _evaluate_model_performance, _handle_nan_values, SimpleParquetLoader, \
+    filter_syntactic_features
+
 # Import feature loading and filtering logic (can reuse logic from svm baseline)
 
 logger = logging.getLogger(__name__)
+
 
 # --- Feature Filtering Specific to Experiment 7 ---
 
 def filter_dependency_features(df: pd.DataFrame) -> List[str]:
     """Return list of dependency-based feature column names."""
+    if not isinstance(df, pd.DataFrame):
+        logger.error("filter_dependency_features expects a Pandas DataFrame.")
+        return []
     # Identify columns related to dependency parsing
     dep_cols = [col for col in df.columns if any(p in col for p in ["_dep_", "deprel_"])]
     logger.debug(f"Exp7: Identified {len(dep_cols)} dependency columns.")
     return dep_cols
 
+
 def filter_constituency_features(df: pd.DataFrame) -> List[str]:
     """Return list of constituency-based feature column names."""
+    if not isinstance(df, pd.DataFrame):
+        logger.error("filter_constituency_features expects a Pandas DataFrame.")
+        return []
     # Identify columns related to constituency parsing
     const_cols = [col for col in df.columns if any(p in col for p in ["_const_"])]
     logger.debug(f"Exp7: Identified {len(const_cols)} constituency columns.")
     return const_cols
+
 
 # --- Experiment 7 Orchestration Class ---
 
@@ -44,135 +54,130 @@ class CrossEvalSyntacticExperiment7:
     Experiment 7: Compares dependency vs. constituency syntactic features
                   across SVM and Logistic Regression classifiers.
     This class manages the loading, feature selection, training, and evaluation
-    for this specific experimental setup. It doesn't inherit from NLIModel directly
-    as it orchestrates multiple underlying models.
+    for this specific experimental setup.
     """
+
     def __init__(self, args: object):
         self.args = args
         self.dataset_name = args.dataset
         self.sample_size = getattr(args, 'sample_size', None)
+        # Suffix generally refers to the training sample size marker
         self.suffix = f"sample{self.sample_size}" if self.sample_size else "full"
         self.save_dir = self._get_save_directory()
         os.makedirs(self.save_dir, exist_ok=True)
-        self.db_handler = DatabaseHandler()
-        self.loader = SimpleParquetLoader() # Instantiate the loader
-        self.results: Dict[str, Any] = {} # To store results
+        # self.db_handler = DatabaseHandler() # Not used directly in the provided snippet for loading
+        self.loader = SimpleParquetLoader()
+        self.results: Dict[str, Any] = {}
 
-        # Hyperparameters from args
         self.svm_kernel = getattr(args, 'kernel', 'linear')
         self.svm_C = getattr(args, 'C', 1.0)
-        self.lr_C = getattr(args, 'C', 1.0)
-        self.lr_max_iter = getattr(args, 'max_iter', 1000) # Add if needed
+        self.lr_C = getattr(args, 'C', 1.0)  # Assuming LR C is same as SVM C if not specified otherwise
+        self.lr_max_iter = getattr(args, 'max_iter', 1000)
         self.random_state = 42
 
     def _get_save_directory(self) -> str:
-        """Determines the save directory specific to this experiment."""
-        # Subdirectory for Experiment 7
         base_dir = os.path.join(
-            os.path.dirname(__file__), # Relative to current file's dir
-            '..', # Go up one level from models/
-            'saved_models', # Main model saving directory
+            os.path.dirname(__file__),
+            '..',
+            'saved_models',
             'experiment_7',
             self.dataset_name,
             self.suffix
         )
         return base_dir
 
-    # def _load_and_prepare_features(self, split: str) -> Optional[Tuple[pd.DataFrame, np.ndarray]]:
-    #     """Loads precomputed features and prepares labels for a given split."""
-    #     logger.info(f"Exp7: Loading precomputed features for {self.dataset_name}/{split}/{self.suffix}")
-    #     # Load the combined lexical+syntactic features file
-    #     feature_type_base = f"features_lexical_syntactic_{self.suffix}"
-    #     feature_table_name = f"{self.dataset_name}_{split}_{feature_type_base}"
+    def _load_and_prepare_features(self, split: str) -> Optional[Tuple[pd.DataFrame, np.ndarray]]:
+        """
+        Loads precomputed features using SimpleParquetLoader, filters for syntactic ones,
+        and prepares labels. Returns a DataFrame of syntactic features and a NumPy array of labels.
+        """
+        # The suffix used here should align with how feature files are named by the feature extraction process.
+        # Typically, this 'self.suffix' (e.g., "sample80") applies to train, validation, and test files
+        # related to this specific sampled run, even if validation/test files contain fewer rows.
+        current_split_suffix = self.suffix
+        logger.info(
+            f"Exp7: Loading precomputed features for {self.dataset_name}/{split}/{current_split_suffix} using SimpleParquetLoader")
 
-    #     try:
-    #         features_df = self.db_handler.load_dataframe(self.dataset_name, split, feature_table_name)
-    #         if features_df.empty:
-    #             logger.error(f"Loaded empty features DataFrame for {feature_table_name}.")
-    #             return None
-    #         features_df = _handle_nan_values(features_df, f"{self.dataset_name}/{split} features")
-    #     except Exception as e:
-    #         logger.error(f"Failed to load features from {feature_table_name}: {e}", exc_info=True)
-    #         return None
-
-    #     # Clean dataset (handles labels)
-    #     clean_result = clean_dataset(features_df)
-    #     if not clean_result:
-    #         logger.error(f"Feature data for {split} is invalid after cleaning.")
-    #         return None
-    #     features_df_clean, y_labels = clean_result
-
-    #     return features_df_clean, y_labels
-
-    # --- NEW LOAD AND PREPARE FEATURES ---
-    def _load_and_prepare_features(self, split: str) -> Optional[Tuple[np.ndarray, np.ndarray]]:
-        """Loads precomputed features using SimpleParquetLoader, filters syntactic ones, and prepares labels."""
-        logger.info(f"Exp8: Loading precomputed features for {self.dataset_name}/{split}/{self.suffix} using SimpleParquetLoader")
-        
         features_df = None
         try:
-            # Use SimpleParquetLoader instance
-            features_df = self.loader.load_data(self.dataset_name, split, self.suffix) # Pass dataset_name, split, suffix
-            
-            if features_df is None or features_df.empty: # Check if loader returned empty
-                logger.error(f"SimpleParquetLoader returned empty features DataFrame for {self.dataset_name}/{split}/{self.suffix}.")
+            # Use SimpleParquetLoader instance, passing self as it was in original SimpleParquetLoader
+            # but SimpleParquetLoader.load_data is static, so `self` isn't strictly needed for it.
+            # Assuming the loader method signature is `load_data(self_or_caller_instance, dataset_name, split, suffix)`
+            # If load_data is truly static like `@staticmethod def load_data(dataset_name, split, suffix):`
+            # then the call would be `self.loader.load_data(self.dataset_name, split, current_split_suffix)`
+            # Based on the provided baseline_base.py, it seems to be a staticmethod that takes `self` as first arg in definition, which is unusual for @staticmethod.
+            # Let's assume it expects the caller instance.
+            features_df = self.loader.load_data(self, self.dataset_name, split, current_split_suffix)
+
+            if features_df is None or features_df.empty:
+                logger.error(
+                    f"SimpleParquetLoader returned empty or None features DataFrame for {self.dataset_name}/{split}/{current_split_suffix}.")
                 return None
-            
-            features_df = _handle_nan_values(features_df, f"Exp8 features for {self.dataset_name}/{split}")
+
+            # Handle NaNs on the entire loaded DataFrame first
+            features_df = _handle_nan_values(features_df, f"Exp7 features for {self.dataset_name}/{split}")
 
         except FileNotFoundError:
-            logger.error(f"Exp8: Feature file not found by SimpleParquetLoader for {self.dataset_name}/{split}/{self.suffix}.", exc_info=True)
-            return None
+            logger.error(
+                f"Exp7: Feature file not found by SimpleParquetLoader for {self.dataset_name}/{split}/{current_split_suffix}.")
+            # Log details of paths searched if possible, or ensure SimpleParquetLoader does
+            return None  # This will trigger fallback to split from train if it's for validation set
         except Exception as e:
-            logger.error(f"Exp8: Failed to load features using SimpleParquetLoader for {self.dataset_name}/{split}/{self.suffix}: {e}", exc_info=True)
+            logger.error(
+                f"Exp7: Failed to load features using SimpleParquetLoader for {self.dataset_name}/{split}/{current_split_suffix}: {e}",
+                exc_info=True)
             return None
 
+        # Clean dataset (handles labels and removes rows with invalid labels)
         clean_result = clean_dataset(features_df)
         if not clean_result:
-            logger.error(f"Exp8: Feature data for {split} is invalid or empty after cleaning.")
+            logger.error(f"Exp7: Feature data for {split} is invalid or empty after cleaning.")
             return None
-        features_df_clean, y_labels = clean_result
+        features_df_clean, y_labels = clean_result  # y_labels is np.ndarray
 
         if features_df_clean.empty:
-            logger.warning(f"Exp8: No valid samples remaining after cleaning for {split}.")
-            # It's crucial for CV that X and y are not empty. filter_syntactic_features also needs a non-empty df.
-            # Returning None here to signify failure to prepare valid X, y for CV.
+            logger.warning(f"Exp7: No valid samples remaining after cleaning for {split}.")
             return None
 
         # Filter ONLY syntactic features
-        # Ensure filter_syntactic_features is imported and works as expected
-        syntactic_cols = filter_syntactic_features(features_df_clean)
+        syntactic_cols = filter_syntactic_features(features_df_clean)  # Expects DataFrame
         if not syntactic_cols:
-            logger.error("Exp8: No syntactic feature columns found in the data after cleaning!")
-            return None # Cannot proceed without syntactic features for this experiment
-
-        logger.info(f"Exp8: Using {len(syntactic_cols)} syntactic features for cross-validation.")
-        # Select only the syntactic features for X
-        X_syntactic = features_df_clean[syntactic_cols].values.astype(np.float32) 
-
-        # Handle potential NaNs *after* filtering and converting to numpy
-        if np.isnan(X_syntactic).any():
-            logger.warning("Exp8: NaNs detected in syntactic features AFTER filtering! Filling with 0.")
-            X_syntactic = np.nan_to_num(X_syntactic, nan=0.0, posinf=0.0, neginf=0.0) # Handle infs too
-        if not np.all(np.isfinite(X_syntactic)): # Final check
-            logger.error("Exp8: Non-finite values (NaN or Inf) remain in syntactic features after attempting to clean. Check data integrity.")
+            logger.error("Exp7: No syntactic feature columns found in the data after cleaning!")
             return None
 
-        if X_syntactic.shape[0] != len(y_labels):
-             logger.error(f"Exp8: Mismatch between syntactic features ({X_syntactic.shape[0]}) and labels ({len(y_labels)}) after processing.")
-             return None
+        logger.info(f"Exp7: Using {len(syntactic_cols)} syntactic features for {split} split.")
+        # Create a DataFrame containing only the syntactic features
+        syntactic_features_df = features_df_clean[syntactic_cols]
 
-        return X_syntactic, y_labels
-    
+        # It's good practice to handle NaNs again *after* column selection if some operations might reintroduce them,
+        # or if _handle_nan_values didn't cover all cases.
+        # However, _handle_nan_values + fillna(0) on numeric_cols should be robust.
+        # If syntactic_features_df might have non-numeric columns that became all NaN and were not converted,
+        # they might cause issues later. For now, assume syntactic_cols are numeric or handled.
+
+        if syntactic_features_df.shape[0] != len(y_labels):
+            logger.error(
+                f"Exp7: Mismatch between syntactic features DF ({syntactic_features_df.shape[0]}) and labels ({len(y_labels)}) for {split}.")
+            return None
+
+        return syntactic_features_df, y_labels  # Return DataFrame of features
+
     def _train_and_evaluate_classifier(self, model_instance: Any, X_train: np.ndarray, y_train: np.ndarray,
-                                      X_val: Optional[np.ndarray], y_val: Optional[np.ndarray],
-                                      model_desc: str) -> Dict[str, Any]:
+                                       X_val: Optional[np.ndarray], y_val: Optional[np.ndarray],
+                                       model_desc: str) -> Dict[str, Any]:
         """Trains a classifier and evaluates it."""
         logger.info(f"--- Training {model_desc} ---")
         start_time = time.time()
+
+        # Ensure X_train is finite
+        if not isinstance(X_train, np.ndarray): X_train = np.asarray(X_train)  # Ensure numpy array
         if not np.all(np.isfinite(X_train)):
-            logger.warning(f"Non-finite values in {model_desc} training data. Filling with 0.")
-            X_train = np.nan_to_num(X_train, nan=0.0)
+            logger.warning(f"Non-finite values (NaN/inf) in {model_desc} training data X_train. Filling with 0.")
+            X_train = np.nan_to_num(X_train, nan=0.0, posinf=0.0, neginf=0.0)
+
+        # Ensure y_train is correctly formatted (e.g. 1D array)
+        y_train = np.asarray(y_train).ravel()
+
         model_instance.fit(X_train, y_train)
         train_time = time.time() - start_time
         logger.info(f"Training complete in {train_time:.2f}s")
@@ -180,25 +185,26 @@ class CrossEvalSyntacticExperiment7:
         eval_metrics = {}
         eval_time = 0.0
         if X_val is not None and y_val is not None and X_val.shape[0] > 0:
-            logger.info(f"Evaluating {model_desc} on validation data...")
+            logger.info(f"Evaluating {model_desc} on validation data ({X_val.shape[0]} samples)...")
+            if not isinstance(X_val, np.ndarray): X_val = np.asarray(X_val)  # Ensure numpy array
             if not np.all(np.isfinite(X_val)):
-                 logger.warning(f"Non-finite values in {model_desc} validation data. Filling with 0.")
-                 X_val = np.nan_to_num(X_val, nan=0.0)
-            # Create a temporary wrapper for evaluation if needed, or adapt evaluator
-            # Simple approach: use the fitted model directly
-            # Need a predict method for _evaluate_model_performance
-            class PredictWrapper: # Simple wrapper to mimic NLIModel predict
+                logger.warning(f"Non-finite values (NaN/inf) in {model_desc} validation data X_val. Filling with 0.")
+                X_val = np.nan_to_num(X_val, nan=0.0, posinf=0.0, neginf=0.0)
+
+            y_val = np.asarray(y_val).ravel()
+
+            class PredictWrapper:
                 def __init__(self, model): self.model = model
+
                 def predict(self, X): return self.model.predict(X)
 
             eval_time, metrics = _evaluate_model_performance(PredictWrapper(model_instance), X_val, y_val)
             eval_metrics = metrics
             eval_metrics['eval_time'] = eval_time
-            logger.info(f"Validation Metrics: {metrics}")
+            logger.info(f"Validation Metrics for {model_desc}: {metrics}")
         else:
-            logger.info("Skipping validation evaluation for {model_desc}.")
+            logger.info(f"Skipping validation evaluation for {model_desc} (X_val or y_val is None or empty).")
 
-        # Save the trained sklearn model
         model_filename = f"{model_desc.replace(' ', '_').lower()}.joblib"
         model_path = os.path.join(self.save_dir, model_filename)
         try:
@@ -213,118 +219,145 @@ class CrossEvalSyntacticExperiment7:
         """Runs the full Experiment 7 pipeline."""
         logger.info(f"===== Starting Experiment 7 for {self.dataset_name} ({self.suffix}) =====")
 
-        # 1. Load data
         train_prep = self._load_and_prepare_features("train")
         val_prep = self._load_and_prepare_features("validation")
-        # test_prep = self._load_and_prepare_features("test") # Load test data if final eval needed
+        # test_prep = self._load_and_prepare_features("test") # Uncomment if test eval is needed
 
         if not train_prep:
-            logger.error("Failed to load training data. Aborting Experiment 7.")
+            logger.error("Failed to load or prepare training data. Aborting Experiment 7.")
             return {"error": "Training data failed to load."}
-        train_df, y_train = train_prep
-        val_df, y_val = val_prep if val_prep else (None, None)
-        # test_df, y_test = test_prep if test_prep else (None, None)
+        # train_syntactic_df is a DataFrame of only syntactic features
+        train_syntactic_df, y_train = train_prep
 
-        # Split validation set from training if not loaded
-        if val_df is None or y_val is None:
-             if len(train_df) < 5: logger.error("Not enough train data for validation split"); return {"error": "Not enough data"}
-             logger.info("Splitting validation set from training data.")
-             train_df, val_df, y_train, y_val = train_test_split(train_df, y_train, test_size=0.2, random_state=self.random_state, stratify=y_train)
-             logger.info(f"Train size: {len(train_df)}, Validation size: {len(val_df)}")
+        val_syntactic_df, y_val = (None, None)
+        if val_prep:
+            val_syntactic_df, y_val = val_prep  # val_syntactic_df is a DataFrame if loaded
+        else:
+            logger.warning("Validation data failed to load. Will attempt to split from training data.")
 
-        # Inside run_experiment method of CrossEvalSyntacticExperiment7
+        # If validation data wasn't loaded, split from training data
+        if val_syntactic_df is None or (isinstance(val_syntactic_df, pd.DataFrame) and val_syntactic_df.empty):
+            if train_syntactic_df.shape[0] < 5:  # Check rows in DataFrame
+                logger.error("Not enough training data samples to create a validation split.")
+                return {"error": "Not enough data for train/validation split."}
 
-        # ... (previous code loading train_df, val_df, y_train, y_val) ...
+            logger.info(
+                "Splitting validation set from training data (as precomputed validation data was not found/loaded).")
+            # train_test_split works with DataFrames, will return DataFrames
+            # Stratify by y_train which is np.ndarray
+            # Ensure y_train is 1D array for stratify
+            y_train_1d = np.asarray(y_train).ravel()
+            if len(np.unique(y_train_1d)) < 2 and train_syntactic_df.shape[0] * 0.2 >= len(
+                    np.unique(y_train_1d)):  # check for stratify
+                logger.warning("Not enough classes in y_train for stratified split, attempting non-stratified split.")
+                train_syntactic_df, val_syntactic_df, y_train, y_val = train_test_split(
+                    train_syntactic_df, y_train, test_size=0.2, random_state=self.random_state
+                )
+            else:
+                train_syntactic_df, val_syntactic_df, y_train, y_val = train_test_split(
+                    train_syntactic_df, y_train, test_size=0.2, random_state=self.random_state, stratify=y_train_1d
+                )
+            logger.info(
+                f"Train size after split: {train_syntactic_df.shape[0]}, Validation size: {val_syntactic_df.shape[0]}")
 
-        # 2. Identify feature columns BASED ON TRAINING DATA
-        dep_cols = filter_dependency_features(train_df)
-        const_cols = filter_constituency_features(train_df)
+        # 2. Identify feature columns for dependency and constituency from the TRAINING syntactic DataFrame
+        # These functions now correctly receive a DataFrame
+        dep_cols = filter_dependency_features(train_syntactic_df)
+        const_cols = filter_constituency_features(train_syntactic_df)
 
-        if not dep_cols: logger.warning("No dependency feature columns found in training data!")
-        if not const_cols: logger.warning("No constituency feature columns found in training data!")
+        if not dep_cols: logger.warning("No dependency feature columns found in training data's syntactic features!")
+        if not const_cols: logger.warning(
+            "No constituency feature columns found in training data's syntactic features!")
 
-        # Prepare feature matrices
-        # Training Data (assume columns exist as they were derived from train_df)
-        X_train_dep = train_df[dep_cols].values if dep_cols else np.array([]).reshape(len(train_df), 0)
-        X_train_const = train_df[const_cols].values if const_cols else np.array([]).reshape(len(train_df), 0)
+        # Prepare feature matrices (NumPy arrays) for classifiers
+        # Training Data
+        X_train_dep = np.array([]).reshape(train_syntactic_df.shape[0], 0)
+        if dep_cols and not train_syntactic_df.empty:
+            X_train_dep = train_syntactic_df[dep_cols].values.astype(np.float32)
 
-        # --- START FIX ---
+        X_train_const = np.array([]).reshape(train_syntactic_df.shape[0], 0)
+        if const_cols and not train_syntactic_df.empty:
+            X_train_const = train_syntactic_df[const_cols].values.astype(np.float32)
+
         # Validation Data - Ensure columns match training columns before selection
         X_val_dep = None
         X_val_const = None
 
-        if val_df is not None and y_val is not None:  # Check if validation data is loaded and valid
-            val_df_processed = val_df.copy()  # Work on a copy
+        if val_syntactic_df is not None and not val_syntactic_df.empty and y_val is not None:
+            # Create copies to add missing columns if needed
+            val_df_processed_dep = val_syntactic_df.copy()
+            val_df_processed_const = val_syntactic_df.copy()
 
             # Dependency Features for Validation
             if dep_cols:
-                missing_dep_in_val = set(dep_cols) - set(val_df_processed.columns)
+                missing_dep_in_val = set(dep_cols) - set(val_df_processed_dep.columns)
                 if missing_dep_in_val:
                     logger.warning(
-                        f"Adding {len(missing_dep_in_val)} missing dependency columns to val_df: {missing_dep_in_val}")
+                        f"Adding {len(missing_dep_in_val)} missing dependency columns to val_df: {missing_dep_in_val}. Filling with 0.")
                     for col in missing_dep_in_val:
-                        val_df_processed[col] = 0  # Add missing columns with 0
-                # Now select using the definitive list from training data
-                X_val_dep = val_df_processed[dep_cols].values
-            else:
-                X_val_dep = np.array([]).reshape(len(val_df_processed), 0)
+                        val_df_processed_dep[col] = 0
+                X_val_dep = val_df_processed_dep[dep_cols].values.astype(np.float32)
+            else:  # If no dep_cols from train, then X_val_dep should be empty
+                X_val_dep = np.array([]).reshape(val_syntactic_df.shape[0], 0)
 
             # Constituency Features for Validation
             if const_cols:
-                missing_const_in_val = set(const_cols) - set(val_df_processed.columns)
+                missing_const_in_val = set(const_cols) - set(val_df_processed_const.columns)
                 if missing_const_in_val:
                     logger.warning(
-                        f"Adding {len(missing_const_in_val)} missing constituency columns to val_df: {missing_const_in_val}")
+                        f"Adding {len(missing_const_in_val)} missing constituency columns to val_df: {missing_const_in_val}. Filling with 0.")
                     for col in missing_const_in_val:
-                        val_df_processed[col] = 0  # Add missing columns with 0
-                # Select using the definitive list from training data
-                X_val_const = val_df_processed[const_cols].values
-            else:
-                X_val_const = np.array([]).reshape(len(val_df_processed), 0)
-
-        # --- END FIX ---
+                        val_df_processed_const[col] = 0
+                X_val_const = val_df_processed_const[const_cols].values.astype(np.float32)
+            else:  # If no const_cols from train, then X_val_const should be empty
+                X_val_const = np.array([]).reshape(val_syntactic_df.shape[0], 0)
+        else:
+            logger.info(
+                "Validation data (val_syntactic_df or y_val) is None or empty. Skipping creation of X_val_dep and X_val_const.")
 
         # 3. Train and Evaluate Classifiers
+        self.results = {}  # Clear previous results if any
 
         # --- SVM ---
-        if dep_cols:
+        if X_train_dep.shape[1] > 0:  # Check if there are dependency features
             svm_dep = SVC(kernel=self.svm_kernel, C=self.svm_C, probability=True, random_state=self.random_state)
             self.results['SVM_Dependency'] = self._train_and_evaluate_classifier(
                 svm_dep, X_train_dep, y_train, X_val_dep, y_val, "SVM (Dependency Features)"
             )
-        else: self.results['SVM_Dependency'] = {'error': 'No dependency features found'}
+        else:
+            logger.warning("No dependency features to train SVM_Dependency model.")
+            self.results['SVM_Dependency'] = {'error': 'No dependency features found for training'}
 
-        if const_cols:
+        if X_train_const.shape[1] > 0:  # Check if there are constituency features
             svm_const = SVC(kernel=self.svm_kernel, C=self.svm_C, probability=True, random_state=self.random_state)
             self.results['SVM_Constituency'] = self._train_and_evaluate_classifier(
                 svm_const, X_train_const, y_train, X_val_const, y_val, "SVM (Constituency Features)"
             )
-        else: self.results['SVM_Constituency'] = {'error': 'No constituency features found'}
+        else:
+            logger.warning("No constituency features to train SVM_Constituency model.")
+            self.results['SVM_Constituency'] = {'error': 'No constituency features found for training'}
 
         # --- Logistic Regression ---
-        if dep_cols:
-            lr_dep = LogisticRegression(C=self.lr_C, max_iter=self.lr_max_iter, solver='liblinear', random_state=self.random_state)
-            # LR might benefit from scaling, but train/eval helper doesn't include it. Add scaling here if needed.
-            # scaler_dep = StandardScaler(with_mean=False)
-            # X_train_dep_scaled = scaler_dep.fit_transform(X_train_dep)
-            # X_val_dep_scaled = scaler_dep.transform(X_val_dep) if X_val_dep is not None else None
+        if X_train_dep.shape[1] > 0:
+            lr_dep = LogisticRegression(C=self.lr_C, max_iter=self.lr_max_iter, solver='liblinear',
+                                        random_state=self.random_state)
             self.results['LR_Dependency'] = self._train_and_evaluate_classifier(
                 lr_dep, X_train_dep, y_train, X_val_dep, y_val, "Logistic Regression (Dependency Features)"
             )
-        else: self.results['LR_Dependency'] = {'error': 'No dependency features found'}
+        else:
+            logger.warning("No dependency features to train LR_Dependency model.")
+            self.results['LR_Dependency'] = {'error': 'No dependency features found for training'}
 
-        if const_cols:
-            lr_const = LogisticRegression(C=self.lr_C, max_iter=self.lr_max_iter, solver='liblinear', random_state=self.random_state)
-            # scaler_const = StandardScaler(with_mean=False)
-            # X_train_const_scaled = scaler_const.fit_transform(X_train_const)
-            # X_val_const_scaled = scaler_const.transform(X_val_const) if X_val_const is not None else None
+        if X_train_const.shape[1] > 0:
+            lr_const = LogisticRegression(C=self.lr_C, max_iter=self.lr_max_iter, solver='liblinear',
+                                          random_state=self.random_state)
             self.results['LR_Constituency'] = self._train_and_evaluate_classifier(
                 lr_const, X_train_const, y_train, X_val_const, y_val, "Logistic Regression (Constituency Features)"
             )
-        else: self.results['LR_Constituency'] = {'error': 'No constituency features found'}
+        else:
+            logger.warning("No constituency features to train LR_Constituency model.")
+            self.results['LR_Constituency'] = {'error': 'No constituency features found for training'}
 
-        logger.info(f"===== Experiment 7 Finished =====")
+        logger.info(f"===== Experiment 7 Finished ({self.dataset_name}/{self.suffix}) =====")
         logger.info(f"Results: {self.results}")
         return self.results
-
-# --- END cross_eval_syntactic_experiment_7.py ---

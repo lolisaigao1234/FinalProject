@@ -1,0 +1,11 @@
+pair_id,premise,hypothesis,predicted_label_int,predicted_label_str,true_label_str,true_label_int
+SNLI_test_7312,A yellow car drives across a snowy path.,A red car is driving on a sunny day.,1,contradiction,2,2
+SNLI_test_2793,A group of children in African clothing.,A person in clothing,1,contradiction,0,0
+SNLI_test_320,A softball player throws the ball to her teammate.,Teammates are competing in a softballs championship.,1,contradiction,1,1
+SNLI_test_9339,Three people hiking up a mountain with a river and other mountains in the background.,Hikers in the mountains.,1,contradiction,0,0
+SNLI_test_2585,An elderly woman wearing a skirt is picking out vegetables at a local market.,A young girl is blowing bubbles.,1,contradiction,2,2
+SNLI_test_7206,Two men in hard hats and safety neon vests on scaffolding working outside in the daylight.,Outdoor daytime scene with two workers in safety gear working on scaffolding.,1,contradiction,0,0
+SNLI_test_4334,A crowd gathered around a young man who is performing.,A girl is performing.,1,contradiction,2,2
+SNLI_test_907,A group of people in an alley looking at the camera.,People are taking a picture,1,contradiction,1,1
+SNLI_test_394,a woman in a black shirt looking at a bicycle.,A woman sees a bicycle.,1,contradiction,0,0
+SNLI_test_5503,A woman sweeping in front of a ladder on a busy street.,An employee keeps a storefront looking tidy,1,contradiction,1,1

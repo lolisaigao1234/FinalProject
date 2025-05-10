@@ -177,8 +177,7 @@ def main():
             loader = SimpleParquetLoader()
             # Load the 'test' split of the specified input dataset and suffix
             # The loader should find the features_stats_syntactic file ideally
-            input_df = loader.load_data(loader, args.predict_input_dataset, 'test',
-                                        args.predict_input_suffix)  # Pass loader instance
+            input_df = loader.load_data(args.predict_input_dataset, 'test', args.predict_input_suffix)  # Fixed: removed loader instance
 
             if input_df is None or input_df.empty:
                 raise FileNotFoundError("Loaded input data is None or empty.")

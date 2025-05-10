@@ -7,7 +7,8 @@ from typing import Dict, Any, Optional, Tuple, List
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold, cross_validate
-from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
@@ -77,9 +78,22 @@ class CrossValidateSyntacticExperiment8:
         # ... (rest of __init__ remains the same: self.classifiers_to_test, self.scoring_metrics) ...
         # Classifier configurations
         self.classifiers_to_test = {
-            "SVM_Linear": SVC(kernel='linear', C=getattr(args, 'C', 1.0), probability=False, random_state=self.random_state),
-            "SVM_RBF": SVC(kernel='rbf', C=getattr(args, 'C', 1.0), probability=False, random_state=self.random_state),
-            "LogisticRegression": LogisticRegression(C=getattr(args, 'C', 1.0), max_iter=getattr(args, 'max_iter', 1000), solver='liblinear', random_state=self.random_state),
+            "DecisionTree": DecisionTreeClassifier(
+                max_depth=getattr(args, 'max_depth', 10),
+                min_samples_split=getattr(args, 'min_samples_split', 2),
+                random_state=self.random_state
+            ),
+            "KNN": KNeighborsClassifier(
+                n_neighbors=getattr(args, 'n_neighbors', 5),
+                weights=getattr(args, 'weights', 'uniform'),
+                n_jobs=-1  # Use all available cores
+            ),
+            "LogisticRegression": LogisticRegression(
+                C=getattr(args, 'C', 1.0),
+                max_iter=getattr(args, 'max_iter', 1000),
+                solver='liblinear',
+                random_state=self.random_state
+            ),
             "MultinomialNB": Pipeline([ # Needs scaling for non-negative features
                  ('scaler', MinMaxScaler()),
                  ('mnb', MultinomialNB(alpha=getattr(args, 'alpha', 1.0)))

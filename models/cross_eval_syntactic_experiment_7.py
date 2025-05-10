@@ -7,8 +7,9 @@ from typing import Dict, Any, Optional, Tuple, List
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 
 from utils.common import get_split_sizes # Import the new utility
@@ -51,8 +52,11 @@ class CrossEvalSyntacticExperiment7:
         self.loader = SimpleParquetLoader()
         self.results: Dict[str, Any] = {}
 
-        self.svm_kernel = getattr(args, 'kernel', 'linear')
-        self.svm_C = getattr(args, 'C', 1.0)
+        # Replace SVM parameters with DT and KNN parameters
+        self.dt_max_depth = getattr(args, 'max_depth', 10)
+        self.dt_min_samples_split = getattr(args, 'min_samples_split', 2)
+        self.knn_n_neighbors = getattr(args, 'n_neighbors', 5)
+        self.knn_weights = getattr(args, 'weights', 'uniform')
         self.lr_C = getattr(args, 'C', 1.0)
         self.lr_max_iter = getattr(args, 'max_iter', 1000)
         self.random_state = 42
@@ -278,40 +282,56 @@ class CrossEvalSyntacticExperiment7:
         self.results = {} 
 
         if X_train_dep.shape[1] > 0:
-            svm_dep = SVC(kernel=self.svm_kernel, C=self.svm_C, probability=True, random_state=self.random_state)
-            self.results['SVM_Dependency'] = self._train_and_evaluate_classifier(
-                svm_dep, X_train_dep, y_train, X_val_dep, y_val, "SVM (Dependency Features)"
+            dt_dep = DecisionTreeClassifier(
+                max_depth=self.dt_max_depth,
+                min_samples_split=self.dt_min_samples_split,
+                random_state=self.random_state
+            )
+            self.results['DT_Dependency'] = self._train_and_evaluate_classifier(
+                dt_dep, X_train_dep, y_train, X_val_dep, y_val, "Decision Tree (Dependency Features)"
             )
         else: 
-            logger.warning("No dependency features for SVM_Dependency model.")
-            self.results['SVM_Dependency'] = {'error': 'No dependency features found'}
+            logger.warning("No dependency features for DT_Dependency model.")
+            self.results['DT_Dependency'] = {'error': 'No dependency features found'}
 
         if X_train_const.shape[1] > 0:
-            svm_const = SVC(kernel=self.svm_kernel, C=self.svm_C, probability=True, random_state=self.random_state)
-            self.results['SVM_Constituency'] = self._train_and_evaluate_classifier(
-                svm_const, X_train_const, y_train, X_val_const, y_val, "SVM (Constituency Features)"
+            dt_const = DecisionTreeClassifier(
+                max_depth=self.dt_max_depth,
+                min_samples_split=self.dt_min_samples_split,
+                random_state=self.random_state
+            )
+            self.results['DT_Constituency'] = self._train_and_evaluate_classifier(
+                dt_const, X_train_const, y_train, X_val_const, y_val, "Decision Tree (Constituency Features)"
             )
         else:
-            logger.warning("No constituency features for SVM_Constituency model.")
-            self.results['SVM_Constituency'] = {'error': 'No constituency features found'}
+            logger.warning("No constituency features for DT_Constituency model.")
+            self.results['DT_Constituency'] = {'error': 'No constituency features found'}
 
         if X_train_dep.shape[1] > 0:
-            lr_dep = LogisticRegression(C=self.lr_C, max_iter=self.lr_max_iter, solver='liblinear', random_state=self.random_state)
-            self.results['LR_Dependency'] = self._train_and_evaluate_classifier(
-                lr_dep, X_train_dep, y_train, X_val_dep, y_val, "Logistic Regression (Dependency Features)"
+            knn_dep = KNeighborsClassifier(
+                n_neighbors=self.knn_n_neighbors,
+                weights=self.knn_weights,
+                n_jobs=-1  # Use all available cores
+            )
+            self.results['KNN_Dependency'] = self._train_and_evaluate_classifier(
+                knn_dep, X_train_dep, y_train, X_val_dep, y_val, "KNN (Dependency Features)"
             )
         else:
-            logger.warning("No dependency features for LR_Dependency model.")
-            self.results['LR_Dependency'] = {'error': 'No dependency features found'}
+            logger.warning("No dependency features for KNN_Dependency model.")
+            self.results['KNN_Dependency'] = {'error': 'No dependency features found'}
 
         if X_train_const.shape[1] > 0:
-            lr_const = LogisticRegression(C=self.lr_C, max_iter=self.lr_max_iter, solver='liblinear', random_state=self.random_state)
-            self.results['LR_Constituency'] = self._train_and_evaluate_classifier(
-                lr_const, X_train_const, y_train, X_val_const, y_val, "Logistic Regression (Constituency Features)"
+            knn_const = KNeighborsClassifier(
+                n_neighbors=self.knn_n_neighbors,
+                weights=self.knn_weights,
+                n_jobs=-1  # Use all available cores
+            )
+            self.results['KNN_Constituency'] = self._train_and_evaluate_classifier(
+                knn_const, X_train_const, y_train, X_val_const, y_val, "KNN (Constituency Features)"
             )
         else:
-            logger.warning("No constituency features for LR_Constituency model.")
-            self.results['LR_Constituency'] = {'error': 'No constituency features found'}
+            logger.warning("No constituency features for KNN_Constituency model.")
+            self.results['KNN_Constituency'] = {'error': 'No constituency features found'}
             
         logger.info(f"===== Experiment 7 Finished ({self.dataset_name}/{self.config_identifier_suffix}) =====")
         logger.info(f"Results: {self.results}")

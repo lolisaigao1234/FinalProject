@@ -8,10 +8,12 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
+from sklearn.model_selection import train_test_split
 
 # Use NLIModel as the base type for models being evaluated internally
+from utils.common import NLIModel  # Assuming this is not used directly by this class but good for context
+from utils.database import DatabaseHandler
 # Import helpers from baseline_base
 from .baseline_base import clean_dataset, _evaluate_model_performance, _handle_nan_values, SimpleParquetLoader, \
     filter_syntactic_features

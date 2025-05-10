@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1                 # One Python process per task/node
 #SBATCH --cpus-per-task=16                  # Request sufficient CPUs for parallel processing within tasks
 #SBATCH --gres=gpu:A100:1                   # Request 1 A100 GPU per task
-#SBATCH --mem=16G                          # Total memory per node (adjust as needed)
+#SBATCH --mem=20G                          # Total memory per node (adjust as needed)
 #SBATCH --account=jywu3-ic                  # <<< YOUR ACCOUNT HERE >>>
 #SBATCH --output=slurm_logs/train_nli_%A_%a.log # Output log (%A=jobID, %a=taskID)
 #SBATCH --mail-type=END,FAIL                # Optional: Get email notifications

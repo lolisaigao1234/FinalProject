@@ -27,6 +27,7 @@ class CrossValidateSyntacticExperiment8:
         self.args = args
         self.dataset_name = args.dataset
         self.sample_size = getattr(args, 'sample_size', None)
+        self.n_jobs = getattr(args, 'n_jobs', -1)  # Get n_jobs from args, default to -1 (all cores)
 
         # Determine the suffix for feature file names
         if self.sample_size is not None and self.sample_size > 0:
@@ -86,20 +87,34 @@ class CrossValidateSyntacticExperiment8:
             "KNN": KNeighborsClassifier(
                 n_neighbors=getattr(args, 'n_neighbors', 5),
                 weights=getattr(args, 'weights', 'uniform'),
-                n_jobs=-1  # Use all available cores
+                n_jobs=self.n_jobs  # Use n_jobs from args
             ),
             "LogisticRegression": LogisticRegression(
                 C=getattr(args, 'C', 1.0),
                 max_iter=getattr(args, 'max_iter', 1000),
                 solver='liblinear',
-                random_state=self.random_state
+                random_state=self.random_state,
+                n_jobs=self.n_jobs  # Use n_jobs from args
             ),
             "MultinomialNB": Pipeline([ # Needs scaling for non-negative features
                  ('scaler', MinMaxScaler()),
                  ('mnb', MultinomialNB(alpha=getattr(args, 'alpha', 1.0)))
              ]),
-            "RandomForest": RandomForestClassifier(n_estimators=getattr(args, 'n_estimators', 100), max_depth=getattr(args, 'max_depth', None), random_state=self.random_state, n_jobs=-1),
-            "GradientBoosting": GradientBoostingClassifier(n_estimators=getattr(args, 'n_estimators', 100), learning_rate=getattr(args, 'learning_rate', 0.1), max_depth=getattr(args, 'max_depth', 3), random_state=self.random_state)
+            "RandomForest": RandomForestClassifier(
+                n_estimators=getattr(args, 'n_estimators', 100),
+                max_depth=getattr(args, 'max_depth', None),
+                random_state=self.random_state,
+                n_jobs=self.n_jobs  # Use n_jobs from args
+            ),
+            "GradientBoosting": GradientBoostingClassifier(
+                n_estimators=getattr(args, 'n_estimators', 100),
+                learning_rate=getattr(args, 'learning_rate', 0.1),
+                max_depth=getattr(args, 'max_depth', 3),
+                random_state=self.random_state,
+                # Reduce memory usage for GradientBoosting
+                subsample=0.8,  # Use 80% of samples for each tree
+                max_features='sqrt'  # Use sqrt of features for each split
+            )
         }
 
         # Scoring metrics for cross-validation
@@ -182,13 +197,16 @@ class CrossValidateSyntacticExperiment8:
             logger.info(f"--- Running Cross-Validation for: {model_name} ---")
             start_time = time.time()
             try:
+                # Adjust n_jobs for cross_validate based on model type
+                cv_n_jobs = 1 if model_name == "GradientBoosting" else self.n_jobs
+                
                 cv_results = cross_validate(
                     estimator=classifier,
                     X=X_train_syntactic,
                     y=y_train,
                     cv=kfold,
                     scoring=self.scoring_metrics,
-                    n_jobs=-1, 
+                    n_jobs=cv_n_jobs,  # Use adjusted n_jobs
                     error_score='raise'
                 )
                 elapsed_time = time.time() - start_time
@@ -204,12 +222,12 @@ class CrossValidateSyntacticExperiment8:
                     'recall_std': np.std(cv_results['test_recall_weighted']),
                     'f1_mean': np.mean(cv_results['test_f1_weighted']),
                     'f1_std': np.std(cv_results['test_f1_weighted']),
-                    'fold_f1_scores': cv_results['test_f1_weighted'].tolist() 
+                    'fold_f1_scores': cv_results['test_f1_weighted'].tolist()
                 }
                 logger.info(f"Finished CV for {model_name} in {elapsed_time:.2f}s. Avg F1: {self.results[model_name]['f1_mean']:.4f}")
             except ValueError as ve:
-                 logger.error(f"ValueError during cross-validation for {model_name}: {ve}. Check feature scaling/data for MNB.", exc_info=True)
-                 self.results[model_name] = {'error': f"ValueError: {ve}"}
+                logger.error(f"ValueError during cross-validation for {model_name}: {ve}. Check feature scaling/data for MNB.", exc_info=True)
+                self.results[model_name] = {'error': f"ValueError: {ve}"}
             except Exception as e:
                 logger.error(f"Error during cross-validation for {model_name}: {e}", exc_info=True)
                 self.results[model_name] = {'error': str(e)}

@@ -200,6 +200,8 @@ def parse_args():
     parser.add_argument("--min_samples_leaf", type=int, default=DECISION_TREE_MIN_SAMPLES_LEAF,
                         help="Min samples per leaf node (Tree/RF)")
     parser.add_argument("--n_neighbors", type=int, default=KNN_N_NEIGHBORS, help="Number of neighbors for KNN")
+    parser.add_argument("--n_jobs", type=int, default=-1,
+                        help="Number of parallel jobs for sklearn models (-1 for all cores)")
     parser.add_argument("--no_scale_syntactic", action="store_false", dest="scale_syntactic", default=True,
                         help="Disable scaling of syntactic features (if model supports it)")
 

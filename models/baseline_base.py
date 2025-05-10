@@ -616,7 +616,7 @@ class FeatureBasedBaselineModel(NLIModel):
 
 class SimpleParquetLoader:
     @staticmethod
-    def load_data(dataset_name: str, split: str, suffix: str) -> Optional[pd.DataFrame]: # Remove self parameter
+    def load_data(dataset_name: str, split: str, suffix: str) -> Optional[pd.DataFrame]:
         # Construct base cache directory
         cache_dir = os.path.join('cache', 'parquet', dataset_name, split)
         logger.info(f"SimpleParquetLoader: Searching for features in {cache_dir} for {dataset_name}/{split}/{suffix}")
@@ -624,28 +624,39 @@ class SimpleParquetLoader:
         # Define potential feature file patterns by preference
         # Prioritize more comprehensive feature sets
         preferred_feature_filenames = [
-            f"{dataset_name}_{split}_features_stats_syntactic_{suffix}.parquet", # Original pattern - prioritize this
-            f"{dataset_name}_{split}_features_lexical_syntactic_{suffix}.parquet", # Fallback to this
-            f"{dataset_name}_{split}_features_all_{suffix}.parquet",             # Another common comprehensive name
-            # Add other potential comprehensive names if your feature_extractor uses them
+            f"{dataset_name}_{split}_features_stats_syntactic_{suffix}.parquet",  # Original pattern - prioritize this
+            f"{dataset_name}_{split}_features_lexical_syntactic_{suffix}.parquet",  # Fallback to this
+            f"{dataset_name}_{split}_features_all_{suffix}.parquet",  # Another common comprehensive name
+            f"{dataset_name}_{split}_features_stats_syntactic_full.parquet",  # Fallback to full if sample not found
+            f"{dataset_name}_{split}_features_lexical_syntactic_full.parquet",  # Fallback to full if sample not found
         ]
 
         # Fallback patterns (less likely to contain all needed features for experiments)
         fallback_filenames = [
-            f"features_combined_{suffix}.parquet", # A generic combined name
-            f"raw_data_{suffix}.parquet",          # Original fallback
-            f"raw_data_full.parquet"               # Final original fallback
+            f"features_combined_{suffix}.parquet",  # A generic combined name
+            f"raw_data_{suffix}.parquet",  # Original fallback
+            f"raw_data_full.parquet"  # Final original fallback
         ]
 
         found_filepath = None
+        required_cols = ['pair_id', 'premise_text', 'hypothesis_text']  # Essential columns
 
         # Try preferred filenames first
         for fname in preferred_feature_filenames:
             filepath = os.path.join(cache_dir, fname)
             logger.debug(f"SimpleParquetLoader: Attempting to load preferred file: {filepath}")
             if os.path.exists(filepath):
-                found_filepath = filepath
-                break
+                # Check if file has required columns before selecting it
+                try:
+                    df = pd.read_parquet(filepath)
+                    if all(col in df.columns for col in required_cols):
+                        found_filepath = filepath
+                        break
+                    else:
+                        missing = [col for col in required_cols if col not in df.columns]
+                        logger.warning(f"File {filepath} exists but is missing required columns: {missing}")
+                except Exception as e:
+                    logger.warning(f"Error checking file {filepath}: {e}")
         
         # If not found, try fallback filenames
         if not found_filepath:
@@ -654,35 +665,31 @@ class SimpleParquetLoader:
                 filepath = os.path.join(cache_dir, fname)
                 logger.debug(f"SimpleParquetLoader: Attempting to load fallback file: {filepath}")
                 if os.path.exists(filepath):
-                    found_filepath = filepath
-                    break
+                    try:
+                        df = pd.read_parquet(filepath)
+                        if all(col in df.columns for col in required_cols):
+                            found_filepath = filepath
+                            break
+                        else:
+                            missing = [col for col in required_cols if col not in df.columns]
+                            logger.warning(f"File {filepath} exists but is missing required columns: {missing}")
+                    except Exception as e:
+                        logger.warning(f"Error checking file {filepath}: {e}")
         
         if not found_filepath:
-            # If still not found, attempt to use db_handler as a last resort
-            # This part may require DatabaseHandler to be accessible or passed to SimpleParquetLoader
-            # For simplicity, we'll keep the original FileNotFoundError if Parquet files are strictly expected.
-            # Alternatively, integrate db_handler loading here if that's a valid fallback.
-            logger.error(f"SimpleParquetLoader: Could not find any suitable feature parquet file in {cache_dir} using defined patterns.")
+            logger.error(f"SimpleParquetLoader: Could not find any suitable feature parquet file in {cache_dir} with required columns: {required_cols}")
             raise FileNotFoundError(
-                f"SimpleParquetLoader: No feature parquet data found in {cache_dir} for {dataset_name}/{split}/{suffix}."
+                f"SimpleParquetLoader: No feature parquet data found in {cache_dir} for {dataset_name}/{split}/{suffix} with required columns: {required_cols}"
             )
 
         logger.info(f"SimpleParquetLoader: Loading final features from: {found_filepath}")
         df = pd.read_parquet(found_filepath)
         logger.info(f"SimpleParquetLoader: Loaded {len(df)} rows from {found_filepath}")
 
-        # Essential columns check (can be made more robust based on actual needs)
-        # Trainer scripts will also do their own checks.
-        required_cols_for_loader = ['pair_id'] # At least pair_id for merging and identification
-        if 'label' not in df.columns and 'gold_label' not in df.columns:
-            logger.warning(f"SimpleParquetLoader: Loaded DataFrame from {found_filepath} is missing a label column ('label' or 'gold_label').")
-        
-        if not all(col in df.columns for col in required_cols_for_loader):
-             missing = [col for col in required_cols_for_loader if col not in df.columns]
-             logger.error(f"SimpleParquetLoader: Loaded DataFrame from {found_filepath} is missing essential columns: {missing}")
-             # Depending on strictness, you might raise ValueError here or let downstream code handle it.
-             # raise ValueError(f"Missing essential columns ({missing}) in loaded file {found_filepath}")
-        else:
-             logger.debug(f"SimpleParquetLoader: Essential columns {required_cols_for_loader} (and hopefully labels) found in {found_filepath}.")
+        # Final check for required columns
+        missing_cols = [col for col in required_cols if col not in df.columns]
+        if missing_cols:
+            logger.error(f"SimpleParquetLoader: Loaded DataFrame from {found_filepath} is missing essential columns: {missing_cols}")
+            raise ValueError(f"Missing essential columns ({missing_cols}) in loaded file {found_filepath}")
         
         return df

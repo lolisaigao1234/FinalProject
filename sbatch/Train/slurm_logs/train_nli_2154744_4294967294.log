@@ -28,3 +28,5 @@ Starting Python script for SNLI / experiment-8 (Task ID )...
 2025-05-10 01:07:09,055 - utils.database - INFO - [database.py:80] - Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/SNLI_train_features_stats_syntactic_full.parquet
 2025-05-10 01:07:09,860 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:150] - Exp8: Using 240 syntactic features for cross-validation.
 2025-05-10 01:07:10,200 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:182] - --- Running Cross-Validation for: DecisionTree ---
+2025-05-10 01:07:36,654 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:209] - Finished CV for DecisionTree in 26.35s. Avg F1: 0.4047
+2025-05-10 01:07:36,711 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:182] - --- Running Cross-Validation for: KNN ---

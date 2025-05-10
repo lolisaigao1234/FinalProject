@@ -624,9 +624,9 @@ class SimpleParquetLoader:
         # Define potential feature file patterns by preference
         # Prioritize more comprehensive feature sets
         preferred_feature_filenames = [
-            f"{dataset_name}_{split}_features_lexical_syntactic_{suffix}.parquet", # Assumed most comprehensive
+            f"{dataset_name}_{split}_features_stats_syntactic_{suffix}.parquet", # Original pattern - prioritize this
+            f"{dataset_name}_{split}_features_lexical_syntactic_{suffix}.parquet", # Fallback to this
             f"{dataset_name}_{split}_features_all_{suffix}.parquet",             # Another common comprehensive name
-            f"{dataset_name}_{split}_features_stats_syntactic_{suffix}.parquet", # Original pattern
             # Add other potential comprehensive names if your feature_extractor uses them
         ]
 

@@ -1,10 +1,15 @@
 # utils/common.py
 import logging
 from abc import ABC, abstractmethod
+from re import L
 from typing import Tuple, List, Optional, Any, Dict
 import pandas as pd
 import torch
 import numpy as np
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class NLPBaseComponent:

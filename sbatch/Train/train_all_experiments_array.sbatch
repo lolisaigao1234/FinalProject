@@ -42,12 +42,6 @@ TOTAL_TASKS=$((NUM_DATASETS * NUM_EXPERIMENTS))
 # NOTE: Setting it directly here. Ensure this line reflects the calculated TOTAL_TASKS
 #SBATCH --array=1-33 # 3 datasets * 11 experiments = 33 tasks
 
-# Ensure SLURM_ARRAY_TASK_ID is set and valid
-if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
-    echo "Error: SLURM_ARRAY_TASK_ID is not set"
-    exit 1
-fi
-
 # Check if the SLURM_ARRAY_TASK_ID is within the expected range
 if [ "$SLURM_ARRAY_TASK_ID" -lt 1 ] || [ "$SLURM_ARRAY_TASK_ID" -gt "$TOTAL_TASKS" ]; then
     echo "Error: SLURM_ARRAY_TASK_ID ($SLURM_ARRAY_TASK_ID) is out of the expected range (1-$TOTAL_TASKS)."
@@ -78,7 +72,7 @@ echo "SLURM Array Task ID: $SLURM_ARRAY_TASK_ID / $TOTAL_TASKS" # Show total tas
 echo "Running on host: $(hostname)"
 echo "Node allocated: $SLURM_NODELIST"
 echo "Requested CPUs: $SLURM_CPUS_PER_TASK"
-echo "Requested Memory: ${SLURM_MEM_PER_NODE}M"
+echo "Requested Memory: ${SLURM_MEM_PER_NODE}M" # May need --mem or --mem-per-cpu to get this variable populated
 echo "Running Dataset: $CURRENT_DATASET"
 echo "Running Experiment (Model Type): $CURRENT_EXPERIMENT"
 echo "------------------------------------------------"
@@ -116,22 +110,18 @@ echo "Changed directory to $(pwd)"
 # --- Execute the training command ---
 echo "Starting Python script for $CURRENT_DATASET / $CURRENT_EXPERIMENT (Task ID $SLURM_ARRAY_TASK_ID)..."
 
-# Add memory management for GradientBoosting
-if [ "$CURRENT_EXPERIMENT" = "experiment-8" ]; then
-    # For experiment-8, reduce n_jobs to prevent memory issues
-    python -u main.py \
-      --dataset "$CURRENT_DATASET" \
-      --mode train \
-      --model_type "$CURRENT_EXPERIMENT" \
-      --fp16 \
-      --n_jobs 4  # Reduced from default to prevent memory issues
-else
-    python -u main.py \
-      --dataset "$CURRENT_DATASET" \
-      --mode train \
-      --model_type "$CURRENT_EXPERIMENT" \
-      --fp16
-fi
+# Run main.py with the current dataset and experiment key
+# The --model_type argument now correctly receives values like "baseline-1", "experiment-1", etc.
+# Removed --force_reprocess - add back if needed for specific runs.
+python -u main.py \
+  --dataset "$CURRENT_DATASET" \
+  --mode train \
+  --model_type "$CURRENT_EXPERIMENT" \
+  --fp16 \
+  --force_reprocess
+  # Add other arguments from config.py here IF you need to override defaults for specific runs
+  # e.g. --n_estimators 200 --max_depth 10 (if $CURRENT_EXPERIMENT == "experiment-5")
+  # Generally, rely on config.py defaults unless necessary.
 
 EXIT_CODE=$?
 echo "Python script finished with exit code $EXIT_CODE for Task ID $SLURM_ARRAY_TASK_ID"

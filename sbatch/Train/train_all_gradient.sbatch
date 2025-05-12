@@ -1,18 +1,21 @@
 #!/bin/bash
-#SBATCH --job-name=re_train_exp6 # Updated job name for re-training experiment 6
+#SBATCH --job-name=re_train_exp6
 #SBATCH --partition=IllinoisComputes
 #SBATCH --time=72:00:00
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=16
 #SBATCH --mem=64G
-#SBATCH --account=jywu3-ic          # <<< YOUR ACCOUNT HERE >>>
-#SBATCH --output=slurm_logs/%A_%j/re_train_exp6_%A_%a.log # Updated output log name
+#SBATCH --account=jywu3-ic
+#SBATCH --output=slurm_logs/%A_%j/re_train_exp6_%A_%a.log
 #SBATCH --mail-type=END,FAIL
-#SBATCH --mail-user=jywu3@illinois.edu   # <<< YOUR EMAIL HERE >>>
+#SBATCH --mail-user=jywu3@illinois.edu
+
+# Add constraint to request nodes with 100g and HDR
+#SBATCH --constraint=HDR
 
 # --- Define Task Parameters ---
 DATASETS=("SNLI" "MNLI" "ANLI")
-EXPERIMENT="experiment-6" # Single experiment
+EXPERIMENT="experiment-6"
 NUM_DATASETS=${#DATASETS[@]}
 
 # --- SBATCH Array ---
@@ -20,7 +23,6 @@ NUM_DATASETS=${#DATASETS[@]}
 #SBATCH --array=1-$NUM_DATASETS
 
 # --- Task ID to Dataset Mapping ---
-# Direct mapping: 1 -> SNLI, 2 -> MNLI, 3 -> ANLI
 dataset_index=$((SLURM_ARRAY_TASK_ID - 1))
 CURRENT_DATASET=${DATASETS[$dataset_index]}
 
@@ -40,8 +42,8 @@ START_TIME=$(date +%s)
 
 # Load modules
 module purge
-module load anaconda3/2024.10 # Or your specific Anaconda/Python module
-module load cuda/12.8 # Ensure this matches your environment's CUDA version
+module load anaconda3/2024.10
+module load cuda/12.8
 echo "Modules loaded."
 
 # Activate Conda environment

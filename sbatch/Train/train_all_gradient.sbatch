@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64G
 #SBATCH --account=jywu3-ic          # <<< YOUR ACCOUNT HERE >>>
-#SBATCH --output=slurm_logs/re_train_exp6_%A_%a.log # Updated output log name
+#SBATCH --output=slurm_logs/%A_%j/re_train_exp6_%A_%a.log # Updated output log name
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=jywu3@illinois.edu   # <<< YOUR EMAIL HERE >>>
 

@@ -1,0 +1,10 @@
+========================================================
+PART 1: Models baseline-1 to baseline-3
+SLURM_JOB_ID: 2178642
+SLURM_ARRAY_JOB_ID: 2176830
+SLURM_ARRAY_TASK_ID: 19
+Running on host: ccc0357.campuscluster.illinois.edu
+Project directory: /u/jywu3/scratch/IS567FP
+Activating environment: IS567
+========================================================
+Error: Failed to source Conda profile.

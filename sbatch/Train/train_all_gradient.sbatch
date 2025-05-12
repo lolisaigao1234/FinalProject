@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=re_train_exp6
-#SBATCH --partition=IllinoisComputes
-#SBATCH --time=72:00:00
+#SBATCH --job-name=re_train_exp6_8000
+#SBATCH --partition=secondary
+#SBATCH --time=4:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=3
 #SBATCH --mem-per-cpu=3G  # Request 4GB per task (16 tasks * 4GB = 64GB per node)
 #SBATCH --cpus-per-task=16
 #SBATCH --account=jywu3-ic
-#SBATCH --output=slurm_logs/re_train_exp6_%A_%a.log
+#SBATCH --output=slurm_logs/re_train_exp6_8000_%A_%a.log
 #SBATCH --mail-type=END,FAIL,START
 #SBATCH --mail-user=jywu3@illinois.edu
 
@@ -66,7 +66,7 @@ python -u main.py \
   --dataset "$CURRENT_DATASET" \
   --mode train \
   --model_type "$EXPERIMENT" \
-  --sample_size 10000 \
+  --sample_size 8000 \
   --fp16 \
   --force_reprocess
 

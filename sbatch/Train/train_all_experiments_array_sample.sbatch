@@ -1,16 +1,16 @@
 #!/bin/bash
 #SBATCH --job-name=train_nli_models_sample10000 # Updated job name for sample size
 #SBATCH --partition=IllinoisComputes        # Correct partition
-#SBATCH --time=72:00:00                         # Max time (3 days) - Adjust if needed
+#SBATCH --time=2:00:00                         # Max time (3 days) - Adjust if needed
 #SBATCH --nodes=1                               # Each array task runs on a single node
 #SBATCH --ntasks-per-node=1                     # One Python process per task/node
 #SBATCH --cpus-per-task=16                      # Request sufficient CPUs for parallel processing within tasks
-#SBATCH --mem=20G                               # Total memory per node (adjust as needed)
+#SBATCH --mem=16G                               # Total memory per node (adjust as needed)
 #SBATCH --account=jywu3-ic                      # <<< YOUR ACCOUNT HERE >>>
 #SBATCH --output=slurm_logs/train_nli_sample10000_%A_%a.log # Updated output log name
 #SBATCH --mail-type=END,FAIL                    # Optional: Get email notifications
 #SBATCH --mail-user=jywu3@illinois.edu          # Optional: <<< YOUR EMAIL HERE >>>
-#SBATCH --array=1-81
+#SBATCH --array=1-27                            # <<< ADDED/MODIFIED: Defines the job array with 27 tasks
 
 # --- Validate SLURM_ARRAY_TASK_ID ---
 echo "------------------------------------------------"
@@ -33,7 +33,7 @@ echo "------------------------------------------------"
 DATASETS=( "SNLI" "MNLI" "ANLI" )
 
 # --- UPDATED EXPERIMENTS LIST ---
-# These should match the keys in models.MODEL_REGISTRY
+# These should match the keys in models.MODEL_REGISTRY and align with prediction scripts
 EXPERIMENTS=(
     "baseline-1"   # DecisionTreeBowBaseline
     "baseline-2"   # LogisticTFIDFBaseline
@@ -44,20 +44,17 @@ EXPERIMENTS=(
     "experiment-4" # MultinomialNaiveBayesBowSyntacticExperiment4
     "experiment-5" # RandomForestBowSyntacticExperiment5
     "experiment-6" # GradientBoostingTFIDFSyntacticExperiment6
-    "experiment-7" # CrossEvalSyntacticExperiment7
-    "experiment-8" # CrossValidateSyntacticExperiment8
-)
+) # <<< MODIFIED: Reduced to 9 experiments
 # -------------------------------
 
 NUM_DATASETS=${#DATASETS[@]}
-NUM_EXPERIMENTS=${#EXPERIMENTS[@]}
-TOTAL_TASKS=$((NUM_DATASETS * NUM_EXPERIMENTS))
+NUM_EXPERIMENTS=${#EXPERIMENTS[@]} # Should now be 9
+TOTAL_TASKS=$((NUM_DATASETS * NUM_EXPERIMENTS)) # Should now be 3 * 9 = 27
 
 # --- SBATCH Array ---
-# Update the array range dynamically based on the total number of tasks
-# The #SBATCH --array directive should be: #SBATCH --array=1-$TOTAL_TASKS
-# Current fixed value: #SBATCH --array=1-33
-# Ensure TOTAL_TASKS correctly reflects 3*11 = 33. If you change DATASETS or EXPERIMENTS, update TOTAL_TASKS and the --array directive.
+# The #SBATCH --array directive is now set above to 1-$TOTAL_TASKS (i.e., 1-27)
+# Ensure TOTAL_TASKS correctly reflects 3*9 = 27.
+echo "DEBUG: NUM_DATASETS=${NUM_DATASETS}, NUM_EXPERIMENTS=${NUM_EXPERIMENTS}, TOTAL_TASKS=${TOTAL_TASKS}"
 
 # Check if the SLURM_ARRAY_TASK_ID is within the expected range
 # This check relies on SLURM_ARRAY_TASK_ID being a valid integer, ensured by checks above.
@@ -73,7 +70,8 @@ dataset_index=$((task_id_zero_based / NUM_EXPERIMENTS))
 experiment_index=$((task_id_zero_based % NUM_EXPERIMENTS))
 
 # Check array bounds just in case (should be caught by previous checks if logic is correct)
-if [ "$dataset_index" -ge "$NUM_DATASETS" ] || [ "$experiment_index" -ge "$NUM_EXPERIMENTS" ]; then
+if [ "$dataset_index" -ge "$NUM_DATASETS" ] || \
+   [ "$experiment_index" -ge "$NUM_EXPERIMENTS" ]; then
     echo "Error: Calculated indices are out of bounds."
     echo "Task ID: $SLURM_ARRAY_TASK_ID, Dataset Index: $dataset_index (max: $((NUM_DATASETS-1))) Experiment Index: $experiment_index (max: $((NUM_EXPERIMENTS-1)))"
     exit 1

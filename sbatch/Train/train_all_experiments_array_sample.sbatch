@@ -1,16 +1,32 @@
 #!/bin/bash
 #SBATCH --job-name=train_nli_models_sample10000 # Updated job name for sample size
 #SBATCH --partition=IllinoisComputes-GPU        # Correct partition
-#SBATCH --time=72:00:00                     # Max time (3 days) - Adjust if needed
-#SBATCH --nodes=1                           # Each array task runs on a single node
-#SBATCH --ntasks-per-node=1                 # One Python process per task/node
-#SBATCH --cpus-per-task=16                  # Request sufficient CPUs for parallel processing within tasks
-#SBATCH --gres=gpu:A100:1                   # Request 1 A100 GPU per task
-#SBATCH --mem=20G                          # Total memory per node (adjust as needed)
-#SBATCH --account=jywu3-ic                  # <<< YOUR ACCOUNT HERE >>>
+#SBATCH --time=72:00:00                         # Max time (3 days) - Adjust if needed
+#SBATCH --nodes=1                               # Each array task runs on a single node
+#SBATCH --ntasks-per-node=1                     # One Python process per task/node
+#SBATCH --cpus-per-task=16                      # Request sufficient CPUs for parallel processing within tasks
+#SBATCH --gres=gpu:A100:1                       # Request 1 A100 GPU per task
+#SBATCH --mem=20G                               # Total memory per node (adjust as needed)
+#SBATCH --account=jywu3-ic                      # <<< YOUR ACCOUNT HERE >>>
 #SBATCH --output=slurm_logs/train_nli_sample10000_%A_%a.log # Updated output log name
-#SBATCH --mail-type=END,FAIL                # Optional: Get email notifications
-#SBATCH --mail-user=jywu3@illinois.edu      # Optional: <<< YOUR EMAIL HERE >>>
+#SBATCH --mail-type=END,FAIL                    # Optional: Get email notifications
+#SBATCH --mail-user=jywu3@illinois.edu          # Optional: <<< YOUR EMAIL HERE >>>
+
+# --- Validate SLURM_ARRAY_TASK_ID ---
+echo "------------------------------------------------"
+echo "Initial SLURM_ARRAY_TASK_ID: '$SLURM_ARRAY_TASK_ID'" # Log the initial value
+
+if [ -z "$SLURM_ARRAY_TASK_ID" ]; then
+    echo "Error: SLURM_ARRAY_TASK_ID is not set or is empty."
+    echo "This script must be run as a Slurm job array task, and the ID must be populated."
+    exit 1
+elif ! [[ "$SLURM_ARRAY_TASK_ID" =~ ^[0-9]+$ ]]; then
+    echo "Error: SLURM_ARRAY_TASK_ID ('$SLURM_ARRAY_TASK_ID') is not a valid positive integer."
+    echo "This might be due to an issue with the Slurm array configuration (e.g., task ID being an error value like 4294967294)."
+    exit 1
+fi
+echo "Validated SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
+echo "------------------------------------------------"
 
 # --- Define Task Parameters ---
 # Order matters: datasets first, then experiments cycle through for each dataset
@@ -39,9 +55,12 @@ TOTAL_TASKS=$((NUM_DATASETS * NUM_EXPERIMENTS))
 
 # --- SBATCH Array ---
 # Update the array range dynamically based on the total number of tasks
-#SBATCH --array=1-33 # 3 datasets * 11 experiments = 33 tasks
+# The #SBATCH --array directive should be: #SBATCH --array=1-$TOTAL_TASKS
+# Current fixed value: #SBATCH --array=1-33
+# Ensure TOTAL_TASKS correctly reflects 3*11 = 33. If you change DATASETS or EXPERIMENTS, update TOTAL_TASKS and the --array directive.
 
 # Check if the SLURM_ARRAY_TASK_ID is within the expected range
+# This check relies on SLURM_ARRAY_TASK_ID being a valid integer, ensured by checks above.
 if [ "$SLURM_ARRAY_TASK_ID" -lt 1 ] || [ "$SLURM_ARRAY_TASK_ID" -gt "$TOTAL_TASKS" ]; then
     echo "Error: SLURM_ARRAY_TASK_ID ($SLURM_ARRAY_TASK_ID) is out of the expected range (1-$TOTAL_TASKS)."
     exit 1
@@ -53,7 +72,7 @@ task_id_zero_based=$((SLURM_ARRAY_TASK_ID - 1))
 dataset_index=$((task_id_zero_based / NUM_EXPERIMENTS))
 experiment_index=$((task_id_zero_based % NUM_EXPERIMENTS))
 
-# Check array bounds just in case
+# Check array bounds just in case (should be caught by previous checks if logic is correct)
 if [ "$dataset_index" -ge "$NUM_DATASETS" ] || [ "$experiment_index" -ge "$NUM_EXPERIMENTS" ]; then
     echo "Error: Calculated indices are out of bounds."
     echo "Task ID: $SLURM_ARRAY_TASK_ID, Dataset Index: $dataset_index (max: $((NUM_DATASETS-1))) Experiment Index: $experiment_index (max: $((NUM_EXPERIMENTS-1)))"
@@ -92,7 +111,7 @@ echo "Python environment '$CONDA_ENV_NAME' activated: $(which python)"
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 echo "OMP_NUM_THREADS set to $OMP_NUM_THREADS"
 
-export TF_CPP_MIN_LOG_LEVEL=3
+export TF_CPP_MIN_LOG_LEVEL=3 # Suppress TensorFlow informational messages
 
 # Navigate to project directory
 PROJECT_DIR="/u/jywu3/scratch/IS567FP" # Define project directory variable
@@ -103,7 +122,6 @@ echo "Changed directory to $(pwd)"
 echo "Starting Python script for $CURRENT_DATASET / $CURRENT_EXPERIMENT (Task ID $SLURM_ARRAY_TASK_ID)..."
 
 # Run main.py with the current dataset and experiment key
-# Added --sample_size 10 to limit total samples
 python -u main.py \
   --dataset "$CURRENT_DATASET" \
   --mode train \

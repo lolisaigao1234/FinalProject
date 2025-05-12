@@ -3,13 +3,13 @@
 #SBATCH --job-name=predict_nli_p1        # Job name (Part 1)
 #SBATCH --output=slurm_logs/%A_%j/predict_all_p1_%A_%a.out # Standard output log
 #SBATCH --error=slurm_logs/%A_%j/predict_all_p1_%A_%a.err  # Standard error log
-#SBATCH --nodes=1                             # Run all processes on a single node
-#SBATCH --ntasks-per-node=1                            # Run a single task
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=16
+#SBATCH --mem-per-cpu=2G  # Request 4GB per task (16 tasks * 4GB = 64GB per node)
 #SBATCH --cpus-per-task=16                    # Number of CPU cores per task
 #SBATCH --mem=64G                             # Job memory request
 #SBATCH --time=72:00:00                       # Time limit hrs:min:sec
-#SBATCH --partition=IllinoisComputes-GPU                  # <<< ADJUST for your GPU partition (e.g., gpu, a100)
-#SBATCH --gres=gpu:A100:1                     # Request one A100 GPU
+#SBATCH --partition=IllinoisComputes                 # <<< ADJUST for your GPU partition (e.g., gpu, a100)
 #SBATCH --array=0-26                          # Array range: 3 models * 3 trained_on * 3 predict_on = 27 tasks
 #SBATCH --account=jywu3-ic                  # <<< YOUR ACCOUNT HERE >>>
 #SBATCH --mail-type=END,FAIL                # Optional: Get email notifications

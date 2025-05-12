@@ -1,0 +1,22 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: '25'
+Validated SLURM_ARRAY_TASK_ID: 25
+------------------------------------------------
+DEBUG: NUM_DATASETS=3, NUM_EXPERIMENTS=9, TOTAL_TASKS=27
+------------------------------------------------
+SLURM Job ID: 2175318
+SLURM Array Job ID: 2174740
+SLURM Array Task ID: 25 / 27
+Running on host: ccc0290.campuscluster.illinois.edu
+Node allocated: ccc0290
+Requested CPUs: 16
+Running Dataset: ANLI
+Running Experiment (Model Type): experiment-4
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for ANLI / experiment-4 (Task ID 25)...
+2025-05-11 22:46:48,906 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.

@@ -1,0 +1,21 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: '10'
+Validated SLURM_ARRAY_TASK_ID: 10
+------------------------------------------------
+DEBUG: NUM_DATASETS=3, NUM_EXPERIMENTS=9, TOTAL_TASKS=27
+------------------------------------------------
+SLURM Job ID: 2174753
+SLURM Array Job ID: 2174740
+SLURM Array Task ID: 10 / 27
+Running on host: ccc0290.campuscluster.illinois.edu
+Node allocated: ccc0290
+Requested CPUs: 16
+Running Dataset: MNLI
+Running Experiment (Model Type): baseline-1
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for MNLI / baseline-1 (Task ID 10)...

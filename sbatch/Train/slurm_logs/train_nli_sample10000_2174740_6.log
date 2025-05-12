@@ -1,0 +1,53 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: '6'
+Validated SLURM_ARRAY_TASK_ID: 6
+------------------------------------------------
+DEBUG: NUM_DATASETS=3, NUM_EXPERIMENTS=9, TOTAL_TASKS=27
+------------------------------------------------
+SLURM Job ID: 2174746
+SLURM Array Job ID: 2174740
+SLURM Array Task ID: 6 / 27
+Running on host: ccc0367.campuscluster.illinois.edu
+Node allocated: ccc0367
+Requested CPUs: 16
+Running Dataset: SNLI
+Running Experiment (Model Type): experiment-3
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for SNLI / experiment-3 (Task ID 6)...
+2025-05-11 22:41:17,685 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:48] - Selected model type: experiment-3
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:49] - Selected dataset: SNLI
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:50] - Using device: cpu
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:52] - Using sample size: 10000
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:92] - Starting training for model: experiment-3
+2025-05-11 22:41:22,254 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:55] - Initialized ExperimentTrainer for model key: 'experiment-3', class: LogisticTFIDFSyntacticExperiment3, dataset: SNLI, suffix: sample10000
+2025-05-11 22:41:22,254 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:71] - Initializing model instance for experiment-3 (LogisticTFIDFSyntacticExperiment3)
+2025-05-11 22:41:22,255 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:93] - Model experiment-3 initialized successfully.
+2025-05-11 22:41:22,255 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:107] - --- Loading Pre-computed Features for experiment-3 on SNLI (train/sample10000) ---
+2025-05-11 22:41:22,255 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:115] - Loading pre-computed features using SimpleParquetLoader...
+2025-05-11 22:41:22,255 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:128] - Attempting to load feature file matching: dataset='SNLI', split='train', suffix='sample10000'
+2025-05-11 22:41:22,255 - models.baseline_base - INFO - [baseline_base.py:622] - SimpleParquetLoader: Searching for features in cache/parquet/SNLI/train for SNLI/train/sample10000
+2025-05-11 22:41:24,524 - models.baseline_base - INFO - [baseline_base.py:685] - SimpleParquetLoader: Loading final features from: cache/parquet/SNLI/train/SNLI_train_features_stats_syntactic_full.parquet
+2025-05-11 22:41:24,878 - models.baseline_base - INFO - [baseline_base.py:687] - SimpleParquetLoader: Loaded 549367 rows from cache/parquet/SNLI/train/SNLI_train_features_stats_syntactic_full.parquet
+2025-05-11 22:41:24,879 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:153] - Loaded 549367 rows with 250 columns from pre-computed feature file.
+2025-05-11 22:41:24,882 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:163] - Feature data cleaned. 549367 samples remaining.
+2025-05-11 22:41:24,882 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:172] - Extracting/Selecting features using experiment-3.extract_features...
+2025-05-11 22:41:24,882 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:235] - Model not trained yet. Assuming training context: Building/Fitting pipeline...
+2025-05-11 22:41:24,882 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:151] - Building feature pipeline for Exp3...
+2025-05-11 22:41:24,883 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:174] - Identified 240 syntactic feature columns for pipeline.
+2025-05-11 22:41:24,883 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:209] - Feature pipeline built.
+2025-05-11 22:41:24,883 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:245] - Fitting feature pipeline and transforming training data...
+2025-05-11 22:41:35,468 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:78] - FeatureSelector fit: All 240 potential columns were found in the training data.
+2025-05-11 22:41:39,250 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:251] - Pipeline fit during training context successful.
+2025-05-11 22:41:39,251 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:260] - Pipeline fit & transform completed in 14.37s. Output shape: (549367, 10240)
+2025-05-11 22:41:39,251 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:182] - Training features prepared. Shape: (549367, 10240)
+2025-05-11 22:41:39,251 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:183] - Training labels prepared. Length: 549367
+2025-05-11 22:41:39,384 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:194] - Data loading and preparation phase finished in 17.13s
+2025-05-11 22:41:39,384 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:198] - --- Starting model training for experiment-3 on SNLI (sample10000) ---
+2025-05-11 22:41:39,384 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:319] - Training Logistic Regression classifier on processed data with shape: (549367, 10240)

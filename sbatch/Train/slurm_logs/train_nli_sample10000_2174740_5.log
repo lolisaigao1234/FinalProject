@@ -1,0 +1,58 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: '5'
+Validated SLURM_ARRAY_TASK_ID: 5
+------------------------------------------------
+DEBUG: NUM_DATASETS=3, NUM_EXPERIMENTS=9, TOTAL_TASKS=27
+------------------------------------------------
+SLURM Job ID: 2174745
+SLURM Array Job ID: 2174740
+SLURM Array Task ID: 5 / 27
+Running on host: ccc0367.campuscluster.illinois.edu
+Node allocated: ccc0367
+Requested CPUs: 16
+Running Dataset: SNLI
+Running Experiment (Model Type): experiment-2
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for SNLI / experiment-2 (Task ID 5)...
+2025-05-11 22:41:17,685 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:48] - Selected model type: experiment-2
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:49] - Selected dataset: SNLI
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:50] - Using device: cpu
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:52] - Using sample size: 10000
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:92] - Starting training for model: experiment-2
+2025-05-11 22:41:22,258 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:55] - Initialized ExperimentTrainer for model key: 'experiment-2', class: KnnBowSyntacticExperiment2, dataset: SNLI, suffix: sample10000
+2025-05-11 22:41:22,259 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:71] - Initializing model instance for experiment-2 (KnnBowSyntacticExperiment2)
+2025-05-11 22:41:22,259 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:93] - Model experiment-2 initialized successfully.
+2025-05-11 22:41:22,259 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:107] - --- Loading Pre-computed Features for experiment-2 on SNLI (train/sample10000) ---
+2025-05-11 22:41:22,259 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:115] - Loading pre-computed features using SimpleParquetLoader...
+2025-05-11 22:41:22,259 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:128] - Attempting to load feature file matching: dataset='SNLI', split='train', suffix='sample10000'
+2025-05-11 22:41:22,259 - models.baseline_base - INFO - [baseline_base.py:622] - SimpleParquetLoader: Searching for features in cache/parquet/SNLI/train for SNLI/train/sample10000
+2025-05-11 22:41:24,567 - models.baseline_base - INFO - [baseline_base.py:685] - SimpleParquetLoader: Loading final features from: cache/parquet/SNLI/train/SNLI_train_features_stats_syntactic_full.parquet
+2025-05-11 22:41:24,967 - models.baseline_base - INFO - [baseline_base.py:687] - SimpleParquetLoader: Loaded 549367 rows from cache/parquet/SNLI/train/SNLI_train_features_stats_syntactic_full.parquet
+2025-05-11 22:41:24,968 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:153] - Loaded 549367 rows with 250 columns from pre-computed feature file.
+2025-05-11 22:41:24,971 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:163] - Feature data cleaned. 549367 samples remaining.
+2025-05-11 22:41:24,971 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:172] - Extracting/Selecting features using experiment-2.extract_features...
+2025-05-11 22:41:24,971 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:103] - Training Experiment 2: KNN + Syntactic Features: Storing 240 feature columns.
+2025-05-11 22:41:25,170 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:182] - Training features prepared. Shape: (549367, 240)
+2025-05-11 22:41:25,171 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:183] - Training labels prepared. Length: 549367
+2025-05-11 22:41:25,263 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:194] - Data loading and preparation phase finished in 3.00s
+2025-05-11 22:41:25,263 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:198] - --- Starting model training for experiment-2 on SNLI (sample10000) ---
+2025-05-11 22:41:25,263 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:157] - Training Experiment 2: KNN + Syntactic Features with 549367 samples and 240 features...
+2025-05-11 22:41:26,213 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:170] - Experiment 2: KNN + Syntactic Features training complete in 0.95 seconds.
+2025-05-11 22:41:26,214 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:217] - Model training phase for experiment-2 finished in 0.95s
+2025-05-11 22:41:26,319 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:226] - Saving model experiment-2...
+2025-05-11 22:41:29,667 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:329] - Experiment 2: KNN + Syntactic Features pipeline saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/experiment-2/sample10000/SNLI_experiment-2_sample10000_pipeline.joblib
+2025-05-11 22:41:29,667 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:330] - Experiment 2: KNN + Syntactic Features feature columns saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/experiment-2/sample10000/SNLI_experiment-2_sample10000_feature_cols.joblib
+2025-05-11 22:41:29,667 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:231] - Model experiment-2 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/experiment-2/sample10000 with base name: SNLI_experiment-2_sample10000
+2025-05-11 22:41:29,696 - __main__ - INFO - [main.py:123] - Training completed. Results: {'experiment-2': {'status': 'trained', 'train_time': 0.9502689838409424}}
+Python script finished with exit code 0 for Task ID 5
+------------------------------------------------
+Job Task 5 finished.
+Total Runtime: 24 seconds
+------------------------------------------------

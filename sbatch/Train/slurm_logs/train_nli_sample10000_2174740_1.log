@@ -1,0 +1,66 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: '1'
+Validated SLURM_ARRAY_TASK_ID: 1
+------------------------------------------------
+DEBUG: NUM_DATASETS=3, NUM_EXPERIMENTS=9, TOTAL_TASKS=27
+------------------------------------------------
+SLURM Job ID: 2174741
+SLURM Array Job ID: 2174740
+SLURM Array Task ID: 1 / 27
+Running on host: ccc0290.campuscluster.illinois.edu
+Node allocated: ccc0290
+Requested CPUs: 16
+Running Dataset: SNLI
+Running Experiment (Model Type): baseline-1
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for SNLI / baseline-1 (Task ID 1)...
+2025-05-11 22:41:17,692 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:48] - Selected model type: baseline-1
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:49] - Selected dataset: SNLI
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:50] - Using device: cpu
+2025-05-11 22:41:22,149 - __main__ - INFO - [main.py:52] - Using sample size: 10000
+2025-05-11 22:41:22,150 - __main__ - INFO - [main.py:92] - Starting training for model: baseline-1
+2025-05-11 22:41:22,252 - models.baseline_trainer - INFO - [baseline_trainer.py:49] - Initialized Trainer for model key: 'baseline-1', class: DecisionTreeBowBaseline, dataset: SNLI, suffix: sample10000
+2025-05-11 22:41:22,253 - models.baseline_trainer - INFO - [baseline_trainer.py:64] - Initializing model instance for baseline-1 (DecisionTreeBowBaseline)
+2025-05-11 22:41:22,253 - models.baseline_trainer - WARNING - [baseline_trainer.py:82] - Attempting to initialize model with the 'args' object. Ensure model __init__ handles this.
+2025-05-11 22:41:22,253 - models.baseline_trainer - INFO - [baseline_trainer.py:101] - Model baseline-1 initialized successfully.
+2025-05-11 22:41:22,253 - models.baseline_trainer - INFO - [baseline_trainer.py:117] - --- Loading and preprocessing data for baseline-1 on SNLI (train/sample10000) ---
+2025-05-11 22:41:22,253 - models.baseline_trainer - INFO - [baseline_trainer.py:126] - Loading raw training data...
+2025-05-11 22:41:22,253 - models.baseline_base - INFO - [baseline_base.py:335] - Attempting to load intermediate raw text data: SNLI/train/sample10000
+2025-05-11 22:41:22,254 - utils.database - WARNING - [database.py:84] - No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/pairs_sample10000.parquet or final path for table 'pairs_sample10000'.
+2025-05-11 22:41:22,255 - utils.database - WARNING - [database.py:84] - No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/sentences_sample10000.parquet or final path for table 'sentences_sample10000'.
+2025-05-11 22:41:22,255 - models.baseline_base - WARNING - [baseline_base.py:396] - Intermediate data (pairs_sample10000 or sentences_sample10000) not found or empty. Falling back to original data loader.
+2025-05-11 22:41:22,255 - models.baseline_base - WARNING - [baseline_base.py:406] - Executing fallback: Loading original raw data using DatasetLoader.
+2025-05-11 22:41:22,255 - data.data_loader - INFO - [data_loader.py:164] - Loading dataset: SNLI (HF: stanfordnlp/snli), Requested standard split: train
+2025-05-11 22:41:22,256 - data.data_loader - INFO - [data_loader.py:198] - Attempting to load processed SNLI/train from DB table: raw_data_train_full
+2025-05-11 22:41:22,256 - utils.database - INFO - [database.py:80] - Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/raw_data_train_full.parquet
+2025-05-11 22:41:23,072 - data.data_loader - INFO - [data_loader.py:203] - Successfully loaded SNLI/train from DB. Shape: (549367, 5)
+2025-05-11 22:41:23,203 - models.baseline_base - INFO - [baseline_base.py:436] - Fallback data loaded successfully. Shape: (549367, 5)
+2025-05-11 22:41:23,237 - models.baseline_trainer - INFO - [baseline_trainer.py:135] - Loaded 549367 training samples.
+2025-05-11 22:41:23,237 - models.baseline_trainer - INFO - [baseline_trainer.py:138] - Cleaning training data and preparing labels...
+2025-05-11 22:41:23,239 - models.baseline_trainer - INFO - [baseline_trainer.py:143] - Training data cleaned. 549367 samples remaining.
+2025-05-11 22:41:23,239 - models.baseline_trainer - INFO - [baseline_trainer.py:156] - Fitting feature extractor on training data...
+2025-05-11 22:41:23,244 - models.baseline_trainer - INFO - [baseline_trainer.py:160] - Extracting features from training data...
+2025-05-11 22:41:23,244 - models.decision_tree_bow_baseline - INFO - [decision_tree_bow_baseline.py:78] - Extracting BoW features using self.extractor...
+2025-05-11 22:41:27,733 - models.baseline_trainer - INFO - [baseline_trainer.py:162] - Training features extracted. Shape: (549367, 4)
+2025-05-11 22:41:27,743 - models.baseline_trainer - INFO - [baseline_trainer.py:169] - Data loading and feature extraction phase finished in 5.49s
+2025-05-11 22:41:27,743 - models.baseline_trainer - INFO - [baseline_trainer.py:173] - --- Starting model training for baseline-1 on SNLI (sample10000) ---
+2025-05-11 22:41:27,747 - models.decision_tree_bow_baseline - INFO - [decision_tree_bow_baseline.py:101] - Training Decision Tree model (self.model)...
+2025-05-11 22:41:27,789 - models.decision_tree_bow_baseline - INFO - [decision_tree_bow_baseline.py:106] - Training finished in 0.04s.
+2025-05-11 22:41:27,793 - models.baseline_trainer - INFO - [baseline_trainer.py:194] - Model training phase for baseline-1 finished in 0.05s
+2025-05-11 22:41:27,793 - models.baseline_trainer - INFO - [baseline_trainer.py:199] - Saving model baseline-1...
+2025-05-11 22:41:28,036 - models.decision_tree_bow_baseline - INFO - [decision_tree_bow_baseline.py:178] - Model saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/baseline-1/sample10000/SNLI_baseline-1_sample10000_model.joblib
+2025-05-11 22:41:29,269 - models.decision_tree_bow_baseline - INFO - [decision_tree_bow_baseline.py:183] - Extractor saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/baseline-1/sample10000/SNLI_baseline-1_sample10000_extractor.joblib
+2025-05-11 22:41:29,269 - models.baseline_trainer - INFO - [baseline_trainer.py:206] - Model baseline-1 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/baseline-1/sample10000 with base name: SNLI_baseline-1_sample10000
+2025-05-11 22:41:29,383 - __main__ - INFO - [main.py:123] - Training completed. Results: {'baseline-1': {'status': 'trained', 'train_time': 0.04917097091674805}}
+Python script finished with exit code 0 for Task ID 1
+------------------------------------------------
+Job Task 1 finished.
+Total Runtime: 24 seconds
+------------------------------------------------

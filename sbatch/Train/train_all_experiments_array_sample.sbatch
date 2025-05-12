@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=train_nli_models_sample8000 # Updated job name for sample size
 #SBATCH --partition=IllinoisComputes        # Correct partition
-#SBATCH --time=2:00:00                         # Max time (3 days) - Adjust if needed
+#SBATCH --time=72:00:00                         # Max time (3 days) - Adjust if needed
 #SBATCH --nodes=1                               # Each array task runs on a single node
 #SBATCH --ntasks-per-node=1                     # One Python process per task/node
 #SBATCH --cpus-per-task=16                      # Request sufficient CPUs for parallel processing within tasks

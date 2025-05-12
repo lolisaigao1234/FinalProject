@@ -8,8 +8,7 @@
 #SBATCH --cpus-per-task=16                    # Number of CPU cores per task
 #SBATCH --mem=64G                             # Job memory request
 #SBATCH --time=72:00:00                       # Time limit hrs:min:sec
-#SBATCH --partition=IllinoisComputes-GPU                  # <<< ADJUST for your GPU partition (e.g., gpu, a100)
-#SBATCH --gres=gpu:A100:1                     # Request one A100 GPU
+#SBATCH --partition=IllinoisComputes                  # <<< ADJUST for your GPU partition (e.g., gpu, a100)
 #SBATCH --array=0-26                          # Array range: 3 models * 3 trained_on * 3 predict_on = 27 tasks
 #SBATCH --account=jywu3-ic                  # <<< YOUR ACCOUNT HERE >>>
 #SBATCH --mail-type=END,FAIL                # Optional: Get email notifications

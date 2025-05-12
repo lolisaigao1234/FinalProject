@@ -1,0 +1,63 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: '20'
+Validated SLURM_ARRAY_TASK_ID: 20
+------------------------------------------------
+DEBUG: NUM_DATASETS=3, NUM_EXPERIMENTS=9, TOTAL_TASKS=27
+------------------------------------------------
+SLURM Job ID: 2175372
+SLURM Array Job ID: 2175343
+SLURM Array Task ID: 20 / 27
+Running on host: ccc0359.campuscluster.illinois.edu
+Node allocated: ccc0359
+Requested CPUs: 16
+Running Dataset: ANLI
+Running Experiment (Model Type): baseline-2
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for ANLI / baseline-2 (Task ID 20)...
+2025-05-11 22:55:34,432 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 22:55:37,525 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 22:55:37,525 - __main__ - INFO - [main.py:48] - Selected model type: baseline-2
+2025-05-11 22:55:37,525 - __main__ - INFO - [main.py:49] - Selected dataset: ANLI
+2025-05-11 22:55:37,525 - __main__ - INFO - [main.py:50] - Using device: cpu
+2025-05-11 22:55:37,525 - __main__ - INFO - [main.py:52] - Using sample size: 8000
+2025-05-11 22:55:37,525 - __main__ - INFO - [main.py:92] - Starting training for model: baseline-2
+2025-05-11 22:55:37,835 - models.baseline_trainer - INFO - [baseline_trainer.py:49] - Initialized Trainer for model key: 'baseline-2', class: LogisticTFIDFBaseline, dataset: ANLI, suffix: sample8000
+2025-05-11 22:55:37,835 - models.baseline_trainer - INFO - [baseline_trainer.py:64] - Initializing model instance for baseline-2 (LogisticTFIDFBaseline)
+2025-05-11 22:55:37,835 - models.baseline_trainer - WARNING - [baseline_trainer.py:82] - Attempting to initialize model with the 'args' object. Ensure model __init__ handles this.
+2025-05-11 22:55:37,835 - models.baseline_trainer - INFO - [baseline_trainer.py:101] - Model baseline-2 initialized successfully.
+2025-05-11 22:55:37,836 - models.baseline_trainer - INFO - [baseline_trainer.py:117] - --- Loading and preprocessing data for baseline-2 on ANLI (train/sample8000) ---
+2025-05-11 22:55:37,836 - models.baseline_trainer - INFO - [baseline_trainer.py:126] - Loading raw training data...
+2025-05-11 22:55:37,836 - models.baseline_base - INFO - [baseline_base.py:335] - Attempting to load intermediate raw text data: ANLI/train/sample8000
+2025-05-11 22:55:37,836 - utils.database - INFO - [database.py:80] - Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/ANLI/train/pairs_sample8000.parquet
+2025-05-11 22:55:37,846 - utils.database - INFO - [database.py:80] - Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/ANLI/train/sentences_sample8000.parquet
+2025-05-11 22:55:37,860 - models.baseline_base - INFO - [baseline_base.py:345] - Merging intermediate pairs and sentences data...
+2025-05-11 22:55:37,875 - models.baseline_base - INFO - [baseline_base.py:392] - Successfully loaded and merged intermediate data. Shape after merge: (8000, 4)
+2025-05-11 22:55:37,876 - models.baseline_trainer - INFO - [baseline_trainer.py:135] - Loaded 8000 training samples.
+2025-05-11 22:55:37,876 - models.baseline_trainer - INFO - [baseline_trainer.py:138] - Cleaning training data and preparing labels...
+2025-05-11 22:55:37,876 - models.baseline_trainer - INFO - [baseline_trainer.py:143] - Training data cleaned. 8000 samples remaining.
+2025-05-11 22:55:37,876 - models.baseline_trainer - INFO - [baseline_trainer.py:156] - Fitting feature extractor on training data...
+2025-05-11 22:55:37,880 - models.baseline_base - INFO - [baseline_base.py:213] - Fitting TfidfVectorizer on 8000 combined texts...
+2025-05-11 22:55:38,555 - models.baseline_base - INFO - [baseline_base.py:217] - TfidfVectorizer fitted. Vocabulary size: 10000
+2025-05-11 22:55:38,555 - models.baseline_trainer - INFO - [baseline_trainer.py:160] - Extracting features from training data...
+2025-05-11 22:55:38,555 - models.logistic_tf_idf_baseline - INFO - [logistic_tf_idf_baseline.py:109] - Transforming data using pre-fitted extractor...
+2025-05-11 22:55:38,928 - models.baseline_trainer - INFO - [baseline_trainer.py:162] - Training features extracted. Shape: (8000, 20000)
+2025-05-11 22:55:38,928 - models.baseline_trainer - INFO - [baseline_trainer.py:169] - Data loading and feature extraction phase finished in 1.09s
+2025-05-11 22:55:38,928 - models.baseline_trainer - INFO - [baseline_trainer.py:173] - --- Starting model training for baseline-2 on ANLI (sample8000) ---
+2025-05-11 22:55:38,928 - models.baseline_base - INFO - [baseline_base.py:261] - Training LogisticRegression with 8000 samples...
+2025-05-11 22:55:39,076 - models.baseline_base - INFO - [baseline_base.py:264] - LogisticRegression training complete.
+2025-05-11 22:55:39,076 - models.baseline_trainer - INFO - [baseline_trainer.py:194] - Model training phase for baseline-2 finished in 0.15s
+2025-05-11 22:55:39,076 - models.baseline_trainer - INFO - [baseline_trainer.py:199] - Saving model baseline-2...
+2025-05-11 22:55:46,534 - models.baseline_base - INFO - [baseline_base.py:288] - LogisticRegression model saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/baseline-2/sample8000/ANLI_baseline-2_sample8000_model.joblib
+2025-05-11 22:55:46,595 - models.baseline_base - INFO - [baseline_base.py:289] - Feature extractor (TFIDFExtractor) saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/baseline-2/sample8000/ANLI_baseline-2_sample8000_extractor.joblib
+2025-05-11 22:55:46,595 - models.baseline_trainer - INFO - [baseline_trainer.py:206] - Model baseline-2 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/baseline-2/sample8000 with base name: ANLI_baseline-2_sample8000
+2025-05-11 22:55:46,596 - __main__ - INFO - [main.py:123] - Training completed. Results: {'baseline-2': {'status': 'trained', 'train_time': 0.14791154861450195}}
+Python script finished with exit code 0 for Task ID 20
+------------------------------------------------
+Job Task 20 finished.
+Total Runtime: 20 seconds
+------------------------------------------------

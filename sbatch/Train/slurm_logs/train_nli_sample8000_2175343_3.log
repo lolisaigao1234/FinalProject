@@ -1,0 +1,62 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: '3'
+Validated SLURM_ARRAY_TASK_ID: 3
+------------------------------------------------
+DEBUG: NUM_DATASETS=3, NUM_EXPERIMENTS=9, TOTAL_TASKS=27
+------------------------------------------------
+SLURM Job ID: 2175346
+SLURM Array Job ID: 2175343
+SLURM Array Task ID: 3 / 27
+Running on host: ccc0359.campuscluster.illinois.edu
+Node allocated: ccc0359
+Requested CPUs: 16
+Running Dataset: SNLI
+Running Experiment (Model Type): baseline-3
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for SNLI / baseline-3 (Task ID 3)...
+2025-05-11 22:53:07,579 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 22:53:15,471 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 22:53:15,471 - __main__ - INFO - [main.py:48] - Selected model type: baseline-3
+2025-05-11 22:53:15,471 - __main__ - INFO - [main.py:49] - Selected dataset: SNLI
+2025-05-11 22:53:15,471 - __main__ - INFO - [main.py:50] - Using device: cpu
+2025-05-11 22:53:15,471 - __main__ - INFO - [main.py:52] - Using sample size: 8000
+2025-05-11 22:53:15,471 - __main__ - INFO - [main.py:92] - Starting training for model: baseline-3
+2025-05-11 22:53:15,523 - models.baseline_trainer - INFO - [baseline_trainer.py:49] - Initialized Trainer for model key: 'baseline-3', class: MultinomialNaiveBayesBaseline, dataset: SNLI, suffix: sample8000
+2025-05-11 22:53:15,523 - models.baseline_trainer - INFO - [baseline_trainer.py:64] - Initializing model instance for baseline-3 (MultinomialNaiveBayesBaseline)
+2025-05-11 22:53:15,523 - models.baseline_trainer - WARNING - [baseline_trainer.py:82] - Attempting to initialize model with the 'args' object. Ensure model __init__ handles this.
+2025-05-11 22:53:15,523 - models.baseline_trainer - INFO - [baseline_trainer.py:101] - Model baseline-3 initialized successfully.
+2025-05-11 22:53:15,523 - models.baseline_trainer - INFO - [baseline_trainer.py:117] - --- Loading and preprocessing data for baseline-3 on SNLI (train/sample8000) ---
+2025-05-11 22:53:15,523 - models.baseline_trainer - INFO - [baseline_trainer.py:126] - Loading raw training data...
+2025-05-11 22:53:15,523 - models.baseline_base - INFO - [baseline_base.py:335] - Attempting to load intermediate raw text data: SNLI/train/sample8000
+2025-05-11 22:53:15,524 - utils.database - INFO - [database.py:80] - Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/pairs_sample8000.parquet
+2025-05-11 22:53:15,535 - utils.database - INFO - [database.py:80] - Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/sentences_sample8000.parquet
+2025-05-11 22:53:15,544 - models.baseline_base - INFO - [baseline_base.py:345] - Merging intermediate pairs and sentences data...
+2025-05-11 22:53:15,560 - models.baseline_base - INFO - [baseline_base.py:392] - Successfully loaded and merged intermediate data. Shape after merge: (8000, 4)
+2025-05-11 22:53:15,561 - models.baseline_trainer - INFO - [baseline_trainer.py:135] - Loaded 8000 training samples.
+2025-05-11 22:53:15,561 - models.baseline_trainer - INFO - [baseline_trainer.py:138] - Cleaning training data and preparing labels...
+2025-05-11 22:53:15,561 - models.baseline_trainer - INFO - [baseline_trainer.py:143] - Training data cleaned. 8000 samples remaining.
+2025-05-11 22:53:15,561 - models.baseline_trainer - INFO - [baseline_trainer.py:156] - Fitting feature extractor on training data...
+2025-05-11 22:53:15,563 - models.baseline_base - INFO - [baseline_base.py:213] - Fitting CountVectorizer on 8000 combined texts...
+2025-05-11 22:53:15,645 - models.baseline_base - INFO - [baseline_base.py:217] - CountVectorizer fitted. Vocabulary size: 7114
+2025-05-11 22:53:15,645 - models.baseline_trainer - INFO - [baseline_trainer.py:160] - Extracting features from training data...
+2025-05-11 22:53:15,737 - models.baseline_trainer - INFO - [baseline_trainer.py:162] - Training features extracted. Shape: (8000, 14228)
+2025-05-11 22:53:15,737 - models.baseline_trainer - INFO - [baseline_trainer.py:169] - Data loading and feature extraction phase finished in 0.21s
+2025-05-11 22:53:15,737 - models.baseline_trainer - INFO - [baseline_trainer.py:173] - --- Starting model training for baseline-3 on SNLI (sample8000) ---
+2025-05-11 22:53:15,737 - models.baseline_base - INFO - [baseline_base.py:261] - Training MultinomialNB with 8000 samples...
+2025-05-11 22:53:15,740 - models.baseline_base - INFO - [baseline_base.py:264] - MultinomialNB training complete.
+2025-05-11 22:53:15,740 - models.baseline_trainer - INFO - [baseline_trainer.py:194] - Model training phase for baseline-3 finished in 0.00s
+2025-05-11 22:53:15,740 - models.baseline_trainer - INFO - [baseline_trainer.py:199] - Saving model baseline-3...
+2025-05-11 22:53:15,915 - models.baseline_base - INFO - [baseline_base.py:288] - MultinomialNB model saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/baseline-3/sample8000/SNLI_baseline-3_sample8000_model.joblib
+2025-05-11 22:53:15,915 - models.baseline_base - INFO - [baseline_base.py:289] - Feature extractor (BoWExtractor) saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/baseline-3/sample8000/SNLI_baseline-3_sample8000_extractor.joblib
+2025-05-11 22:53:15,915 - models.baseline_trainer - INFO - [baseline_trainer.py:206] - Model baseline-3 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/baseline-3/sample8000 with base name: SNLI_baseline-3_sample8000
+2025-05-11 22:53:15,916 - __main__ - INFO - [main.py:123] - Training completed. Results: {'baseline-3': {'status': 'trained', 'train_time': 0.0029032230377197266}}
+Python script finished with exit code 0 for Task ID 3
+------------------------------------------------
+Job Task 3 finished.
+Total Runtime: 18 seconds
+------------------------------------------------

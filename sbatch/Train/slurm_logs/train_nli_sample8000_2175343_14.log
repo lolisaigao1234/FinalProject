@@ -1,0 +1,58 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: '14'
+Validated SLURM_ARRAY_TASK_ID: 14
+------------------------------------------------
+DEBUG: NUM_DATASETS=3, NUM_EXPERIMENTS=9, TOTAL_TASKS=27
+------------------------------------------------
+SLURM Job ID: 2175361
+SLURM Array Job ID: 2175343
+SLURM Array Task ID: 14 / 27
+Running on host: ccc0359.campuscluster.illinois.edu
+Node allocated: ccc0359
+Requested CPUs: 16
+Running Dataset: MNLI
+Running Experiment (Model Type): experiment-2
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for MNLI / experiment-2 (Task ID 14)...
+2025-05-11 22:54:33,382 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 22:54:35,230 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 22:54:35,230 - __main__ - INFO - [main.py:48] - Selected model type: experiment-2
+2025-05-11 22:54:35,230 - __main__ - INFO - [main.py:49] - Selected dataset: MNLI
+2025-05-11 22:54:35,230 - __main__ - INFO - [main.py:50] - Using device: cpu
+2025-05-11 22:54:35,230 - __main__ - INFO - [main.py:52] - Using sample size: 8000
+2025-05-11 22:54:35,230 - __main__ - INFO - [main.py:92] - Starting training for model: experiment-2
+2025-05-11 22:54:35,336 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:55] - Initialized ExperimentTrainer for model key: 'experiment-2', class: KnnBowSyntacticExperiment2, dataset: MNLI, suffix: sample8000
+2025-05-11 22:54:35,336 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:71] - Initializing model instance for experiment-2 (KnnBowSyntacticExperiment2)
+2025-05-11 22:54:35,336 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:93] - Model experiment-2 initialized successfully.
+2025-05-11 22:54:35,336 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:107] - --- Loading Pre-computed Features for experiment-2 on MNLI (train/sample8000) ---
+2025-05-11 22:54:35,336 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:115] - Loading pre-computed features using SimpleParquetLoader...
+2025-05-11 22:54:35,336 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:128] - Attempting to load feature file matching: dataset='MNLI', split='train', suffix='sample8000'
+2025-05-11 22:54:35,336 - models.baseline_base - INFO - [baseline_base.py:622] - SimpleParquetLoader: Searching for features in cache/parquet/MNLI/train for MNLI/train/sample8000
+2025-05-11 22:54:35,369 - models.baseline_base - INFO - [baseline_base.py:685] - SimpleParquetLoader: Loading final features from: cache/parquet/MNLI/train/MNLI_train_features_stats_syntactic_sample8000.parquet
+2025-05-11 22:54:35,390 - models.baseline_base - INFO - [baseline_base.py:687] - SimpleParquetLoader: Loaded 8000 rows from cache/parquet/MNLI/train/MNLI_train_features_stats_syntactic_sample8000.parquet
+2025-05-11 22:54:35,390 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:153] - Loaded 8000 rows with 250 columns from pre-computed feature file.
+2025-05-11 22:54:35,391 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:163] - Feature data cleaned. 8000 samples remaining.
+2025-05-11 22:54:35,391 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:172] - Extracting/Selecting features using experiment-2.extract_features...
+2025-05-11 22:54:35,391 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:103] - Training Experiment 2: KNN + Syntactic Features: Storing 240 feature columns.
+2025-05-11 22:54:35,396 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:182] - Training features prepared. Shape: (8000, 240)
+2025-05-11 22:54:35,396 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:183] - Training labels prepared. Length: 8000
+2025-05-11 22:54:35,488 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:194] - Data loading and preparation phase finished in 0.15s
+2025-05-11 22:54:35,489 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:198] - --- Starting model training for experiment-2 on MNLI (sample8000) ---
+2025-05-11 22:54:35,489 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:157] - Training Experiment 2: KNN + Syntactic Features with 8000 samples and 240 features...
+2025-05-11 22:54:35,506 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:170] - Experiment 2: KNN + Syntactic Features training complete in 0.02 seconds.
+2025-05-11 22:54:35,506 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:217] - Model training phase for experiment-2 finished in 0.02s
+2025-05-11 22:54:35,597 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:226] - Saving model experiment-2...
+2025-05-11 22:54:35,706 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:329] - Experiment 2: KNN + Syntactic Features pipeline saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-2/sample8000/MNLI_experiment-2_sample8000_pipeline.joblib
+2025-05-11 22:54:35,706 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:330] - Experiment 2: KNN + Syntactic Features feature columns saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-2/sample8000/MNLI_experiment-2_sample8000_feature_cols.joblib
+2025-05-11 22:54:35,706 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:231] - Model experiment-2 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-2/sample8000 with base name: MNLI_experiment-2_sample8000
+2025-05-11 22:54:35,706 - __main__ - INFO - [main.py:123] - Training completed. Results: {'experiment-2': {'status': 'trained', 'train_time': 0.01765727996826172}}
+Python script finished with exit code 0 for Task ID 14
+------------------------------------------------
+Job Task 14 finished.
+Total Runtime: 7 seconds
+------------------------------------------------

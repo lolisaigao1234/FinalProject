@@ -1,0 +1,58 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: '4'
+Validated SLURM_ARRAY_TASK_ID: 4
+------------------------------------------------
+DEBUG: NUM_DATASETS=3, NUM_EXPERIMENTS=9, TOTAL_TASKS=27
+------------------------------------------------
+SLURM Job ID: 2175347
+SLURM Array Job ID: 2175343
+SLURM Array Task ID: 4 / 27
+Running on host: ccc0359.campuscluster.illinois.edu
+Node allocated: ccc0359
+Requested CPUs: 16
+Running Dataset: SNLI
+Running Experiment (Model Type): experiment-1
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for SNLI / experiment-1 (Task ID 4)...
+2025-05-11 22:53:07,579 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 22:53:15,471 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 22:53:15,471 - __main__ - INFO - [main.py:48] - Selected model type: experiment-1
+2025-05-11 22:53:15,471 - __main__ - INFO - [main.py:49] - Selected dataset: SNLI
+2025-05-11 22:53:15,471 - __main__ - INFO - [main.py:50] - Using device: cpu
+2025-05-11 22:53:15,471 - __main__ - INFO - [main.py:52] - Using sample size: 8000
+2025-05-11 22:53:15,471 - __main__ - INFO - [main.py:92] - Starting training for model: experiment-1
+2025-05-11 22:53:15,523 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:55] - Initialized ExperimentTrainer for model key: 'experiment-1', class: DecisionTreeSyntacticExperiment1, dataset: SNLI, suffix: sample8000
+2025-05-11 22:53:15,523 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:71] - Initializing model instance for experiment-1 (DecisionTreeSyntacticExperiment1)
+2025-05-11 22:53:15,523 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:93] - Model experiment-1 initialized successfully.
+2025-05-11 22:53:15,523 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:107] - --- Loading Pre-computed Features for experiment-1 on SNLI (train/sample8000) ---
+2025-05-11 22:53:15,523 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:115] - Loading pre-computed features using SimpleParquetLoader...
+2025-05-11 22:53:15,523 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:128] - Attempting to load feature file matching: dataset='SNLI', split='train', suffix='sample8000'
+2025-05-11 22:53:15,523 - models.baseline_base - INFO - [baseline_base.py:622] - SimpleParquetLoader: Searching for features in cache/parquet/SNLI/train for SNLI/train/sample8000
+2025-05-11 22:53:15,602 - models.baseline_base - INFO - [baseline_base.py:685] - SimpleParquetLoader: Loading final features from: cache/parquet/SNLI/train/SNLI_train_features_stats_syntactic_sample8000.parquet
+2025-05-11 22:53:15,622 - models.baseline_base - INFO - [baseline_base.py:687] - SimpleParquetLoader: Loaded 8000 rows from cache/parquet/SNLI/train/SNLI_train_features_stats_syntactic_sample8000.parquet
+2025-05-11 22:53:15,622 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:153] - Loaded 8000 rows with 239 columns from pre-computed feature file.
+2025-05-11 22:53:15,622 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:163] - Feature data cleaned. 8000 samples remaining.
+2025-05-11 22:53:15,623 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:172] - Extracting/Selecting features using experiment-1.extract_features...
+2025-05-11 22:53:15,623 - models.decision_tree_hand_crafted_syntactic_features_experiment_1 - INFO - [decision_tree_hand_crafted_syntactic_features_experiment_1.py:150] - Training Experiment 1: Decision Tree + Syntactic Features: Storing 229 feature columns.
+2025-05-11 22:53:15,634 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:182] - Training features prepared. Shape: (8000, 229)
+2025-05-11 22:53:15,635 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:183] - Training labels prepared. Length: 8000
+2025-05-11 22:53:15,734 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:194] - Data loading and preparation phase finished in 0.21s
+2025-05-11 22:53:15,735 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:198] - --- Starting model training for experiment-1 on SNLI (sample8000) ---
+2025-05-11 22:53:15,735 - models.decision_tree_hand_crafted_syntactic_features_experiment_1 - INFO - [decision_tree_hand_crafted_syntactic_features_experiment_1.py:186] - Training Experiment 1: Decision Tree + Syntactic Features with 8000 samples and 229 features...
+2025-05-11 22:53:15,994 - models.decision_tree_hand_crafted_syntactic_features_experiment_1 - INFO - [decision_tree_hand_crafted_syntactic_features_experiment_1.py:197] - Experiment 1: Decision Tree + Syntactic Features training complete in 0.26 seconds.
+2025-05-11 22:53:15,994 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:217] - Model training phase for experiment-1 finished in 0.26s
+2025-05-11 22:53:16,089 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:226] - Saving model experiment-1...
+2025-05-11 22:53:19,376 - models.decision_tree_hand_crafted_syntactic_features_experiment_1 - INFO - [decision_tree_hand_crafted_syntactic_features_experiment_1.py:307] - Experiment 1: Decision Tree + Syntactic Features pipeline saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/experiment-1/sample8000/SNLI_experiment-1_sample8000_pipeline.joblib
+2025-05-11 22:53:19,376 - models.decision_tree_hand_crafted_syntactic_features_experiment_1 - INFO - [decision_tree_hand_crafted_syntactic_features_experiment_1.py:308] - Experiment 1: Decision Tree + Syntactic Features feature columns saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/experiment-1/sample8000/SNLI_experiment-1_sample8000_feature_cols.joblib
+2025-05-11 22:53:19,376 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:231] - Model experiment-1 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/experiment-1/sample8000 with base name: SNLI_experiment-1_sample8000
+2025-05-11 22:53:19,376 - __main__ - INFO - [main.py:123] - Training completed. Results: {'experiment-1': {'status': 'trained', 'train_time': 0.25940918922424316}}
+Python script finished with exit code 0 for Task ID 4
+------------------------------------------------
+Job Task 4 finished.
+Total Runtime: 18 seconds
+------------------------------------------------

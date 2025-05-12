@@ -50,3 +50,10 @@ Starting Python script for SNLI / experiment-6 (Task ID 9)...
 2025-05-11 22:42:03,633 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:194] - Data loading and preparation phase finished in 15.38s
 2025-05-11 22:42:03,633 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:198] - --- Starting model training for experiment-6 on SNLI (sample10000) ---
 2025-05-11 22:42:03,633 - models.gradient_boosting_tfidf_syntactic_experiment_6 - INFO - [gradient_boosting_tfidf_syntactic_experiment_6.py:347] - Converting sparse training data to dense for Gradient Boosting.
+/var/spool/slurmd/job2174751/slurm_script: line 129: 1487462 Killed                  python -u main.py --dataset "$CURRENT_DATASET" --mode train --model_type "$CURRENT_EXPERIMENT" --sample_size 10000 --fp16 --force_reprocess
+Python script finished with exit code 137 for Task ID 9
+------------------------------------------------
+Job Task 9 finished.
+Total Runtime: 35 seconds
+------------------------------------------------
+slurmstepd: error: Detected 1 oom_kill event in StepId=2174751.batch. Some of the step tasks have been OOM Killed.

@@ -1,0 +1,67 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: '21'
+Validated SLURM_ARRAY_TASK_ID: 21
+------------------------------------------------
+DEBUG: NUM_DATASETS=3, NUM_EXPERIMENTS=9, TOTAL_TASKS=27
+------------------------------------------------
+SLURM Job ID: 2175008
+SLURM Array Job ID: 2174740
+SLURM Array Task ID: 21 / 27
+Running on host: ccc0290.campuscluster.illinois.edu
+Node allocated: ccc0290
+Requested CPUs: 16
+Running Dataset: ANLI
+Running Experiment (Model Type): baseline-3
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for ANLI / baseline-3 (Task ID 21)...
+2025-05-11 22:44:13,592 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 22:44:15,564 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 22:44:15,564 - __main__ - INFO - [main.py:48] - Selected model type: baseline-3
+2025-05-11 22:44:15,564 - __main__ - INFO - [main.py:49] - Selected dataset: ANLI
+2025-05-11 22:44:15,564 - __main__ - INFO - [main.py:50] - Using device: cpu
+2025-05-11 22:44:15,564 - __main__ - INFO - [main.py:52] - Using sample size: 10000
+2025-05-11 22:44:15,564 - __main__ - INFO - [main.py:92] - Starting training for model: baseline-3
+2025-05-11 22:44:15,568 - models.baseline_trainer - INFO - [baseline_trainer.py:49] - Initialized Trainer for model key: 'baseline-3', class: MultinomialNaiveBayesBaseline, dataset: ANLI, suffix: sample10000
+2025-05-11 22:44:15,568 - models.baseline_trainer - INFO - [baseline_trainer.py:64] - Initializing model instance for baseline-3 (MultinomialNaiveBayesBaseline)
+2025-05-11 22:44:15,568 - models.baseline_trainer - WARNING - [baseline_trainer.py:82] - Attempting to initialize model with the 'args' object. Ensure model __init__ handles this.
+2025-05-11 22:44:15,568 - models.baseline_trainer - INFO - [baseline_trainer.py:101] - Model baseline-3 initialized successfully.
+2025-05-11 22:44:15,568 - models.baseline_trainer - INFO - [baseline_trainer.py:117] - --- Loading and preprocessing data for baseline-3 on ANLI (train/sample10000) ---
+2025-05-11 22:44:15,568 - models.baseline_trainer - INFO - [baseline_trainer.py:126] - Loading raw training data...
+2025-05-11 22:44:15,568 - models.baseline_base - INFO - [baseline_base.py:335] - Attempting to load intermediate raw text data: ANLI/train/sample10000
+2025-05-11 22:44:15,569 - utils.database - WARNING - [database.py:84] - No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/ANLI/train/pairs_sample10000.parquet or final path for table 'pairs_sample10000'.
+2025-05-11 22:44:15,570 - utils.database - WARNING - [database.py:84] - No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/ANLI/train/sentences_sample10000.parquet or final path for table 'sentences_sample10000'.
+2025-05-11 22:44:15,571 - models.baseline_base - WARNING - [baseline_base.py:396] - Intermediate data (pairs_sample10000 or sentences_sample10000) not found or empty. Falling back to original data loader.
+2025-05-11 22:44:15,571 - models.baseline_base - WARNING - [baseline_base.py:406] - Executing fallback: Loading original raw data using DatasetLoader.
+2025-05-11 22:44:15,571 - data.data_loader - INFO - [data_loader.py:164] - Loading dataset: ANLI (HF: facebook/anli), Requested standard split: train
+2025-05-11 22:44:15,571 - data.data_loader - INFO - [data_loader.py:198] - Attempting to load processed ANLI/train from DB table: raw_data_train_full
+2025-05-11 22:44:15,571 - utils.database - INFO - [database.py:80] - Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/ANLI/train/raw_data_train_full.parquet
+2025-05-11 22:44:15,755 - data.data_loader - INFO - [data_loader.py:203] - Successfully loaded ANLI/train from DB. Shape: (162865, 8)
+2025-05-11 22:44:15,804 - models.baseline_base - INFO - [baseline_base.py:436] - Fallback data loaded successfully. Shape: (162865, 8)
+2025-05-11 22:44:15,815 - models.baseline_trainer - INFO - [baseline_trainer.py:135] - Loaded 162865 training samples.
+2025-05-11 22:44:15,815 - models.baseline_trainer - INFO - [baseline_trainer.py:138] - Cleaning training data and preparing labels...
+2025-05-11 22:44:15,816 - models.baseline_trainer - INFO - [baseline_trainer.py:143] - Training data cleaned. 162865 samples remaining.
+2025-05-11 22:44:15,816 - models.baseline_trainer - INFO - [baseline_trainer.py:156] - Fitting feature extractor on training data...
+2025-05-11 22:44:15,918 - models.baseline_base - INFO - [baseline_base.py:213] - Fitting CountVectorizer on 162865 combined texts...
+2025-05-11 22:44:20,246 - models.baseline_base - INFO - [baseline_base.py:217] - CountVectorizer fitted. Vocabulary size: 10000
+2025-05-11 22:44:20,271 - models.baseline_trainer - INFO - [baseline_trainer.py:160] - Extracting features from training data...
+2025-05-11 22:44:25,009 - models.baseline_trainer - INFO - [baseline_trainer.py:162] - Training features extracted. Shape: (162865, 20000)
+2025-05-11 22:44:25,010 - models.baseline_trainer - INFO - [baseline_trainer.py:169] - Data loading and feature extraction phase finished in 9.44s
+2025-05-11 22:44:25,010 - models.baseline_trainer - INFO - [baseline_trainer.py:173] - --- Starting model training for baseline-3 on ANLI (sample10000) ---
+2025-05-11 22:44:25,010 - models.baseline_base - INFO - [baseline_base.py:261] - Training MultinomialNB with 162865 samples...
+2025-05-11 22:44:25,054 - models.baseline_base - INFO - [baseline_base.py:264] - MultinomialNB training complete.
+2025-05-11 22:44:25,054 - models.baseline_trainer - INFO - [baseline_trainer.py:194] - Model training phase for baseline-3 finished in 0.04s
+2025-05-11 22:44:25,054 - models.baseline_trainer - INFO - [baseline_trainer.py:199] - Saving model baseline-3...
+2025-05-11 22:44:29,026 - models.baseline_base - INFO - [baseline_base.py:288] - MultinomialNB model saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/baseline-3/sample10000/ANLI_baseline-3_sample10000_model.joblib
+2025-05-11 22:44:29,027 - models.baseline_base - INFO - [baseline_base.py:289] - Feature extractor (BoWExtractor) saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/baseline-3/sample10000/ANLI_baseline-3_sample10000_extractor.joblib
+2025-05-11 22:44:29,027 - models.baseline_trainer - INFO - [baseline_trainer.py:206] - Model baseline-3 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/baseline-3/sample10000 with base name: ANLI_baseline-3_sample10000
+2025-05-11 22:44:29,044 - __main__ - INFO - [main.py:123] - Training completed. Results: {'baseline-3': {'status': 'trained', 'train_time': 0.04390835762023926}}
+Python script finished with exit code 0 for Task ID 21
+------------------------------------------------
+Job Task 21 finished.
+Total Runtime: 21 seconds
+------------------------------------------------

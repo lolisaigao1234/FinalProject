@@ -19,3 +19,48 @@ Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
 OMP_NUM_THREADS set to 16
 Changed directory to /u/jywu3/scratch/IS567FP
 Starting Python script for MNLI / baseline-1 (Task ID 10)...
+2025-05-11 22:42:13,207 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 22:42:15,496 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 22:42:15,496 - __main__ - INFO - [main.py:48] - Selected model type: baseline-1
+2025-05-11 22:42:15,496 - __main__ - INFO - [main.py:49] - Selected dataset: MNLI
+2025-05-11 22:42:15,496 - __main__ - INFO - [main.py:50] - Using device: cpu
+2025-05-11 22:42:15,496 - __main__ - INFO - [main.py:52] - Using sample size: 10000
+2025-05-11 22:42:15,496 - __main__ - INFO - [main.py:92] - Starting training for model: baseline-1
+2025-05-11 22:42:15,516 - models.baseline_trainer - INFO - [baseline_trainer.py:49] - Initialized Trainer for model key: 'baseline-1', class: DecisionTreeBowBaseline, dataset: MNLI, suffix: sample10000
+2025-05-11 22:42:15,516 - models.baseline_trainer - INFO - [baseline_trainer.py:64] - Initializing model instance for baseline-1 (DecisionTreeBowBaseline)
+2025-05-11 22:42:15,516 - models.baseline_trainer - WARNING - [baseline_trainer.py:82] - Attempting to initialize model with the 'args' object. Ensure model __init__ handles this.
+2025-05-11 22:42:15,516 - models.baseline_trainer - INFO - [baseline_trainer.py:101] - Model baseline-1 initialized successfully.
+2025-05-11 22:42:15,517 - models.baseline_trainer - INFO - [baseline_trainer.py:117] - --- Loading and preprocessing data for baseline-1 on MNLI (train/sample10000) ---
+2025-05-11 22:42:15,517 - models.baseline_trainer - INFO - [baseline_trainer.py:126] - Loading raw training data...
+2025-05-11 22:42:15,517 - models.baseline_base - INFO - [baseline_base.py:335] - Attempting to load intermediate raw text data: MNLI/train/sample10000
+2025-05-11 22:42:15,519 - utils.database - WARNING - [database.py:84] - No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/MNLI/train/pairs_sample10000.parquet or final path for table 'pairs_sample10000'.
+2025-05-11 22:42:15,521 - utils.database - WARNING - [database.py:84] - No data found at intermediate path /scratch/jywu3/IS567FP/cache/parquet/MNLI/train/sentences_sample10000.parquet or final path for table 'sentences_sample10000'.
+2025-05-11 22:42:15,521 - models.baseline_base - WARNING - [baseline_base.py:396] - Intermediate data (pairs_sample10000 or sentences_sample10000) not found or empty. Falling back to original data loader.
+2025-05-11 22:42:15,521 - models.baseline_base - WARNING - [baseline_base.py:406] - Executing fallback: Loading original raw data using DatasetLoader.
+2025-05-11 22:42:15,521 - data.data_loader - INFO - [data_loader.py:164] - Loading dataset: MNLI (HF: nyu-mll/multi_nli), Requested standard split: train
+2025-05-11 22:42:15,521 - data.data_loader - INFO - [data_loader.py:198] - Attempting to load processed MNLI/train from DB table: raw_data_train_full
+2025-05-11 22:42:15,522 - utils.database - INFO - [database.py:80] - Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/MNLI/train/raw_data_train_full.parquet
+2025-05-11 22:42:20,272 - data.data_loader - INFO - [data_loader.py:203] - Successfully loaded MNLI/train from DB. Shape: (392702, 12)
+2025-05-11 22:42:20,496 - models.baseline_base - INFO - [baseline_base.py:436] - Fallback data loaded successfully. Shape: (392702, 12)
+2025-05-11 22:42:20,587 - models.baseline_trainer - INFO - [baseline_trainer.py:135] - Loaded 392702 training samples.
+2025-05-11 22:42:20,587 - models.baseline_trainer - INFO - [baseline_trainer.py:138] - Cleaning training data and preparing labels...
+2025-05-11 22:42:20,588 - models.baseline_trainer - INFO - [baseline_trainer.py:143] - Training data cleaned. 392702 samples remaining.
+2025-05-11 22:42:20,588 - models.baseline_trainer - INFO - [baseline_trainer.py:156] - Fitting feature extractor on training data...
+2025-05-11 22:42:20,589 - models.baseline_trainer - INFO - [baseline_trainer.py:160] - Extracting features from training data...
+2025-05-11 22:42:20,589 - models.decision_tree_bow_baseline - INFO - [decision_tree_bow_baseline.py:78] - Extracting BoW features using self.extractor...
+2025-05-11 22:42:25,681 - models.baseline_trainer - INFO - [baseline_trainer.py:162] - Training features extracted. Shape: (392702, 4)
+2025-05-11 22:42:25,681 - models.baseline_trainer - INFO - [baseline_trainer.py:169] - Data loading and feature extraction phase finished in 10.16s
+2025-05-11 22:42:25,681 - models.baseline_trainer - INFO - [baseline_trainer.py:173] - --- Starting model training for baseline-1 on MNLI (sample10000) ---
+2025-05-11 22:42:25,684 - models.decision_tree_bow_baseline - INFO - [decision_tree_bow_baseline.py:101] - Training Decision Tree model (self.model)...
+2025-05-11 22:42:25,726 - models.decision_tree_bow_baseline - INFO - [decision_tree_bow_baseline.py:106] - Training finished in 0.04s.
+2025-05-11 22:42:25,726 - models.baseline_trainer - INFO - [baseline_trainer.py:194] - Model training phase for baseline-1 finished in 0.04s
+2025-05-11 22:42:25,726 - models.baseline_trainer - INFO - [baseline_trainer.py:199] - Saving model baseline-1...
+2025-05-11 22:42:25,733 - models.decision_tree_bow_baseline - INFO - [decision_tree_bow_baseline.py:178] - Model saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/baseline-1/sample10000/MNLI_baseline-1_sample10000_model.joblib
+2025-05-11 22:42:25,737 - models.decision_tree_bow_baseline - INFO - [decision_tree_bow_baseline.py:183] - Extractor saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/baseline-1/sample10000/MNLI_baseline-1_sample10000_extractor.joblib
+2025-05-11 22:42:25,737 - models.baseline_trainer - INFO - [baseline_trainer.py:206] - Model baseline-1 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/baseline-1/sample10000 with base name: MNLI_baseline-1_sample10000
+2025-05-11 22:42:25,828 - __main__ - INFO - [main.py:123] - Training completed. Results: {'baseline-1': {'status': 'trained', 'train_time': 0.044689178466796875}}
+Python script finished with exit code 0 for Task ID 10
+------------------------------------------------
+Job Task 10 finished.
+Total Runtime: 17 seconds
+------------------------------------------------

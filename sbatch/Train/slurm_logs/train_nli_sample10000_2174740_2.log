@@ -54,3 +54,15 @@ Starting Python script for SNLI / baseline-2 (Task ID 2)...
 2025-05-11 22:41:42,164 - models.baseline_trainer - INFO - [baseline_trainer.py:169] - Data loading and feature extraction phase finished in 20.97s
 2025-05-11 22:41:42,164 - models.baseline_trainer - INFO - [baseline_trainer.py:173] - --- Starting model training for baseline-2 on SNLI (sample10000) ---
 2025-05-11 22:41:42,164 - models.baseline_base - INFO - [baseline_base.py:261] - Training LogisticRegression with 549367 samples...
+2025-05-11 22:42:22,496 - models.baseline_base - INFO - [baseline_base.py:264] - LogisticRegression training complete.
+2025-05-11 22:42:22,496 - models.baseline_trainer - INFO - [baseline_trainer.py:194] - Model training phase for baseline-2 finished in 40.33s
+2025-05-11 22:42:22,496 - models.baseline_trainer - INFO - [baseline_trainer.py:199] - Saving model baseline-2...
+2025-05-11 22:42:23,173 - models.baseline_base - INFO - [baseline_base.py:288] - LogisticRegression model saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/baseline-2/sample10000/SNLI_baseline-2_sample10000_model.joblib
+2025-05-11 22:42:23,173 - models.baseline_base - INFO - [baseline_base.py:289] - Feature extractor (TFIDFExtractor) saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/baseline-2/sample10000/SNLI_baseline-2_sample10000_extractor.joblib
+2025-05-11 22:42:23,173 - models.baseline_trainer - INFO - [baseline_trainer.py:206] - Model baseline-2 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/baseline-2/sample10000 with base name: SNLI_baseline-2_sample10000
+2025-05-11 22:42:23,294 - __main__ - INFO - [main.py:123] - Training completed. Results: {'baseline-2': {'status': 'trained', 'train_time': 40.33258247375488}}
+Python script finished with exit code 0 for Task ID 2
+------------------------------------------------
+Job Task 2 finished.
+Total Runtime: 76 seconds
+------------------------------------------------

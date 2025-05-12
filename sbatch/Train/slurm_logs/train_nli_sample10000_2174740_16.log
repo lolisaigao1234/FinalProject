@@ -1,0 +1,71 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: '16'
+Validated SLURM_ARRAY_TASK_ID: 16
+------------------------------------------------
+DEBUG: NUM_DATASETS=3, NUM_EXPERIMENTS=9, TOTAL_TASKS=27
+------------------------------------------------
+SLURM Job ID: 2175000
+SLURM Array Job ID: 2174740
+SLURM Array Task ID: 16 / 27
+Running on host: ccc0291.campuscluster.illinois.edu
+Node allocated: ccc0291
+Requested CPUs: 16
+Running Dataset: MNLI
+Running Experiment (Model Type): experiment-4
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for MNLI / experiment-4 (Task ID 16)...
+2025-05-11 22:43:13,274 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 22:43:15,793 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 22:43:15,793 - __main__ - INFO - [main.py:48] - Selected model type: experiment-4
+2025-05-11 22:43:15,793 - __main__ - INFO - [main.py:49] - Selected dataset: MNLI
+2025-05-11 22:43:15,793 - __main__ - INFO - [main.py:50] - Using device: cpu
+2025-05-11 22:43:15,793 - __main__ - INFO - [main.py:52] - Using sample size: 10000
+2025-05-11 22:43:15,793 - __main__ - INFO - [main.py:92] - Starting training for model: experiment-4
+2025-05-11 22:43:15,866 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:55] - Initialized ExperimentTrainer for model key: 'experiment-4', class: MultinomialNaiveBayesBowSyntacticExperiment4, dataset: MNLI, suffix: sample10000
+2025-05-11 22:43:15,866 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:71] - Initializing model instance for experiment-4 (MultinomialNaiveBayesBowSyntacticExperiment4)
+2025-05-11 22:43:15,866 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:145] - Initialized MultinomialNaiveBayesBowSyntacticExperiment4 with: alpha=1.0, bow_max_features=10000, bow_ngram_range=(1, 1), scale_syntactic=True
+2025-05-11 22:43:15,866 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:93] - Model experiment-4 initialized successfully.
+2025-05-11 22:43:15,866 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:107] - --- Loading Pre-computed Features for experiment-4 on MNLI (train/sample10000) ---
+2025-05-11 22:43:15,866 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:115] - Loading pre-computed features using SimpleParquetLoader...
+2025-05-11 22:43:15,866 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:128] - Attempting to load feature file matching: dataset='MNLI', split='train', suffix='sample10000'
+2025-05-11 22:43:15,866 - models.baseline_base - INFO - [baseline_base.py:622] - SimpleParquetLoader: Searching for features in cache/parquet/MNLI/train for MNLI/train/sample10000
+2025-05-11 22:43:16,505 - models.baseline_base - INFO - [baseline_base.py:685] - SimpleParquetLoader: Loading final features from: cache/parquet/MNLI/train/MNLI_train_features_stats_syntactic_full.parquet
+2025-05-11 22:43:17,068 - models.baseline_base - INFO - [baseline_base.py:687] - SimpleParquetLoader: Loaded 392702 rows from cache/parquet/MNLI/train/MNLI_train_features_stats_syntactic_full.parquet
+2025-05-11 22:43:17,068 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:153] - Loaded 392702 rows with 255 columns from pre-computed feature file.
+2025-05-11 22:43:17,075 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:163] - Feature data cleaned. 392702 samples remaining.
+2025-05-11 22:43:17,076 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:172] - Extracting/Selecting features using experiment-4.extract_features...
+2025-05-11 22:43:17,076 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:423] - Model not trained yet. Assuming training context: Building/Fitting pipeline...
+2025-05-11 22:43:17,076 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:288] - Exp4: Building feature pipeline...
+2025-05-11 22:43:17,076 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:293] - Using max_features per text part (premise/hypothesis): 5000
+2025-05-11 22:43:17,076 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - WARNING - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:311] - Re-inferring syntactic columns during pipeline build.
+2025-05-11 22:43:17,076 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:327] - Adding MinMaxScaler for syntactic features.
+2025-05-11 22:43:17,076 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:344] - Including BoW features in FeatureUnion.
+2025-05-11 22:43:17,076 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:351] - Including 245 syntactic features in FeatureUnion.
+2025-05-11 22:43:17,076 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:363] - Exp4: Feature pipeline built.
+2025-05-11 22:43:17,076 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:429] - Fitting feature pipeline and transforming training data...
+2025-05-11 22:43:26,091 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:440] - Pipeline fit & transform completed in 9.02s. Output shape: (392702, 10245)
+2025-05-11 22:43:26,092 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:182] - Training features prepared. Shape: (392702, 10245)
+2025-05-11 22:43:26,092 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:183] - Training labels prepared. Length: 392702
+2025-05-11 22:43:26,201 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:194] - Data loading and preparation phase finished in 10.33s
+2025-05-11 22:43:26,201 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:198] - --- Starting model training for experiment-4 on MNLI (sample10000) ---
+2025-05-11 22:43:26,212 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:393] - Training MultinomialNB classifier on processed data with shape: (392702, 10245)
+2025-05-11 22:43:26,347 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:398] - MultinomialNB classifier training completed successfully.
+2025-05-11 22:43:26,347 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:405] - Classifier training phase completed in 0.14s.
+2025-05-11 22:43:26,347 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:217] - Model training phase for experiment-4 finished in 0.15s
+2025-05-11 22:43:26,434 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:226] - Saving model experiment-4...
+2025-05-11 22:43:26,434 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:495] - Saving Exp4 model to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-4/sample10000/MNLI_experiment-4_sample10000_model.joblib
+2025-05-11 22:43:26,434 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:496] - Saving Exp4 pipeline to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-4/sample10000/MNLI_experiment-4_sample10000_pipeline.joblib
+2025-05-11 22:43:26,434 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:497] - Saving Exp4 metadata to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-4/sample10000/MNLI_experiment-4_sample10000_metadata.joblib
+2025-05-11 22:43:27,222 - models.multinomial_naive_bayes_bow_syntactic_experiment_4 - INFO - [multinomial_naive_bayes_bow_syntactic_experiment_4.py:513] - Exp4 Model, Pipeline, and Metadata saved successfully.
+2025-05-11 22:43:27,222 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:231] - Model experiment-4 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-4/sample10000 with base name: MNLI_experiment-4_sample10000
+2025-05-11 22:43:27,253 - __main__ - INFO - [main.py:123] - Training completed. Results: {'experiment-4': {'status': 'trained', 'train_time': 0.14586496353149414}}
+Python script finished with exit code 0 for Task ID 16
+------------------------------------------------
+Job Task 16 finished.
+Total Runtime: 18 seconds
+------------------------------------------------

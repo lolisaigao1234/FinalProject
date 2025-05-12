@@ -1,0 +1,58 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: '23'
+Validated SLURM_ARRAY_TASK_ID: 23
+------------------------------------------------
+DEBUG: NUM_DATASETS=3, NUM_EXPERIMENTS=9, TOTAL_TASKS=27
+------------------------------------------------
+SLURM Job ID: 2175032
+SLURM Array Job ID: 2174740
+SLURM Array Task ID: 23 / 27
+Running on host: ccc0291.campuscluster.illinois.edu
+Node allocated: ccc0291
+Requested CPUs: 16
+Running Dataset: ANLI
+Running Experiment (Model Type): experiment-2
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for ANLI / experiment-2 (Task ID 23)...
+2025-05-11 22:45:02,643 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 22:45:08,394 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 22:45:08,394 - __main__ - INFO - [main.py:48] - Selected model type: experiment-2
+2025-05-11 22:45:08,394 - __main__ - INFO - [main.py:49] - Selected dataset: ANLI
+2025-05-11 22:45:08,394 - __main__ - INFO - [main.py:50] - Using device: cpu
+2025-05-11 22:45:08,394 - __main__ - INFO - [main.py:52] - Using sample size: 10000
+2025-05-11 22:45:08,394 - __main__ - INFO - [main.py:92] - Starting training for model: experiment-2
+2025-05-11 22:45:10,605 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:55] - Initialized ExperimentTrainer for model key: 'experiment-2', class: KnnBowSyntacticExperiment2, dataset: ANLI, suffix: sample10000
+2025-05-11 22:45:10,605 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:71] - Initializing model instance for experiment-2 (KnnBowSyntacticExperiment2)
+2025-05-11 22:45:10,605 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:93] - Model experiment-2 initialized successfully.
+2025-05-11 22:45:10,605 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:107] - --- Loading Pre-computed Features for experiment-2 on ANLI (train/sample10000) ---
+2025-05-11 22:45:10,605 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:115] - Loading pre-computed features using SimpleParquetLoader...
+2025-05-11 22:45:10,605 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:128] - Attempting to load feature file matching: dataset='ANLI', split='train', suffix='sample10000'
+2025-05-11 22:45:10,605 - models.baseline_base - INFO - [baseline_base.py:622] - SimpleParquetLoader: Searching for features in cache/parquet/ANLI/train for ANLI/train/sample10000
+2025-05-11 22:45:20,521 - models.baseline_base - INFO - [baseline_base.py:685] - SimpleParquetLoader: Loading final features from: cache/parquet/ANLI/train/ANLI_train_features_stats_syntactic_full.parquet
+2025-05-11 22:45:21,244 - models.baseline_base - INFO - [baseline_base.py:687] - SimpleParquetLoader: Loaded 740653 rows from cache/parquet/ANLI/train/ANLI_train_features_stats_syntactic_full.parquet
+2025-05-11 22:45:21,244 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:153] - Loaded 740653 rows with 253 columns from pre-computed feature file.
+2025-05-11 22:45:21,248 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:163] - Feature data cleaned. 740653 samples remaining.
+2025-05-11 22:45:21,248 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:172] - Extracting/Selecting features using experiment-2.extract_features...
+2025-05-11 22:45:21,249 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:103] - Training Experiment 2: KNN + Syntactic Features: Storing 243 feature columns.
+2025-05-11 22:45:21,498 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:182] - Training features prepared. Shape: (740653, 243)
+2025-05-11 22:45:21,498 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:183] - Training labels prepared. Length: 740653
+2025-05-11 22:45:21,585 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:194] - Data loading and preparation phase finished in 10.98s
+2025-05-11 22:45:21,585 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:198] - --- Starting model training for experiment-2 on ANLI (sample10000) ---
+2025-05-11 22:45:21,585 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:157] - Training Experiment 2: KNN + Syntactic Features with 740653 samples and 243 features...
+2025-05-11 22:45:22,904 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:170] - Experiment 2: KNN + Syntactic Features training complete in 1.32 seconds.
+2025-05-11 22:45:22,904 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:217] - Model training phase for experiment-2 finished in 1.32s
+2025-05-11 22:45:23,006 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:226] - Saving model experiment-2...
+2025-05-11 22:45:39,086 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:329] - Experiment 2: KNN + Syntactic Features pipeline saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/experiment-2/sample10000/ANLI_experiment-2_sample10000_pipeline.joblib
+2025-05-11 22:45:39,086 - models.knn_bow_hand_crafted_syntactic_features_experiment_2 - INFO - [knn_bow_hand_crafted_syntactic_features_experiment_2.py:330] - Experiment 2: KNN + Syntactic Features feature columns saved to /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/experiment-2/sample10000/ANLI_experiment-2_sample10000_feature_cols.joblib
+2025-05-11 22:45:39,086 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:231] - Model experiment-2 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/ANLI/experiment-2/sample10000 with base name: ANLI_experiment-2_sample10000
+2025-05-11 22:45:39,095 - __main__ - INFO - [main.py:123] - Training completed. Results: {'experiment-2': {'status': 'trained', 'train_time': 1.318723201751709}}
+Python script finished with exit code 0 for Task ID 23
+------------------------------------------------
+Job Task 23 finished.
+Total Runtime: 47 seconds
+------------------------------------------------

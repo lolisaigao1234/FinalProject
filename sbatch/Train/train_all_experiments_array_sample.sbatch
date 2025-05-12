@@ -124,7 +124,7 @@ python -u main.py \
   --dataset "$CURRENT_DATASET" \
   --mode train \
   --model_type "$CURRENT_EXPERIMENT" \
-  --sample_size 10000 \
+  --sample_size 8000 \
   --fp16 \
   --force_reprocess
 

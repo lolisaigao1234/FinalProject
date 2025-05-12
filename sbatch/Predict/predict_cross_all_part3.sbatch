@@ -3,20 +3,21 @@
 #SBATCH --job-name=predict_nli_p3        # Job name (Part 3)
 #SBATCH --output=slurm_logs/%A_%j/predict_all_p3_%A_%a.out # Standard output log
 #SBATCH --error=slurm_logs/%A_%j/predict_all_p3_%A_%a.err  # Standard error log
-#SBATCH --nodes=1                             # Run all processes on a single node
-#SBATCH --ntasks-per-node=1                            # Run a single task
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=16
+#SBATCH --mem-per-cpu=2G  # Request 4GB per task (16 tasks * 4GB = 64GB per node)
 #SBATCH --cpus-per-task=16                    # Number of CPU cores per task
 #SBATCH --mem=64G                             # Job memory request
 #SBATCH --time=72:00:00                       # Time limit hrs:min:sec
-#SBATCH --partition=IllinoisComputes                  # <<< ADJUST for your GPU partition (e.g., gpu, a100)
+#SBATCH --partition=IllinoisComputes                 # <<< ADJUST for your GPU partition (e.g., gpu, a100)
 #SBATCH --array=0-26                          # Array range: 3 models * 3 trained_on * 3 predict_on = 27 tasks
 #SBATCH --account=jywu3-ic                  # <<< YOUR ACCOUNT HERE >>>
-#SBATCH --mail-type=END,FAIL                # Optional: Get email notifications
+#SBATCH --mail-type=END,FAIL,START                # Optional: Get email notifications
 #SBATCH --mail-user=jywu3@illinois.edu      # Optional: <<< YOUR EMAIL HERE >>>
 
 # --- User Configuration ---
-MODEL_SUFFIX="full"                           # Suffix used during training (e.g., full, sampleXXX)
-INPUT_SUFFIX="full"                           # Suffix for the input *test* feature files
+MODEL_SUFFIX="sample10000"                           # Suffix used during training (e.g., full, sampleXXX)
+INPUT_SUFFIX="sample10000"                           # Suffix for the input *test* feature files
 PROJECT_DIR="/u/jywu3/scratch/IS567FP"            # <<< CHANGE THIS to the absolute path of your project
 ENV_NAME="IS567"             # <<< CHANGE THIS to your conda installation path (e.g., ~/miniconda3)
 # --------------------------

@@ -49,3 +49,4 @@ Starting Python script for SNLI / experiment-8 (Task ID )...
 2025-05-11 02:12:15,673 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:197] - --- Running Cross-Validation for: RandomForest ---
 2025-05-11 02:13:20,375 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:227] - Finished CV for RandomForest in 64.70s. Avg F1: 0.4721
 2025-05-11 02:13:20,498 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:197] - --- Running Cross-Validation for: GradientBoosting ---
+slurmstepd: error: *** JOB 2164650 ON ccc0388 CANCELLED AT 2025-05-11T19:12:20 ***

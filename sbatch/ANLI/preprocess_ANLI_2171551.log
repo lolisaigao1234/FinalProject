@@ -1,0 +1,9 @@
+Starting ANLI preprocessing job...
+2025-05-11 19:13:15,658 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 19:13:19,263 - __main__ - INFO - [main.py:47] - Running mode: preprocess
+2025-05-11 19:13:19,263 - __main__ - INFO - [main.py:48] - Selected model type: baseline-1
+2025-05-11 19:13:19,263 - __main__ - INFO - [main.py:49] - Selected dataset: ANLI
+2025-05-11 19:13:19,263 - __main__ - INFO - [main.py:50] - Using device: cuda
+2025-05-11 19:13:19,263 - __main__ - INFO - [main.py:52] - Using sample size: 10000
+2025-05-11 19:13:19,263 - __main__ - INFO - [main.py:60] - Starting preprocessing...
+2025-05-11 19:13:19,263 - TextPreprocessor - INFO - [preprocessor.py:126] - Initializing Stanza pipeline. GPU available: True, Num Threads: 4

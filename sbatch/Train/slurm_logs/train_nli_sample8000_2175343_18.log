@@ -51,3 +51,17 @@ Starting Python script for MNLI / experiment-6 (Task ID 18)...
 2025-05-11 22:55:27,249 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:198] - --- Starting model training for experiment-6 on MNLI (sample8000) ---
 2025-05-11 22:55:27,249 - models.gradient_boosting_tfidf_syntactic_experiment_6 - INFO - [gradient_boosting_tfidf_syntactic_experiment_6.py:347] - Converting sparse training data to dense for Gradient Boosting.
 2025-05-11 22:55:27,424 - models.gradient_boosting_tfidf_syntactic_experiment_6 - INFO - [gradient_boosting_tfidf_syntactic_experiment_6.py:356] - Training GradientBoosting_TFIDF_Syntactic_Exp6 classifier on 8000 samples, 10240 features...
+2025-05-11 23:53:31,998 - models.gradient_boosting_tfidf_syntactic_experiment_6 - INFO - [gradient_boosting_tfidf_syntactic_experiment_6.py:370] - Classifier training complete in 3484.57s.
+2025-05-11 23:53:32,028 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:217] - Model training phase for experiment-6 finished in 3484.78s
+2025-05-11 23:53:32,159 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:226] - Saving model experiment-6...
+2025-05-11 23:53:32,159 - models.gradient_boosting_tfidf_syntactic_experiment_6 - INFO - [gradient_boosting_tfidf_syntactic_experiment_6.py:473] - Saving GradientBoosting_TFIDF_Syntactic_Exp6 feature pipeline to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-6/sample8000/MNLI_experiment-6_sample8000_feature_pipeline.joblib
+2025-05-11 23:53:32,159 - models.gradient_boosting_tfidf_syntactic_experiment_6 - INFO - [gradient_boosting_tfidf_syntactic_experiment_6.py:474] - Saving GradientBoosting_TFIDF_Syntactic_Exp6 classifier to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-6/sample8000/MNLI_experiment-6_sample8000_classifier.joblib
+2025-05-11 23:53:32,159 - models.gradient_boosting_tfidf_syntactic_experiment_6 - INFO - [gradient_boosting_tfidf_syntactic_experiment_6.py:475] - Saving GradientBoosting_TFIDF_Syntactic_Exp6 metadata to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-6/sample8000/MNLI_experiment-6_sample8000_metadata.joblib
+2025-05-11 23:53:33,296 - models.gradient_boosting_tfidf_syntactic_experiment_6 - INFO - [gradient_boosting_tfidf_syntactic_experiment_6.py:481] - GradientBoosting_TFIDF_Syntactic_Exp6 components saved successfully.
+2025-05-11 23:53:33,296 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:231] - Model experiment-6 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-6/sample8000 with base name: MNLI_experiment-6_sample8000
+2025-05-11 23:53:33,298 - __main__ - INFO - [main.py:123] - Training completed. Results: {'experiment-6': {'status': 'trained', 'train_time': 3484.77872300148}}
+Python script finished with exit code 0 for Task ID 18
+------------------------------------------------
+Job Task 18 finished.
+Total Runtime: 3507 seconds
+------------------------------------------------

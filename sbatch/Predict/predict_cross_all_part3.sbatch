@@ -7,7 +7,6 @@
 #SBATCH --ntasks-per-node=16
 #SBATCH --mem-per-cpu=2G  # Request 4GB per task (16 tasks * 4GB = 64GB per node)
 #SBATCH --cpus-per-task=16                    # Number of CPU cores per task
-#SBATCH --mem=64G                             # Job memory request
 #SBATCH --time=72:00:00                       # Time limit hrs:min:sec
 #SBATCH --partition=IllinoisComputes                 # <<< ADJUST for your GPU partition (e.g., gpu, a100)
 #SBATCH --array=0-26                          # Array range: 3 models * 3 trained_on * 3 predict_on = 27 tasks

@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=predict_nli_p1        # Job name (Part 1)
-#SBATCH --output=slurm_logs/predict_all_p1_%A_%a.out # Standard output log
-#SBATCH --error=slurm_logs/predict_all_p1_%A_%a.err  # Standard error log
+#SBATCH --output=slurm_logs/%A_%j/predict_all_p1_%A_%a.out # Standard output log
+#SBATCH --error=slurm_logs/%A_%j/predict_all_p1_%A_%a.err  # Standard error log
 #SBATCH --nodes=1                             # Run all processes on a single node
 #SBATCH --ntasks-per-node=1                            # Run a single task
 #SBATCH --cpus-per-task=16                    # Number of CPU cores per task

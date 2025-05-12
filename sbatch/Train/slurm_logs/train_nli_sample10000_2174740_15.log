@@ -51,3 +51,18 @@ Starting Python script for MNLI / experiment-3 (Task ID 15)...
 2025-05-11 22:43:23,565 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:194] - Data loading and preparation phase finished in 19.17s
 2025-05-11 22:43:23,565 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:198] - --- Starting model training for experiment-3 on MNLI (sample10000) ---
 2025-05-11 22:43:23,565 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:319] - Training Logistic Regression classifier on processed data with shape: (392702, 10245)
+2025-05-11 23:18:31,158 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:326] - Logistic Regression classifier training completed successfully.
+2025-05-11 23:18:31,159 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:333] - Classifier training phase completed in 2107.59s.
+2025-05-11 23:18:31,159 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:217] - Model training phase for experiment-3 finished in 2107.59s
+2025-05-11 23:18:31,431 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:226] - Saving model experiment-3...
+2025-05-11 23:18:31,431 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:477] - Saving Exp3 model to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-3/sample10000/MNLI_experiment-3_sample10000_model.joblib
+2025-05-11 23:18:31,431 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:478] - Saving Exp3 pipeline to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-3/sample10000/MNLI_experiment-3_sample10000_pipeline.joblib
+2025-05-11 23:18:31,431 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:479] - Saving Exp3 metadata to /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-3/sample10000/MNLI_experiment-3_sample10000_metadata.joblib
+2025-05-11 23:18:31,685 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:496] - Exp3 Model, Pipeline, and Metadata saved successfully.
+2025-05-11 23:18:31,685 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:231] - Model experiment-3 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/MNLI/experiment-3/sample10000 with base name: MNLI_experiment-3_sample10000
+2025-05-11 23:18:31,815 - __main__ - INFO - [main.py:123] - Training completed. Results: {'experiment-3': {'status': 'trained', 'train_time': 2107.59397482872}}
+Python script finished with exit code 0 for Task ID 15
+------------------------------------------------
+Job Task 15 finished.
+Total Runtime: 2137 seconds
+------------------------------------------------

@@ -46,3 +46,17 @@ Starting Python script for SNLI / experiment-5 (Task ID 8)...
 2025-05-11 22:41:57,745 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:194] - Data loading and preparation phase finished in 10.15s
 2025-05-11 22:41:57,745 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:198] - --- Starting model training for experiment-5 on SNLI (sample10000) ---
 2025-05-11 22:41:57,745 - models.random_forest_bow_syntactic_experiment_5 - INFO - [random_forest_bow_syntactic_experiment_5.py:246] - Training RandomForest_BoW_Syntactic_Exp5_PipelineCompatible classifier on 549367 samples, 5240 features...
+2025-05-11 23:00:41,008 - models.random_forest_bow_syntactic_experiment_5 - INFO - [random_forest_bow_syntactic_experiment_5.py:261] - Classifier training complete in 1123.26s.
+2025-05-11 23:00:41,009 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:217] - Model training phase for experiment-5 finished in 1123.26s
+2025-05-11 23:00:41,146 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:226] - Saving model experiment-5...
+2025-05-11 23:00:41,146 - models.random_forest_bow_syntactic_experiment_5 - INFO - [random_forest_bow_syntactic_experiment_5.py:322] - Saving RandomForest_BoW_Syntactic_Exp5_PipelineCompatible feature pipeline to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/experiment-5/sample10000/SNLI_experiment-5_sample10000_feature_pipeline.joblib
+2025-05-11 23:00:41,146 - models.random_forest_bow_syntactic_experiment_5 - INFO - [random_forest_bow_syntactic_experiment_5.py:323] - Saving RandomForest_BoW_Syntactic_Exp5_PipelineCompatible classifier to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/experiment-5/sample10000/SNLI_experiment-5_sample10000_classifier.joblib
+2025-05-11 23:00:41,146 - models.random_forest_bow_syntactic_experiment_5 - INFO - [random_forest_bow_syntactic_experiment_5.py:324] - Saving RandomForest_BoW_Syntactic_Exp5_PipelineCompatible metadata to /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/experiment-5/sample10000/SNLI_experiment-5_sample10000_metadata.joblib
+2025-05-11 23:01:12,131 - models.random_forest_bow_syntactic_experiment_5 - INFO - [random_forest_bow_syntactic_experiment_5.py:330] - RandomForest_BoW_Syntactic_Exp5_PipelineCompatible components saved successfully.
+2025-05-11 23:01:12,132 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:231] - Model experiment-5 saved in directory: /scratch/jywu3/IS567FP/saved_models/baseline_models/SNLI/experiment-5/sample10000 with base name: SNLI_experiment-5_sample10000
+2025-05-11 23:01:12,178 - __main__ - INFO - [main.py:123] - Training completed. Results: {'experiment-5': {'status': 'trained', 'train_time': 1123.2634024620056}}
+Python script finished with exit code 0 for Task ID 8
+------------------------------------------------
+Job Task 8 finished.
+Total Runtime: 1174 seconds
+------------------------------------------------

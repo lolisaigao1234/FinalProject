@@ -4,13 +4,11 @@
 #SBATCH --time=72:00:00
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=16
-#SBATCH --mem=64G
+#SBATCH --mem-per-cpu=4G  # Request 4GB per task (16 tasks * 4GB = 64GB per node)
 #SBATCH --account=jywu3-ic
 #SBATCH --output=slurm_logs/%A_%j/re_train_exp6_%A_%a.log
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=jywu3@illinois.edu
-
-# Add constraint to request nodes with 100g and HDR
 #SBATCH --constraint=HDR
 
 # --- Define Task Parameters ---

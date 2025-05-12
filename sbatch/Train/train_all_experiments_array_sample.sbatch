@@ -10,6 +10,7 @@
 #SBATCH --output=slurm_logs/train_nli_sample10000_%A_%a.log # Updated output log name
 #SBATCH --mail-type=END,FAIL                    # Optional: Get email notifications
 #SBATCH --mail-user=jywu3@illinois.edu          # Optional: <<< YOUR EMAIL HERE >>>
+#SBATCH --array=1-81
 
 # --- Validate SLURM_ARRAY_TASK_ID ---
 echo "------------------------------------------------"

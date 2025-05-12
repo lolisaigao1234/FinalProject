@@ -1,0 +1,51 @@
+/var/spool/slurmd/job2164650/slurm_script: line 46: [: : integer expression expected
+/var/spool/slurmd/job2164650/slurm_script: line 46: [: : integer expression expected
+------------------------------------------------
+SLURM Job ID: 2164650
+SLURM Array Job ID: 
+SLURM Array Task ID:  / 33
+Running on host: ccc0388.campuscluster.illinois.edu
+Node allocated: ccc0388
+Requested CPUs: 16
+Requested Memory: 65536M
+Running Dataset: SNLI
+Running Experiment (Model Type): experiment-8
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for SNLI / experiment-8 (Task ID )...
+2025-05-11 02:00:46,308 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 02:00:54,053 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 02:00:54,053 - __main__ - INFO - [main.py:48] - Selected model type: experiment-8
+2025-05-11 02:00:54,053 - __main__ - INFO - [main.py:49] - Selected dataset: SNLI
+2025-05-11 02:00:54,053 - __main__ - INFO - [main.py:50] - Using device: cuda
+2025-05-11 02:00:54,053 - __main__ - INFO - [main.py:92] - Starting training for model: experiment-8
+2025-05-11 02:00:54,053 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:73] - Experiment 8: No valid sample_size provided. Using suffix 'full'.
+2025-05-11 02:00:54,074 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:179] - ===== Starting Experiment 8: Syntactic Feature Cross-Validation =====
+2025-05-11 02:00:54,075 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:180] - Dataset: SNLI, Suffix used for loading: full, Folds: 5
+2025-05-11 02:00:54,075 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:132] - Exp8: Loading precomputed features for SNLI/train/full
+2025-05-11 02:00:54,172 - utils.database - INFO - [database.py:80] - Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/SNLI_train_features_stats_syntactic_full.parquet
+2025-05-11 02:00:58,326 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:165] - Exp8: Using 240 syntactic features for cross-validation.
+2025-05-11 02:00:58,680 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:197] - --- Running Cross-Validation for: DecisionTree ---
+2025-05-11 02:01:26,613 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:227] - Finished CV for DecisionTree in 27.93s. Avg F1: 0.4047
+2025-05-11 02:01:26,695 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:197] - --- Running Cross-Validation for: KNN ---
+2025-05-11 02:06:12,230 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:227] - Finished CV for KNN in 285.53s. Avg F1: 0.3635
+2025-05-11 02:06:12,248 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:197] - --- Running Cross-Validation for: LogisticRegression ---
+/sw/apps/anaconda3/2024.10/lib/python3.12/site-packages/sklearn/linear_model/_logistic.py:1271: UserWarning: 'n_jobs' > 1 does not have any effect when 'solver' is set to 'liblinear'. Got 'n_jobs' = 16.
+  warnings.warn(
+/sw/apps/anaconda3/2024.10/lib/python3.12/site-packages/sklearn/linear_model/_logistic.py:1271: UserWarning: 'n_jobs' > 1 does not have any effect when 'solver' is set to 'liblinear'. Got 'n_jobs' = 16.
+  warnings.warn(
+/sw/apps/anaconda3/2024.10/lib/python3.12/site-packages/sklearn/linear_model/_logistic.py:1271: UserWarning: 'n_jobs' > 1 does not have any effect when 'solver' is set to 'liblinear'. Got 'n_jobs' = 16.
+  warnings.warn(
+/sw/apps/anaconda3/2024.10/lib/python3.12/site-packages/sklearn/linear_model/_logistic.py:1271: UserWarning: 'n_jobs' > 1 does not have any effect when 'solver' is set to 'liblinear'. Got 'n_jobs' = 16.
+  warnings.warn(
+/sw/apps/anaconda3/2024.10/lib/python3.12/site-packages/sklearn/linear_model/_logistic.py:1271: UserWarning: 'n_jobs' > 1 does not have any effect when 'solver' is set to 'liblinear'. Got 'n_jobs' = 16.
+  warnings.warn(
+2025-05-11 02:12:11,993 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:227] - Finished CV for LogisticRegression in 359.74s. Avg F1: 0.4935
+2025-05-11 02:12:11,994 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:197] - --- Running Cross-Validation for: MultinomialNB ---
+2025-05-11 02:12:15,673 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:227] - Finished CV for MultinomialNB in 3.68s. Avg F1: 0.4355
+2025-05-11 02:12:15,673 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:197] - --- Running Cross-Validation for: RandomForest ---
+2025-05-11 02:13:20,375 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:227] - Finished CV for RandomForest in 64.70s. Avg F1: 0.4721
+2025-05-11 02:13:20,498 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:197] - --- Running Cross-Validation for: GradientBoosting ---

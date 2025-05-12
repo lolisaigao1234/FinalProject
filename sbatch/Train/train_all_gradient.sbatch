@@ -2,7 +2,7 @@
 #SBATCH --job-name=re_train_exp6 # Updated job name for re-training experiment 6
 #SBATCH --partition=IllinoisComputes
 #SBATCH --time=72:00:00
-#SBATCH --nodes=3
+#SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=64G

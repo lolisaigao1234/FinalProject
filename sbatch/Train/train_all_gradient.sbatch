@@ -7,7 +7,7 @@
 #SBATCH --mem-per-cpu=2G  # Request 4GB per task (16 tasks * 4GB = 64GB per node)
 #SBATCH --account=jywu3-ic
 #SBATCH --output=slurm_logs/%A_%j/re_train_exp6_%A_%a.log
-#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-type=END,FAIL,START
 #SBATCH --mail-user=jywu3@illinois.edu
 #SBATCH --constraint=HDR
 

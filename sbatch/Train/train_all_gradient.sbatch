@@ -3,9 +3,9 @@
 #SBATCH --partition=IllinoisComputes
 #SBATCH --time=72:00:00
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=20G
+#SBATCH --ntasks-per-node=32
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=64G
 #SBATCH --account=jywu3-ic          # <<< YOUR ACCOUNT HERE >>>
 #SBATCH --output=slurm_logs/%A_%j/re_train_exp6_%A_%a.log # Updated output log name
 #SBATCH --mail-type=END,FAIL

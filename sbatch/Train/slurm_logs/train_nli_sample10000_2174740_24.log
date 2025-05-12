@@ -43,3 +43,11 @@ Starting Python script for ANLI / experiment-3 (Task ID 24)...
 2025-05-11 22:46:22,986 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:174] - Identified 243 syntactic feature columns for pipeline.
 2025-05-11 22:46:22,986 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:209] - Feature pipeline built.
 2025-05-11 22:46:22,986 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:245] - Fitting feature pipeline and transforming training data...
+2025-05-11 22:46:56,914 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:78] - FeatureSelector fit: All 243 potential columns were found in the training data.
+2025-05-11 22:47:08,627 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:251] - Pipeline fit during training context successful.
+2025-05-11 22:47:08,627 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:260] - Pipeline fit & transform completed in 45.64s. Output shape: (740653, 10243)
+2025-05-11 22:47:08,627 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:182] - Training features prepared. Shape: (740653, 10243)
+2025-05-11 22:47:08,627 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:183] - Training labels prepared. Length: 740653
+2025-05-11 22:47:08,761 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:194] - Data loading and preparation phase finished in 47.23s
+2025-05-11 22:47:08,761 - models.base_experiment_trainer - INFO - [base_experiment_trainer.py:198] - --- Starting model training for experiment-3 on ANLI (sample10000) ---
+2025-05-11 22:47:08,761 - models.logistic_tfidf_syntactic_experiment_3 - INFO - [logistic_tfidf_syntactic_experiment_3.py:319] - Training Logistic Regression classifier on processed data with shape: (740653, 10243)

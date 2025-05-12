@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=train_nli_models_sample10000 # Updated job name for sample size
+#SBATCH --job-name=train_nli_models_sample8000 # Updated job name for sample size
 #SBATCH --partition=IllinoisComputes        # Correct partition
 #SBATCH --time=2:00:00                         # Max time (3 days) - Adjust if needed
 #SBATCH --nodes=1                               # Each array task runs on a single node
@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=16                      # Request sufficient CPUs for parallel processing within tasks
 #SBATCH --mem=16G                               # Total memory per node (adjust as needed)
 #SBATCH --account=jywu3-ic                      # <<< YOUR ACCOUNT HERE >>>
-#SBATCH --output=slurm_logs/train_nli_sample10000_%A_%a.log # Updated output log name
+#SBATCH --output=slurm_logs/train_nli_sample8000_%A_%a.log # Updated output log name
 #SBATCH --mail-type=END,FAIL                    # Optional: Get email notifications
 #SBATCH --mail-user=jywu3@illinois.edu          # Optional: <<< YOUR EMAIL HERE >>>
 #SBATCH --array=1-27                            # <<< ADDED/MODIFIED: Defines the job array with 27 tasks

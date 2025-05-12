@@ -12,12 +12,12 @@
 #SBATCH --partition=IllinoisComputes                 # <<< ADJUST for your GPU partition (e.g., gpu, a100)
 #SBATCH --array=0-26                          # Array range: 3 models * 3 trained_on * 3 predict_on = 27 tasks
 #SBATCH --account=jywu3-ic                  # <<< YOUR ACCOUNT HERE >>>
-#SBATCH --mail-type=END,FAIL                # Optional: Get email notifications
+#SBATCH --mail-type=END,FAIL,START                # Optional: Get email notifications
 #SBATCH --mail-user=jywu3@illinois.edu      # Optional: <<< YOUR EMAIL HERE >>>
 
 # --- User Configuration ---
-MODEL_SUFFIX="full"                           # Suffix used during training (e.g., full, sampleXXX)
-INPUT_SUFFIX="full"                           # Suffix for the input *test* feature files
+MODEL_SUFFIX="sample8000"                           # Suffix used during training (e.g., full, sampleXXX)
+INPUT_SUFFIX="sample8000"                           # Suffix for the input *test* feature files
 PROJECT_DIR="/u/jywu3/scratch/IS567FP"            # <<< CHANGE THIS to the absolute path of your project
 ENV_NAME="IS567"                # <<< CHANGE THIS to your Conda environment name            # <<< CHANGE THIS to your conda installation path (e.g., ~/miniconda3)
 # --------------------------

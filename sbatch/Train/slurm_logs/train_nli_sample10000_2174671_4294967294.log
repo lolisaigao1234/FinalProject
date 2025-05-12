@@ -1,0 +1,4 @@
+------------------------------------------------
+Initial SLURM_ARRAY_TASK_ID: ''
+Error: SLURM_ARRAY_TASK_ID is not set or is empty.
+This script must be run as a Slurm job array task, and the ID must be populated.

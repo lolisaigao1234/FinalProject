@@ -94,7 +94,7 @@ class CrossValidateSyntacticExperiment8:
                 max_iter=getattr(args, 'max_iter', 1000),
                 solver='liblinear',
                 random_state=self.random_state,
-                n_jobs=self.n_jobs  # Use n_jobs from args
+                n_jobs=1 #self.n_jobs  # Use n_jobs from args
             ),
             "MultinomialNB": Pipeline([ # Needs scaling for non-negative features
                  ('scaler', MinMaxScaler()),

@@ -1,0 +1,33 @@
+/var/spool/slurmd/job2174527/slurm_script: line 45: [: : integer expression expected
+/var/spool/slurmd/job2174527/slurm_script: line 45: [: : integer expression expected
+------------------------------------------------
+SLURM Job ID: 2174527
+SLURM Array Job ID: 
+SLURM Array Task ID:  / 33
+Running on host: ccc0388.campuscluster.illinois.edu
+Node allocated: ccc0388
+Requested CPUs: 16
+Running Dataset: SNLI
+Running Experiment (Model Type): experiment-8
+Sample Size: 10000 (8000 train, 1000 validation, 1000 test)
+------------------------------------------------
+Modules loaded.
+Python environment 'IS567' activated: /sw/apps/anaconda3/2024.10/bin/python
+OMP_NUM_THREADS set to 16
+Changed directory to /u/jywu3/scratch/IS567FP
+Starting Python script for SNLI / experiment-8 (Task ID )...
+2025-05-11 21:53:12,993 - datasets - INFO - [config.py:54] - PyTorch version 2.6.0+cu126 available.
+2025-05-11 21:53:30,694 - __main__ - INFO - [main.py:47] - Running mode: train
+2025-05-11 21:53:30,694 - __main__ - INFO - [main.py:48] - Selected model type: experiment-8
+2025-05-11 21:53:30,715 - __main__ - INFO - [main.py:49] - Selected dataset: SNLI
+2025-05-11 21:53:30,716 - __main__ - INFO - [main.py:50] - Using device: cuda
+2025-05-11 21:53:30,716 - __main__ - INFO - [main.py:52] - Using sample size: 10000
+2025-05-11 21:53:30,716 - __main__ - INFO - [main.py:92] - Starting training for model: experiment-8
+2025-05-11 21:53:30,717 - utils.common - INFO - [common.py:184] - Calculated split sizes for total 10000: train=8000, val=1000, test=1000
+2025-05-11 21:53:30,717 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:52] - Experiment 8 (using get_split_sizes): total_sample_size from args = 10000, calculated train samples for suffix = 8000. Expected suffix: 'sample8000'
+2025-05-11 21:53:30,720 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:179] - ===== Starting Experiment 8: Syntactic Feature Cross-Validation =====
+2025-05-11 21:53:30,720 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:180] - Dataset: SNLI, Suffix used for loading: sample8000, Folds: 5
+2025-05-11 21:53:30,720 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:132] - Exp8: Loading precomputed features for SNLI/train/sample8000
+2025-05-11 21:53:30,725 - utils.database - INFO - [database.py:80] - Loading intermediate data from /scratch/jywu3/IS567FP/cache/parquet/SNLI/train/SNLI_train_features_stats_syntactic_sample8000.parquet
+2025-05-11 21:53:30,988 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:165] - Exp8: Using 229 syntactic features for cross-validation.
+2025-05-11 21:53:30,992 - models.cross_validate_syntactic_experiment_8 - INFO - [cross_validate_syntactic_experiment_8.py:197] - --- Running Cross-Validation for: DecisionTree ---

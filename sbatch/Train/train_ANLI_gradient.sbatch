@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=re_train_exp6_full
+#SBATCH --job-name=re_train_exp6_8000
 #SBATCH --partition=secondary
 #SBATCH --time=4:00:00          # WARNING: Previous job TIMEOUT after ~4 hours. Verify partition time limits.
 #SBATCH --nodes=1
@@ -66,7 +66,7 @@ python -u main.py \
   --dataset "$CURRENT_DATASET" \
   --mode train \
   --model_type "$EXPERIMENT" \
-  --sample_size 10000 \
+  --sample_size 8000 \
   --fp16 \
   --force_reprocess
 

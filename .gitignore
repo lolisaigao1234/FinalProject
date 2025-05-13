@@ -151,3 +151,4 @@ sbatch/Predict/slurm_logs/
 *.log.*
 *.out.*
 *.err.*
+output/cross_predict

@@ -1,14 +1,14 @@
 #!/bin/bash
 
 #SBATCH --job-name=predict_nli_p1      # Job name (Part 1)
-#SBATCH --output=slurm_logs/%A_%j/predict_all_p1_%A_%a.out # Standard output log
-#SBATCH --error=slurm_logs/%A_%j/predict_all_p1_%A_%a.err  # Standard error log
+#SBATCH --output=slurm_logs/predict_all_p1_%A_%a.out # Standard output log
+#SBATCH --error=slurm_logs/predict_all_p1_%A_%a.err  # Standard error log
 #SBATCH --partition=secondary
 #SBATCH --time=4:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=3           # Number of tasks (python scripts) to run concurrently on the node
 #SBATCH --cpus-per-task=16            # Number of CPUs allocated to each task
-#SBATCH --mem=72G                     # Total memory for the node
+#SBATCH --mem=2G                     # Total memory for the node
 #SBATCH --array=0-26                  # Array range: 3 models * 3 trained_on * 3 predict_on = 27 tasks
 #SBATCH --account=jywu3-ic
 #SBATCH --mail-type=END,FAIL,START

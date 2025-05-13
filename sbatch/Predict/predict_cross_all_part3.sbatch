@@ -9,10 +9,7 @@
 #SBATCH --ntasks-per-node=3          # Number of tasks (python scripts) to run concurrently on the node
 #SBATCH --cpus-per-task=16           # Number of CPUs allocated to each task
 #SBATCH --mem=2G                    # Total memory for the node
-#SBATCH --array=0-26                 # Array range: 3 models * 3 trained_on * 3 predict_on = 27 tasks
 #SBATCH --account=jywu3-ic
-#SBATCH --mail-type=END,FAIL,START
-#SBATCH --mail-user=jywu3@illinois.edu
 
 # --- User Configuration ---
 MODEL_SUFFIX="sample8000"           # Suffix used during training (e.g., full, sampleXXX)

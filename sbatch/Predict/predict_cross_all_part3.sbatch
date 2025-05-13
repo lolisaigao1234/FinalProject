@@ -15,8 +15,8 @@
 #SBATCH --mail-user=jywu3@illinois.edu
 
 # --- User Configuration ---
-MODEL_SUFFIX="sample10000"           # Suffix used during training (e.g., full, sampleXXX)
-INPUT_SUFFIX="sample10000"           # Suffix for the input *test* feature files
+MODEL_SUFFIX="sample8000"           # Suffix used during training (e.g., full, sampleXXX)
+INPUT_SUFFIX="sample8000"           # Suffix for the input *test* feature files
 PROJECT_DIR="/u/jywu3/scratch/IS567FP"
 CONDA_ENV_NAME="IS567"
 

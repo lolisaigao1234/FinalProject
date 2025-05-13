@@ -66,7 +66,7 @@ python -u main.py \
   --dataset "$CURRENT_DATASET" \
   --mode train \
   --model_type "$EXPERIMENT" \
-  --sample_size 8000 \
+  --sample_size 10000 \
   --fp16 \
   --force_reprocess
 

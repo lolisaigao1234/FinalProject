@@ -18,15 +18,16 @@ logger = logging.getLogger(__name__)
 
 class BoWExtractor(TextFeatureExtractorBase):
     """Specialized Bag-of-Words extractor using CountVectorizer."""
-    def __init__(self, max_features: Optional[int] = 10000, ngram_range: Tuple[int, int] = (1, 1), binary=False, **kwargs):
-         super().__init__(
-              CountVectorizer,
-              max_features=max_features,
-              ngram_range=ngram_range,
-              stop_words='english',
-              binary=binary, # Often False for MNB, True for some other models
-              **kwargs
-         )
+    def __init__(self, args: Optional[object] = None, alpha: float = 1.0, max_features: Optional[int] = 10000, ngram_range: Tuple[int, int] = (1, 1)):
+        if args is not None:
+            alpha = getattr(args, 'alpha', alpha)
+            max_features = getattr(args, 'max_features', max_features)
+        extractor = BoWExtractor(max_features=max_features, ngram_range=ngram_range)
+        model_instance = MultinomialNB(alpha=alpha)
+        super().__init__(extractor, model_instance)
+        self.alpha = alpha
+        self.args = args
+
 
     def transform(self, data: pd.DataFrame, text_col1: str = 'premise_text', text_col2: str = 'hypothesis_text') -> csr_matrix:
          """Transforms text into sparse BoW features (concatenated)."""
@@ -66,11 +67,36 @@ class MultinomialNaiveBayesBaseline(TextBaselineModel):
         # self.db_handler = DatabaseHandler()
 
 
-    def extract_features(self, data: pd.DataFrame) -> csr_matrix: # Return sparse matrix
-        """Extracts BoW features using the assigned extractor."""
-        if not self.extractor.is_fitted:
-            raise RuntimeError("BoW extractor must be fitted or loaded first.")
-        return self.extractor.transform(data)
+    # def extract_features(self, data: pd.DataFrame) -> csr_matrix: # Return sparse matrix
+    #     """Extracts BoW features using the assigned extractor."""
+    #     if not self.extractor.is_fitted:
+    #         raise RuntimeError("BoW extractor must be fitted or loaded first.")
+    #     return self.extractor.transform(data)
+
+    def extract_features(self, data: pd.DataFrame) -> Any:
+        """
+        Extracts features using the extractor.
+        Handles both raw-text inputs (premise/hypothesis) and precomputed features.
+        """
+        if self.extractor is None:
+            raise RuntimeError("No extractor found for this model.")
+
+        # Case 1: Raw text data is available (standard path for baseline-3)
+        if 'premise_text' in data.columns and 'hypothesis_text' in data.columns:
+            if not self.extractor.is_fitted:
+                raise RuntimeError("Extractor not fitted. Ensure the model is trained or properly loaded.")
+            return self.extractor.transform(data)
+
+        # Case 2: Precomputed feature columns are already present (e.g., from Parquet)
+        feature_cols = [col for col in data.columns if col.startswith("feature_") or col.startswith("bow_")]
+        if feature_cols:
+            logger.info(f"Detected {len(feature_cols)} precomputed feature columns.")
+            X = data[feature_cols].copy()
+            return X.to_numpy()
+
+        # If neither applies, raise error
+        raise ValueError("Input DataFrame lacks both raw text and recognized feature columns.")
+
 
     # --- ADDED evaluate METHOD ---
     def evaluate(self, dataset_name: str, split: str, suffix: str) -> Optional[Dict[str, Any]]:
@@ -144,6 +170,31 @@ class MultinomialNaiveBayesBaseline(TextBaselineModel):
             logger.error(f"Error during model performance evaluation: {e}", exc_info=True)
             return None
     # --- END ADDED METHOD ---
+
+    def predict_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Predict labels for a batch of samples and return a DataFrame with predictions.
+        """
+        LABEL_MAP_REVERSE: Dict[int, str] = {0: 'entailment', 1: 'contradiction', 2: 'neutral'}
+
+        if not self.is_trained:
+            raise RuntimeError("Model is not trained. Cannot perform batch prediction.")
+
+        # Extract features
+        X = self.extract_features(df)
+
+        # Predict
+        predictions = self.model.predict(X)
+
+        # Prepare output
+        result_df = pd.DataFrame({
+            'pair_id': df['pair_id'].values if 'pair_id' in df.columns else range(len(df)),
+            'gold_label': df['label'].values if 'label' in df.columns else ['unknown'] * len(predictions),
+            'predicted_label': [LABEL_MAP_REVERSE.get(pred, 'unknown') for pred in predictions]
+        })
+
+        return result_df
+
 
     # train, predict, save, load are inherited from TextBaselineModel
     # load_raw_text_data static method is now in TextBaselineModel (but called within evaluate)

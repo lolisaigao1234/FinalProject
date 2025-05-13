@@ -144,3 +144,10 @@ saved_models
 data/.DS_Store
 sbatch/Train/train_all_experiments_array.txt
 *.txt
+sbatch/Predict/slurm_logs/
+*.log
+*.out
+*.err
+*.log.*
+*.out.*
+*.err.*

@@ -1,137 +1,103 @@
 #!/bin/bash
-#SBATCH --job-name=train_nli_models_sample10000 # Updated job name for sample size
-#SBATCH --partition=IllinoisComputes-GPU        # Correct partition
-#SBATCH --time=72:00:00                     # Max time (3 days) - Adjust if needed
-#SBATCH --nodes=1                           # Each array task runs on a single node
-#SBATCH --ntasks-per-node=1                 # One Python process per task/node
-#SBATCH --cpus-per-task=16                  # Request sufficient CPUs for parallel processing within tasks
-#SBATCH --gres=gpu:A100:1                   # Request 1 A100 GPU per task
-#SBATCH --mem=20G                          # Total memory per node (adjust as needed)
-#SBATCH --account=jywu3-ic                  # <<< YOUR ACCOUNT HERE >>>
-#SBATCH --output=slurm_logs/train_nli_sample10000_%A_%a.log # Updated output log name
-#SBATCH --mail-type=END,FAIL                # Optional: Get email notifications
-#SBATCH --mail-user=jywu3@illinois.edu      # Optional: <<< YOUR EMAIL HERE >>>
 
-# --- Define Task Parameters ---
-# Order matters: datasets first, then experiments cycle through for each dataset
-DATASETS=( "SNLI" "MNLI" "ANLI" )
+#SBATCH --job-name=predict_nli_p1        # Job name (Part 1)
+#SBATCH --output=slurm_logs/%A_%j/predict_all_p1_%A_%a.out # Standard output log
+#SBATCH --error=slurm_logs/%A_%j/predict_all_p1_%A_%a.err  # Standard error log
+#SBATCH --partition=secondary
+#SBATCH --time=4:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=3          # Number of tasks (python scripts) to run concurrently on the node
+#SBATCH --cpus-per-task=16           # Number of CPUs allocated to each task
+#SBATCH --mem=72G                    # Total memory for the node
+#SBATCH --array=0-26                 # Array range: 3 models * 3 trained_on * 3 predict_on = 27 tasks
+#SBATCH --account=jywu3-ic
+#SBATCH --mail-type=END,FAIL,START
+#SBATCH --mail-user=jywu3@illinois.edu
 
-# --- UPDATED EXPERIMENTS LIST ---
-# These should match the keys in models.MODEL_REGISTRY
-EXPERIMENTS=(
-    "baseline-1"   # DecisionTreeBowBaseline
-    "baseline-2"   # LogisticTFIDFBaseline
-    "baseline-3"   # MultinomialNaiveBayesBaseline
-    "experiment-1" # DecisionTreeSyntacticExperiment1
-    "experiment-2" # KnnBowSyntacticExperiment2
-    "experiment-3" # LogisticTFIDFSyntacticExperiment3
-    "experiment-4" # MultinomialNaiveBayesBowSyntacticExperiment4
-    "experiment-5" # RandomForestBowSyntacticExperiment5
-    "experiment-6" # GradientBoostingTFIDFSyntacticExperiment6
-    "experiment-7" # CrossEvalSyntacticExperiment7
-    "experiment-8" # CrossValidateSyntacticExperiment8
-)
-# -------------------------------
+# --- User Configuration ---
+MODEL_SUFFIX="sample8000"                           # Suffix used during training (e.g., full, sampleXXX)
+INPUT_SUFFIX="sample8000"                           # Suffix for the input *test* feature files
+PROJECT_DIR="/u/jywu3/scratch/IS567FP"            # <<< CHANGE THIS to the absolute path of your project
+ENV_NAME="IS567"                # <<< CHANGE THIS to your Conda environment name            # <<< CHANGE THIS to your conda installation path (e.g., ~/miniconda3)
+# --------------------------
 
-NUM_DATASETS=${#DATASETS[@]}
-NUM_EXPERIMENTS=${#EXPERIMENTS[@]}
-TOTAL_TASKS=$((NUM_DATASETS * NUM_EXPERIMENTS))
-
-# --- SBATCH Array ---
-# Update the array range dynamically based on the total number of tasks
-#SBATCH --array=1-${TOTAL_TASKS} # Use the calculated total tasks
-
-# Check if the SLURM_ARRAY_TASK_ID is within the expected range
-if [ "$SLURM_ARRAY_TASK_ID" -lt 1 ] || [ "$SLURM_ARRAY_TASK_ID" -gt "$TOTAL_TASKS" ]; then
-    echo "Error: SLURM_ARRAY_TASK_ID ($SLURM_ARRAY_TASK_ID) is out of the expected range (1-$TOTAL_TASKS)."
-    exit 1
-fi
-
-# Calculate dataset and experiment index based on the SLURM task ID
-# SLURM_ARRAY_TASK_ID starts from 1, bash array indices start from 0
-task_id_zero_based=$((SLURM_ARRAY_TASK_ID - 1))
-dataset_index=$((task_id_zero_based / NUM_EXPERIMENTS))
-experiment_index=$((task_id_zero_based % NUM_EXPERIMENTS))
-
-# Check array bounds just in case
-if [ "$dataset_index" -ge "$NUM_DATASETS" ] || [ "$experiment_index" -ge "$NUM_EXPERIMENTS" ]; then
-    echo "Error: Calculated indices are out of bounds."
-    echo "Task ID: $SLURM_ARRAY_TASK_ID, Dataset Index: $dataset_index (max: $((NUM_DATASETS-1))) Experiment Index: $experiment_index (max: $((NUM_EXPERIMENTS-1)))"
-    exit 1
-fi
-
-CURRENT_DATASET=${DATASETS[$dataset_index]}
-CURRENT_EXPERIMENT=${EXPERIMENTS[$experiment_index]}
+echo "========================================================"
+echo "PART 1: Models baseline-1 to baseline-3"
+echo "SLURM_JOB_ID: ${SLURM_JOB_ID}"
+echo "SLURM_ARRAY_JOB_ID: ${SLURM_ARRAY_JOB_ID}"
+echo "SLURM_ARRAY_TASK_ID: ${SLURM_ARRAY_TASK_ID}"
+echo "Running on host: $(hostname)"
+echo "Project directory: ${PROJECT_DIR}"
+echo "Activating environment: ${ENV_NAME}"
+echo "========================================================"
 
 # --- Environment Setup ---
-echo "------------------------------------------------"
-echo "SLURM Job ID: $SLURM_JOB_ID"
-echo "SLURM Array Job ID: $SLURM_ARRAY_JOB_ID"
-echo "SLURM Array Task ID: $SLURM_ARRAY_TASK_ID / $TOTAL_TASKS" # Show total tasks
-echo "Running on host: $(hostname)"
-echo "Node allocated: $SLURM_NODELIST"
-echo "Requested CPUs: $SLURM_CPUS_PER_TASK"
-echo "Running Dataset: $CURRENT_DATASET"
-echo "Running Experiment (Model Type): $CURRENT_EXPERIMENT"
-echo "Sample Size: 10000 (8000 train, 1000 validation, 1000 test)"
-echo "------------------------------------------------"
-START_TIME=$(date +%s)
-
-# Load modules
-module purge
-module load anaconda3/2024.10 # Or your specific Anaconda/Python module
-module load cuda/12.8 # Ensure this matches your environment's CUDA version
-echo "Modules loaded."
-
-# Activate Conda environment
-CONDA_ENV_NAME="IS567" # Define conda environment name variable
-source activate "$CONDA_ENV_NAME" || { echo "Error activating Conda environment '$CONDA_ENV_NAME'"; exit 1; }
-echo "Python environment '$CONDA_ENV_NAME' activated: $(which python)"
-
-# Set environment variables for CPU parallelism
-export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-echo "OMP_NUM_THREADS set to $OMP_NUM_THREADS"
-
-export TF_CPP_MIN_LOG_LEVEL=3
-
-# Navigate to project directory
-PROJECT_DIR="/u/jywu3/scratch/IS567FP" # Define project directory variable
-cd "$PROJECT_DIR" || { echo "Error changing directory to $PROJECT_DIR"; exit 1; }
-echo "Changed directory to $(pwd)"
-
-# --- Execute the training command ---
-echo "Starting Python script for $CURRENT_DATASET / $CURRENT_EXPERIMENT (Task ID $SLURM_ARRAY_TASK_ID)..."
-
-# Run main.py with the current dataset and experiment key
-# Added --sample_size 10 to limit total samples
-# For LogisticRegression models (baseline-2 and experiment-3), set n_jobs=1
-if [[ "$CURRENT_EXPERIMENT" == "baseline-2" || "$CURRENT_EXPERIMENT" == "experiment-3" ]]; then
-    python -u main.py \
-      --dataset "$CURRENT_DATASET" \
-      --mode train \
-      --model_type "$CURRENT_EXPERIMENT" \
-      --sample_size 10000 \
-      --n_jobs 1 \
-      --fp16 \
-      --force_reprocess
-else
-    python -u main.py \
-      --dataset "$CURRENT_DATASET" \
-      --mode train \
-      --model_type "$CURRENT_EXPERIMENT" \
-      --sample_size 10000 \
-      --fp16 \
-      --force_reprocess
+source "${CONDA_BASE_PATH}/etc/profile.d/conda.sh"
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to source Conda profile."
+    exit 1
+fi
+conda activate "${ENV_NAME}"
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to activate Conda environment '${ENV_NAME}'"
+    exit 1
 fi
 
+# --- Define Model Types for this part and All Datasets ---
+declare -a SUBSET_MODEL_TYPES=("baseline-1" "baseline-2" "baseline-3")
+declare -a ALL_DATASETS=("SNLI" "MNLI" "ANLI")
+
+num_datasets=${#ALL_DATASETS[@]} # Should be 3
+
+# --- Map Array Task ID to Model, Trained_On Dataset, and Predict_On Dataset ---
+# SLURM_ARRAY_TASK_ID ranges from 0 to 26
+
+# predict_on_idx changes fastest (inner loop)
+predict_on_idx=$((SLURM_ARRAY_TASK_ID % num_datasets))
+
+# trained_on_idx changes next (middle loop)
+temp_idx=$((SLURM_ARRAY_TASK_ID / num_datasets))
+trained_on_idx=$((temp_idx % num_datasets))
+
+# model_in_subset_idx changes slowest (outer loop for this subset of models)
+model_in_subset_idx=$((temp_idx / num_datasets))
+
+CURRENT_MODEL_TYPE=${SUBSET_MODEL_TYPES[$model_in_subset_idx]}
+TRAINED_ON=${ALL_DATASETS[$trained_on_idx]}
+PREDICT_ON=${ALL_DATASETS[$predict_on_idx]}
+
+# --- Ensure Output Directory Exists ---
+OUTPUT_SUBDIR="${PROJECT_DIR}/output/cross_predict/${CURRENT_MODEL_TYPE}"
+mkdir -p "${OUTPUT_SUBDIR}"
+mkdir -p slurm_logs # For SLURM output files
+
+# --- Construct Output Filename ---
+OUTPUT_FILENAME="${OUTPUT_SUBDIR}/predictions_${CURRENT_MODEL_TYPE}_predict${PREDICT_ON}_trained${TRAINED_ON}_${MODEL_SUFFIX}.csv"
+
+echo "--------------------------------------------------------"
+echo "Task Configuration:"
+echo "  Model Type:           ${CURRENT_MODEL_TYPE}"
+echo "  Model Trained On:     ${TRAINED_ON} (Suffix: ${MODEL_SUFFIX})"
+echo "  Predicting On:        ${PREDICT_ON} (Input Suffix: ${INPUT_SUFFIX})"
+echo "  Output File:          ${OUTPUT_FILENAME}"
+echo "--------------------------------------------------------"
+
+cd "${PROJECT_DIR}" || { echo "Error: Failed to cd to ${PROJECT_DIR}"; exit 1; }
+
+echo "Starting Python prediction script..."
+python main.py \
+    --mode predict \
+    --model_type "${CURRENT_MODEL_TYPE}" \
+    --predict_model_dataset "${TRAINED_ON}" \
+    --predict_model_suffix "${MODEL_SUFFIX}" \
+    --predict_input_dataset "${PREDICT_ON}" \
+    --predict_input_suffix "${INPUT_SUFFIX}" \
+    --predict_output_file "${OUTPUT_FILENAME}" \
+    --device "cuda"
+
 EXIT_CODE=$?
-echo "Python script finished with exit code $EXIT_CODE for Task ID $SLURM_ARRAY_TASK_ID"
+echo "--------------------------------------------------------"
+echo "Python script finished with exit code: ${EXIT_CODE}"
+echo "========================================================"
 
-END_TIME=$(date +%s)
-RUNTIME=$((END_TIME - START_TIME))
-echo "------------------------------------------------"
-echo "Job Task $SLURM_ARRAY_TASK_ID finished."
-echo "Total Runtime: $RUNTIME seconds"
-echo "------------------------------------------------"
-
-exit $EXIT_CODE
+exit ${EXIT_CODE}

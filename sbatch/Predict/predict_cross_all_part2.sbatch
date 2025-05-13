@@ -3,8 +3,8 @@
 #SBATCH --job-name=predict_nli_p2        # Job name (Part 2)
 #SBATCH --output=slurm_logs/%A_%j/predict_all_p2_%A_%a.out # Standard output log
 #SBATCH --error=slurm_logs/%A_%j/predict_all_p2_%A_%a.err  # Standard error log
-#SBATCH --partition=IllinoisComputes
-#SBATCH --time=72:00:00
+#SBATCH --partition=secondary
+#SBATCH --time=4:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=3          # Number of tasks (python scripts) to run concurrently on the node
 #SBATCH --cpus-per-task=16           # Number of CPUs allocated to each task
@@ -15,8 +15,8 @@
 #SBATCH --mail-user=jywu3@illinois.edu
 
 # --- User Configuration ---
-MODEL_SUFFIX="sample10000"           # Suffix used during training (e.g., full, sampleXXX)
-INPUT_SUFFIX="sample10000"           # Suffix for the input *test* feature files
+MODEL_SUFFIX="sample8000"           # Suffix used during training (e.g., full, sampleXXX)
+INPUT_SUFFIX="sample8000"           # Suffix for the input *test* feature files
 PROJECT_DIR="/u/jywu3/scratch/IS567FP"
 CONDA_ENV_NAME="IS567"
 

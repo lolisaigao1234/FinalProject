@@ -3,8 +3,8 @@
 #SBATCH --job-name=predict_nli_p3        # Job name (Part 3)
 #SBATCH --output=slurm_logs/%A_%j/predict_all_p3_%A_%a.out # Standard output log
 #SBATCH --error=slurm_logs/%A_%j/predict_all_p3_%A_%a.err  # Standard error log
-#SBATCH --partition=IllinoisComputes
-#SBATCH --time=72:00:00
+#SBATCH --partition=secondary
+#SBATCH --time=4:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=3          # Number of tasks (python scripts) to run concurrently on the node
 #SBATCH --cpus-per-task=16           # Number of CPUs allocated to each task

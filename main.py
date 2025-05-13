@@ -5,7 +5,6 @@ import logging
 import time
 from typing import Optional
 
-import torch
 import os
 import pandas as pd
 import gc  # For garbage collection

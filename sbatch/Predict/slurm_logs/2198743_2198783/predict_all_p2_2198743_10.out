@@ -1,0 +1,10 @@
+========================================================
+PART 2: Models experiment-1 to experiment-3
+SLURM_JOB_ID: 2198783
+SLURM_ARRAY_JOB_ID: 2198743
+SLURM_ARRAY_TASK_ID: 10
+Running on host: ccc0309.campuscluster.illinois.edu
+Project directory: /u/jywu3/scratch/IS567FP
+Activating environment: IS567
+========================================================
+Error: Failed to source Conda profile.

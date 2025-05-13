@@ -6,8 +6,8 @@
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=16
 #SBATCH --mem-per-cpu=2G  # Request 4GB per task (16 tasks * 4GB = 64GB per node)
-#SBATCH --time=72:00:00                       # Time limit hrs:min:sec
-#SBATCH --partition=IllinoisComputes                 # <<< ADJUST for your GPU partition (e.g., gpu, a100)
+#SBATCH --time=4:00:00                       # Time limit hrs:min:sec
+#SBATCH --partition=secondary                 # <<< ADJUST for your GPU partition (e.g., gpu, a100)
 #SBATCH --array=0-26                          # Array range: 3 models * 3 trained_on * 3 predict_on = 27 tasks
 #SBATCH --account=jywu3-ic                  # <<< YOUR ACCOUNT HERE >>>
 #SBATCH --mail-type=END,FAIL,START                # Optional: Get email notifications

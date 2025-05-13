@@ -1,34 +1,34 @@
 # File: IS567FP/main.py
 # Updated to handle 'predict' mode using test files as input
 
+import gc  # For garbage collection
 import logging
+import os
 import time
 from typing import Optional
 
-import os
 import pandas as pd
-import gc  # For garbage collection
 
 # Assuming config.py defines parse_args(), MODEL_CHOICES, PREDICT_MODEL_CHOICES, MODELS_DIR, LABEL_MAP_REVERSE, OUTPUT_DIR
-from config import parse_args, MODEL_CHOICES, PREDICT_MODEL_CHOICES, MODELS_DIR, LABEL_MAP_REVERSE, OUTPUT_DIR
-
+from config import (LABEL_MAP_REVERSE, MODEL_CHOICES, MODELS_DIR, OUTPUT_DIR,
+                    PREDICT_MODEL_CHOICES, parse_args)
 from data.preprocessor import TextPreprocessor
 from features.feature_extractor import FeatureExtractor
-from models.baseline_trainer import BaselineTrainer
-from models.base_experiment_trainer import ExperimentTrainer
-
 # --- Import helpers and model classes ---
-from models import MODEL_REGISTRY
-from utils.common import NLIModel
+from models import (MODEL_REGISTRY, CrossEvalSyntacticExperiment7,
+                    CrossValidateSyntacticExperiment8, DecisionTreeBowBaseline,
+                    DecisionTreeSyntacticExperiment1,
+                    GradientBoostingTFIDFSyntacticExperiment6,
+                    KnnBowSyntacticExperiment2, LogisticTFIDFBaseline,
+                    LogisticTFIDFSyntacticExperiment3,
+                    MultinomialNaiveBayesBaseline,
+                    MultinomialNaiveBayesBowSyntacticExperiment4,
+                    RandomForestBowSyntacticExperiment5)
+from models.base_experiment_trainer import ExperimentTrainer
 # Import SimpleParquetLoader and clean_dataset
 from models.baseline_base import SimpleParquetLoader, clean_dataset
-from models import (
-    DecisionTreeBowBaseline, LogisticTFIDFBaseline, MultinomialNaiveBayesBaseline,
-    DecisionTreeSyntacticExperiment1, KnnBowSyntacticExperiment2,
-    LogisticTFIDFSyntacticExperiment3, MultinomialNaiveBayesBowSyntacticExperiment4,
-    RandomForestBowSyntacticExperiment5, GradientBoostingTFIDFSyntacticExperiment6,
-    CrossEvalSyntacticExperiment7, CrossValidateSyntacticExperiment8
-)
+from models.baseline_trainer import BaselineTrainer
+from utils.common import NLIModel
 
 # ----------------------------------------
 

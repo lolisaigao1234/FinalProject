@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=re_train_exp6_8000
-#SBATCH --partition=secondary
-#SBATCH --time=4:00:00          # WARNING: Previous job TIMEOUT after ~4 hours. Verify partition time limits.
+#SBATCH --job-name=re_train_exp6_full
+#SBATCH --partition=IllinoisComputes-GPU
+#SBATCH --time=72:00:00          # WARNING: Previous job TIMEOUT after ~4 hours. Verify partition time limits.
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=3
 #SBATCH --cpus-per-task=16       # Request 16 CPUs per task (3 tasks * 16 = 48 CPUs total)
@@ -66,7 +66,7 @@ python -u main.py \
   --dataset "$CURRENT_DATASET" \
   --mode train \
   --model_type "$EXPERIMENT" \
-  --sample_size 8000 \
+  --sample_size 10000 \
   --fp16 \
   --force_reprocess
 

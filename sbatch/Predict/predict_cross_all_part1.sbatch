@@ -110,7 +110,8 @@ python -u main.py \
     --predict_input_dataset "${PREDICT_ON}" \
     --predict_input_suffix "${INPUT_SUFFIX}" \
     --predict_output_file "${OUTPUT_FILENAME}" \
-    --device "cuda"
+    --device "cuda" \
+    --force_reprocess
 
 EXIT_CODE=$?
 echo "Python script finished with exit code $EXIT_CODE for Array Task ID $SLURM_ARRAY_TASK_ID"

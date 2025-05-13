@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=re_train_exp6_8000
-#SBATCH --partition=secondary
-#SBATCH --time=4:00:00
+#SBATCH --job-name=re_train_exp6_full
+#SBATCH --partition=IllinoisComputes
+#SBATCH --time=72:00:00          # WARNING: Previous job TIMEOUT after ~4 hours. Verify partition time limits.
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=3
-#SBATCH --mem-per-cpu=3G  # Request 4GB per task (16 tasks * 4GB = 64GB per node)
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=16       # Request 16 CPUs per task (3 tasks * 16 = 48 CPUs total)
+#SBATCH --mem=72G                # Request 72 GB total memory for the node (Adjusted from 144G based on usage)
 #SBATCH --account=jywu3-ic
-#SBATCH --output=slurm_logs/re_train_exp6_8000_%A_%a.log
+#SBATCH --output=slurm_logs/re_train_exp6_full_%A_%a.log
 #SBATCH --mail-type=END,FAIL,START
 #SBATCH --mail-user=jywu3@illinois.edu
 
@@ -31,7 +31,8 @@ echo "SLURM Array Job ID: $SLURM_ARRAY_JOB_ID"
 echo "SLURM Array Task ID: $SLURM_ARRAY_TASK_ID / $NUM_DATASETS"
 echo "Running on host: $(hostname)"
 echo "Node allocated: $SLURM_NODELIST"
-echo "Requested CPUs: $SLURM_CPUS_PER_TASK"
+echo "Requested CPUs: $SLURM_CPUS_PER_TASK per task ($SLURM_JOB_CPUS_PER_NODE total on node)"
+echo "Requested Memory: $SLURM_MEM_PER_NODE MB" # Slurm variable shows memory in MB
 echo "Running Dataset: $CURRENT_DATASET"
 echo "Running Experiment: $EXPERIMENT"
 echo "Sample Size: 10000 (8000 train, 1000 validation, 1000 test)"
@@ -66,7 +67,7 @@ python -u main.py \
   --dataset "$CURRENT_DATASET" \
   --mode train \
   --model_type "$EXPERIMENT" \
-  --sample_size 8000 \
+  --sample_size 10000 \
   --fp16 \
   --force_reprocess
 

@@ -10,7 +10,7 @@
 #SBATCH --cpus-per-task=16            # Number of CPUs allocated to each task
 #SBATCH --mem=2G                     # Total memory for the node
 #SBATCH --account=jywu3-ic
-
+#SBATCH --array=0-26
 
 # --- User Configuration ---
 MODEL_SUFFIX="sample8000"             # Suffix used during training (e.g., full, sampleXXX)

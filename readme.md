@@ -41,7 +41,7 @@ The project includes several baseline and experimental models:
 
 1. Create a conda environment:
 ```bash
-conda create -n IS567 python=3.8
+conda create -n IS567 python=3.11
 conda activate IS567
 ```
 

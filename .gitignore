@@ -143,7 +143,6 @@ saved_models
 .DS_Store
 data/.DS_Store
 sbatch/Train/train_all_experiments_array.txt
-*.txt
 sbatch/Predict/slurm_logs/
 *.log
 *.out
@@ -152,3 +151,6 @@ sbatch/Predict/slurm_logs/
 *.out.*
 *.err.*
 output/cross_predict
+sbatch/Predict/predict_cross_all_part1 - 副本.txt
+sbatch/Predict/predict_cross_all_part2 - 副本.txt
+sbatch/Predict/predict_cross_all_part3 - 副本.txt

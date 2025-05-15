@@ -1,4 +1,4 @@
-# File: IS567FP/models/predict_multinomial_naive_bayes_bow_baseline.py
+# File: models/predict_multinomial_naive_bayes_bow_baseline.py
 import os
 import joblib
 import pandas as pd

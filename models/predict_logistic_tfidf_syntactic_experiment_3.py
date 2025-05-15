@@ -1,4 +1,4 @@
-# File: IS567FP/models/predict_logistic_tfidf_syntactic_experiment_3.py
+# File: models/predict_logistic_tfidf_syntactic_experiment_3.py
 import os
 import joblib
 import pandas as pd

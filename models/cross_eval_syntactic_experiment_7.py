@@ -1,4 +1,4 @@
-# File: IS567FP/models/cross_eval_syntactic_experiment_7.py
+# File: models/cross_eval_syntactic_experiment_7.py
 import logging
 import os
 import time

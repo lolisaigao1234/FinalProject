@@ -1,4 +1,4 @@
-# IS567FP/models/multinomial_naive_bayes_bow_baseline.py
+# models/multinomial_naive_bayes_bow_baseline.py
 import logging
 import numpy as np
 from typing import Optional, Tuple, Dict, Any # Added Dict, Any

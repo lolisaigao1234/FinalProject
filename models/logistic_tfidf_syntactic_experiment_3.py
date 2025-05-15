@@ -1,4 +1,4 @@
-# File: IS567FP/models/logistic_tfidf_syntactic_experiment_3.py
+# File: models/logistic_tfidf_syntactic_experiment_3.py
 import logging
 import os
 from typing import Tuple, Optional, Any, Dict, List
@@ -211,7 +211,7 @@ class LogisticTFIDFSyntacticExperiment3(NLIModel):
 
     # Implement NLIModel abstract methods
 
-    # In IS567FP/models/logistic_tfidf_syntactic_experiment_3.py
+    # In models/logistic_tfidf_syntactic_experiment_3.py
     def extract_features(self, data: pd.DataFrame) -> Any:
         """
         Transforms input DataFrame using the feature pipeline.
@@ -292,7 +292,7 @@ class LogisticTFIDFSyntacticExperiment3(NLIModel):
                             f"Input data missing expected syntactic columns during transform: {missing_syn}. FeatureSelector should add them as 0.")
                 raise  # Re-raise the exception
 
-    # In IS567FP/models/logistic_tfidf_syntactic_experiment_3.py
+    # In models/logistic_tfidf_syntactic_experiment_3.py
 
     def train(self, X: Any, y: np.ndarray) -> None:
         """

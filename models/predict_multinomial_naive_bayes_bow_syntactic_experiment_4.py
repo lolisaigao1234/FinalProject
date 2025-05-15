@@ -1,4 +1,4 @@
-# File: IS567FP/models/predict_multinomial_naive_bayes_bow_syntactic_experiment_4.py
+# File: models/predict_multinomial_naive_bayes_bow_syntactic_experiment_4.py
 import os
 import joblib
 import pandas as pd

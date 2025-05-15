@@ -1,4 +1,4 @@
-# Modify file: IS567FP/config.py
+# Modify file: config.py
 # Update args for 'predict' mode to use test files
 
 import argparse

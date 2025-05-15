@@ -1,4 +1,4 @@
-# File: IS567FP/models/base_experiment_trainer.py
+# File: models/base_experiment_trainer.py
 import os
 import logging
 import time

@@ -1,4 +1,4 @@
-# File: IS567FP/models/predict_logistic_tf_idf_baseline.py
+# File: models/predict_logistic_tf_idf_baseline.py
 import os
 import joblib
 import pandas as pd

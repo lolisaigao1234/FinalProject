@@ -1,4 +1,4 @@
-# IS567FP/models/logistic_tf_idf_baseline.py
+# models/logistic_tf_idf_baseline.py
 import logging
 import numpy as np
 from typing import Optional, Tuple, Dict, Any  # Added Dict, Any

@@ -41,8 +41,8 @@ The project includes several baseline and experimental models:
 
 1. Create a conda environment:
 ```bash
-conda create -n IS567 python=3.11
-conda activate IS567
+conda create -n FinalProject python=3.11
+conda activate FinalProject
 ```
 
 2. Install required packages:

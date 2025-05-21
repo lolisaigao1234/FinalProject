@@ -1,4 +1,4 @@
-# IS567FP/models/gradient_boosting_tfidf_syntactic_experiment_6.py
+# models/gradient_boosting_tfidf_syntactic_experiment_6.py
 import logging
 import os
 from typing import Tuple, Optional, Any, Dict, List

@@ -1,4 +1,4 @@
-# File: IS567FP/models/baseline_trainer.py (修改 run_training 方法)
+# File: models/baseline_trainer.py (修改 run_training 方法)
 import os
 import logging
 import time

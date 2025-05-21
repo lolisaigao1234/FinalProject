@@ -1,4 +1,4 @@
-# IS567FP/models/cross_validate_syntactic_experiment_8.py
+# models/cross_validate_syntactic_experiment_8.py
 import logging
 import os
 import time

@@ -1,4 +1,4 @@
-# File: IS567FP/models/predict_decision_tree_hand_crafted_syntactic_features_experiment_1.py
+# File: models/predict_decision_tree_hand_crafted_syntactic_features_experiment_1.py
 import os
 import joblib
 import pandas as pd

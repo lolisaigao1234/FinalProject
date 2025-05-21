@@ -1,4 +1,4 @@
-# File: IS567FP/models/predict_random_forest_bow_syntactic_experiment_5.py
+# File: models/predict_random_forest_bow_syntactic_experiment_5.py
 import os
 import joblib
 import pandas as pd

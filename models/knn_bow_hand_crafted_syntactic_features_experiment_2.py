@@ -1,4 +1,4 @@
-# File: IS567FP/models/knn_bow_hand_crafted_syntactic_features_experiment_2.py
+# File: models/knn_bow_hand_crafted_syntactic_features_experiment_2.py
 import time
 import os
 import joblib

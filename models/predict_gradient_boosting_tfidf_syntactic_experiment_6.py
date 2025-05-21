@@ -1,4 +1,4 @@
-# File: IS567FP/models/predict_gradient_boosting_tfidf_syntactic_experiment_6.py
+# File: models/predict_gradient_boosting_tfidf_syntactic_experiment_6.py
 import os
 import joblib
 import pandas as pd

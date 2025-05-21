@@ -1,4 +1,4 @@
-# File: IS567FP/models/decision_tree_hand_crafted_syntactic_features_experiment_1.py
+# File: models/decision_tree_hand_crafted_syntactic_features_experiment_1.py
 import time
 import os  # <-- 添加 os 导入
 import joblib  # <-- 添加 joblib 导入

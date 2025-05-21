@@ -1,4 +1,4 @@
-# File: IS567FP/models/__init__.py
+# File: models/__init__.py
 
 
 # --- Baselines ---

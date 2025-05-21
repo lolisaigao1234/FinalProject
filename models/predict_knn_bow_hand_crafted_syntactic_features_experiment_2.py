@@ -1,4 +1,4 @@
-# File: IS567FP/models/predict_knn_bow_hand_crafted_syntactic_features_experiment_2.py
+# File: models/predict_knn_bow_hand_crafted_syntactic_features_experiment_2.py
 import os
 import joblib
 import pandas as pd

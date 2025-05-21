@@ -1,4 +1,4 @@
-# Modify: IS567FP/models/baseline_base.py
+# Modify: models/baseline_base.py
 import logging
 import os
 from abc import abstractmethod, ABC
@@ -612,7 +612,7 @@ class FeatureBasedBaselineModel(NLIModel):
         raise NotImplementedError
 
 
-# Inside IS567FP/models/baseline_base.py
+# Inside models/baseline_base.py
 
 class SimpleParquetLoader:
     @staticmethod

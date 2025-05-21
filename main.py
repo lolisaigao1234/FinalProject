@@ -1,4 +1,4 @@
-# File: IS567FP/main.py
+# File: main.py
 # Updated to handle 'predict' mode using test files as input
 
 import gc  # For garbage collection

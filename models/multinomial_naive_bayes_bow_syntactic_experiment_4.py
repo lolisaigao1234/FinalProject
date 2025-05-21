@@ -1,4 +1,4 @@
-# IS567FP/models/multinomial_naive_bayes_bow_syntactic_experiment_4.py
+# models/multinomial_naive_bayes_bow_syntactic_experiment_4.py
 import logging
 import os
 from typing import Tuple, Optional, Any, Dict, List
